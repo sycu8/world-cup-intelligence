@@ -1,6 +1,13 @@
 import type { PlayerImpact } from '../components/tactical/PlayerImpactCard';
+import type { LocaleKey } from './i18n/locales';
 
 type Event = { event_type?: string; xg?: number; player_id?: string };
+
+export type ContributionSegmentDef = {
+  labelKey: LocaleKey;
+  value: number;
+  color: string;
+};
 
 const DEMO: PlayerImpact[] = [
   { id: 'p1', name: 'Key forward', role: 'FW', team: 'home', xg: 0.42, impact: 0.78, tag: 'shot' },
@@ -22,12 +29,12 @@ export function derivePlayerImpact(events: Event[]): PlayerImpact[] {
   }));
 }
 
-export function defaultContributionSegments() {
+export function defaultContributionSegments(): ContributionSegmentDef[] {
   return [
-    { label: 'Pressing', value: 22, color: '#00e5ff' },
-    { label: 'Chance creation', value: 28, color: '#ec008c' },
-    { label: 'Finishing', value: 18, color: '#d4ff00' },
-    { label: 'Defensive', value: 20, color: '#22c55e' },
-    { label: 'Transition', value: 12, color: '#a855f7' },
+    { labelKey: 'contribution.pressing', value: 22, color: '#00e5ff' },
+    { labelKey: 'contribution.chanceCreation', value: 28, color: '#ec008c' },
+    { labelKey: 'contribution.finishing', value: 18, color: '#d4ff00' },
+    { labelKey: 'contribution.defensive', value: 20, color: '#22c55e' },
+    { labelKey: 'contribution.transition', value: 12, color: '#a855f7' },
   ];
 }

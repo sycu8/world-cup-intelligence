@@ -242,6 +242,12 @@ export type LocaleKey =
   | 'wc.mins'
   | 'wc.secs'
   | 'contribution.title'
+  | 'contribution.pressing'
+  | 'contribution.chanceCreation'
+  | 'contribution.finishing'
+  | 'contribution.defensive'
+  | 'contribution.transition'
+  | 'contribution.mixCenter'
   | 'source.tierOfficial'
   | 'source.tierTrusted'
   | 'source.tierReview'
@@ -657,6 +663,12 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'wc.mins': { vi: 'Phút', en: 'Mins' },
   'wc.secs': { vi: 'Giây', en: 'Secs' },
   'contribution.title': { vi: 'Cơ cấu đóng góp đội', en: 'Team contribution mix' },
+  'contribution.pressing': { vi: 'Ép sân', en: 'Pressing' },
+  'contribution.chanceCreation': { vi: 'Kiến tạo', en: 'Chance creation' },
+  'contribution.finishing': { vi: 'Dứt điểm', en: 'Finishing' },
+  'contribution.defensive': { vi: 'Phòng ngự', en: 'Defensive' },
+  'contribution.transition': { vi: 'Chuyển tiếp', en: 'Transition' },
+  'contribution.mixCenter': { vi: 'TỔNG', en: 'MIX' },
   'source.tierOfficial': { vi: 'Chính thức', en: 'Official' },
   'source.tierTrusted': { vi: 'Tin cậy', en: 'Trusted' },
   'source.tierReview': { vi: 'Cần xem lại', en: 'Review' },
