@@ -19,7 +19,7 @@ export function normalizeFeedImageUrl(url: string | null | undefined): string | 
   try {
     const u = new URL(out);
     if (u.hostname.includes('ichef.bbci.co.uk')) {
-      out = out.replace(/\/standard\/\d+\//, '/standard/976/');
+      out = out.replace(/\/standard\/\d+\//, '/standard/240/');
     }
   } catch {
     /* keep original */

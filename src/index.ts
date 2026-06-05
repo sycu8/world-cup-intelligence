@@ -11,6 +11,7 @@ import { matchIntelligenceRoutes } from './routes/matchIntelligence';
 import { probabilityRoutes } from './routes/probability';
 import { searchRoutes } from './routes/search';
 import { adminRoutes } from './routes/admin';
+import { homeRoutes } from './routes/home';
 import { dashboardRoutes } from './routes/dashboard';
 import { scheduleRoutes } from './routes/schedule';
 import { newsRoutes } from './routes/news';
@@ -23,6 +24,7 @@ import { MatchRoom } from './durable-objects/MatchRoom';
 import { handleScheduledCron } from './scheduled/cron';
 import { discoveryRoutes } from './routes/discovery';
 import { buildLinkHeaderValue, siteOrigin } from './services/siteDiscovery';
+import { withStaticAssetCacheHeaders } from './services/staticAssetCache';
 
 const app = new Hono<{ Bindings: AppEnv }>();
 
@@ -48,6 +50,7 @@ app.route('/api/matches', matchIntelligenceRoutes);
 app.route('/api/matches', matchRoutes);
 app.route('/api/matches', probabilityRoutes);
 app.route('/api/search', searchRoutes);
+app.route('/api/home', homeRoutes);
 app.route('/api/dashboard', dashboardRoutes);
 app.route('/api/schedule', scheduleRoutes);
 app.route('/api/news', newsRoutes);
@@ -59,15 +62,24 @@ app.route('/', discoveryRoutes);
 app.get('/', async (c) => {
   const origin = siteOrigin(c.req.url);
   const asset = await c.env.ASSETS.fetch(c.req.raw);
-  const headers = new Headers(asset.headers);
+  const cached = withStaticAssetCacheHeaders(c.req.raw, asset);
+  const headers = new Headers(cached.headers);
   headers.set('Link', buildLinkHeaderValue(origin));
-  return new Response(asset.body, { status: asset.status, headers });
+  return new Response(cached.body, { status: cached.status, headers });
 });
 
 app.all('*', async (c) => {
   const asset = await c.env.ASSETS.fetch(c.req.raw);
-  if (asset.status !== 404) return asset;
-  return c.env.ASSETS.fetch(new Request(new URL('/index.html', c.req.url)));
+  if (asset.status !== 404) {
+    return withStaticAssetCacheHeaders(c.req.raw, asset);
+  }
+  const fallback = await c.env.ASSETS.fetch(
+    new Request(new URL('/index.html', c.req.url)),
+  );
+  const cached = withStaticAssetCacheHeaders(c.req.raw, fallback, true);
+  const headers = new Headers(cached.headers);
+  headers.set('Link', buildLinkHeaderValue(siteOrigin(c.req.url)));
+  return new Response(cached.body, { status: cached.status, headers });
 });
 
 function isIngestJob(body: unknown): body is IngestJob {

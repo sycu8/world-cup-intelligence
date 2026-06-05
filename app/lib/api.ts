@@ -14,6 +14,7 @@ export const api = {
     get<{
       data: DashboardData;
     }>('/dashboard'),
+  home: () => get<import('./homePrefetch').HomePayload>('/home'),
   /** Schedule is WC 2026 only; tournament param is ignored server-side */
   schedule: (tournament = 't-2026') =>
     get<{

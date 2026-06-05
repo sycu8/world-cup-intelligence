@@ -202,15 +202,29 @@ All \`GET /api/*\` routes listed in [\`/docs/api\`](/docs/api) are **public** an
 
 Use standard HTTPS \`GET\` requests with \`Accept: application/json\`.
 
-## Admin API
+## Admin API {#admin-api-key}
 
-Routes under \`/api/admin/*\` require a static bearer token:
+Routes under \`/api/admin/*\` require a static API key header:
 
 \`\`\`
 X-Admin-Token: <secret>
 \`\`\`
 
-There is no OAuth/OIDC user login or agent registration flow for public data.
+Tokens are **provisioned out-of-band** (not self-service). See [agent registration](#agent-registration).
+
+## Agent registration {#agent-registration}
+
+PitchIntel supports **anonymous agent registration** for admin API access:
+
+| Field | Value |
+|-------|-------|
+| Register URI | \`/auth.md#agent-registration\` |
+| Credential type | \`api_key\` (header \`X-Admin-Token\`) |
+| Identity | Anonymous — request provisioning via GitHub issue or contact below |
+| OAuth PRM | \`/.well-known/oauth-protected-resource\` |
+| OAuth AS | \`/.well-known/oauth-authorization-server\` |
+
+Agents should read OAuth Protected Resource Metadata and Authorization Server metadata before calling protected routes.
 
 ## Agent discovery
 
@@ -219,8 +233,11 @@ There is no OAuth/OIDC user login or agent registration flow for public data.
 | API catalog | \`/.well-known/api-catalog\` |
 | OpenAPI | \`/.well-known/openapi.json\` |
 | Protected resource metadata | \`/.well-known/oauth-protected-resource\` |
+| Authorization server | \`/.well-known/oauth-authorization-server\` |
+| OpenID configuration | \`/.well-known/openid-configuration\` |
 | MCP server card | \`/.well-known/mcp/server-card.json\` |
 | Agent skills index | \`/.well-known/agent-skills/index.json\` |
+| DNS-AID template | \`/.well-known/dns-aid.json\` |
 
 ## Contact
 
@@ -296,21 +313,90 @@ export function buildMcpServerCard(origin: string): object {
 
 export function buildOAuthProtectedResource(origin: string): object {
   return {
-    resource: `${origin}/api`,
-    authorization_servers: [],
+    resource: `${origin}/api/admin`,
+    authorization_servers: [origin],
     bearer_methods_supported: ['header'],
-    scopes_supported: [],
+    scopes_supported: ['admin'],
     resource_documentation: `${origin}/auth.md`,
-    note: 'Public GET endpoints require no token. Admin routes use X-Admin-Token.',
+  };
+}
+
+export function buildOAuthAuthorizationServer(origin: string): object {
+  return {
+    issuer: origin,
+    authorization_endpoint: `${origin}/oauth/authorize`,
+    token_endpoint: `${origin}/oauth/token`,
+    jwks_uri: `${origin}/.well-known/jwks.json`,
+    registration_endpoint: `${origin}/api/admin/agents/register`,
+    response_types_supported: ['code'],
+    grant_types_supported: ['client_credentials', 'authorization_code'],
+    token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
+    scopes_supported: ['admin'],
+    agent_auth: {
+      skill: 'https://workos.com/auth-md',
+      register_uri: `${origin}/auth.md#agent-registration`,
+      identity_types_supported: ['anonymous'],
+      anonymous: {
+        credential_types_supported: ['api_key'],
+        claim_uri: `${origin}/auth.md#admin-api-key`,
+      },
+    },
+  };
+}
+
+export function buildOpenIdConfiguration(origin: string): object {
+  const as = buildOAuthAuthorizationServer(origin);
+  return {
+    ...as,
+    userinfo_endpoint: `${origin}/oauth/userinfo`,
+    subject_types_supported: ['public'],
+    id_token_signing_alg_values_supported: ['RS256'],
+    claims_supported: ['sub', 'iss'],
+  };
+}
+
+export function buildJwksDocument(): object {
+  return { keys: [] };
+}
+
+/** Operator template for DNS-AID SVCB/HTTPS records (publish in public DNS + DNSSEC). */
+export function buildDnsAidManifest(origin: string): object {
+  const host = new URL(origin).hostname;
+  return {
+    $schema: 'https://datatracker.ietf.org/doc/draft-mozleywilliams-dnsop-dnsaid/',
+    domain: host,
+    note: 'Publish these records in authoritative DNS for the hostname. Enable DNSSEC on the zone.',
+    records: [
+      {
+        name: `_index._agents.${host}.`,
+        type: 'HTTPS',
+        priority: 1,
+        target: `${host}.`,
+        params: { alpn: 'h3,h2', port: 443 },
+      },
+      {
+        name: `_a2a._agents.${host}.`,
+        type: 'SVCB',
+        priority: 1,
+        target: `${host}.`,
+        params: { alpn: 'h2', port: 443, mandatory: 'alpn,port' },
+      },
+    ],
+    discovery: {
+      apiCatalog: `${origin}/.well-known/api-catalog`,
+      authMd: `${origin}/auth.md`,
+    },
   };
 }
 
 export function buildLinkHeaderValue(origin: string): string {
   return [
     `<${origin}/.well-known/api-catalog>; rel="api-catalog"`,
-    `<${origin}/.well-known/openapi.json>; rel="service-desc"`,
-    `<${origin}/docs/api>; rel="service-doc"`,
+    `<${origin}/.well-known/openapi.json>; rel="service-desc"; type="application/json"`,
+    `<${origin}/docs/api>; rel="service-doc"; type="text/markdown"`,
+    `<${origin}/auth.md>; rel="describedby"; type="text/markdown"`,
+    `<${origin}/.well-known/oauth-protected-resource>; rel="oauth-protected-resource"; type="application/json"`,
     `<${origin}/sitemap.xml>; rel="sitemap"; type="application/xml"`,
-    `<${origin}/.well-known/agent-skills/index.json>; rel="describedby"`,
+    `<${origin}/.well-known/agent-skills/index.json>; rel="describedby"; type="application/json"`,
   ].join(', ');
 }

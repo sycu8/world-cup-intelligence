@@ -1,9 +1,7 @@
 import type { AppEnv } from '../env';
 import type { IngestJob } from '../queues/types';
-import { refreshMatchData, handleCompletedMatches } from '../ingestion/matchDataRefresh';
-import { recomputeMatchProbability, recomputeAllWc2026Matches } from './recomputeMatch';
 
-/** Enqueue refresh if stale; also refresh featured match inline for fast UI. */
+/** Enqueue refresh if stale — never block read APIs on heavy inline recompute. */
 export async function ensurePipelineFresh(env: AppEnv, maxAgeSec = 90): Promise<void> {
   const last = await env.KV.get('meta:last_data_refresh');
   if (last) {
@@ -19,17 +17,5 @@ export async function ensurePipelineFresh(env: AppEnv, maxAgeSec = 90): Promise<
   if (env.INGEST_QUEUE) {
     const job: IngestJob = { type: 'refresh_minute', idempotencyKey: crypto.randomUUID() };
     await env.INGEST_QUEUE.send(job);
-  }
-
-  const { updatedIds, completedIds } = await refreshMatchData(env);
-  if (completedIds.length) {
-    await handleCompletedMatches(env, completedIds);
-    await recomputeAllWc2026Matches(env);
-    return;
-  }
-
-  const featuredId = updatedIds[0];
-  if (featuredId) {
-    await recomputeMatchProbability(env, featuredId);
   }
 }

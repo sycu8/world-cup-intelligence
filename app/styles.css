@@ -66,14 +66,14 @@
 
   .font-display,
   .font-heading {
-    font-family: 'Plus Jakarta Sans', 'Be Vietnam Pro', system-ui, sans-serif;
+    font-family: 'Be Vietnam Pro', system-ui, sans-serif;
     font-weight: 700;
     letter-spacing: 0.01em;
     line-height: 1.25;
   }
 
   .font-mono-data {
-    font-family: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
     font-variant-numeric: tabular-nums;
     font-size: 0.9375rem;
   }

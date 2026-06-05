@@ -1,8 +1,16 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import type { IngestJob } from '../queues/types';
-import { newsThumbnailR2Key } from '../services/newsImagePipeline';
-import { backfillNewsThumbnails } from '../services/newsThumbnailBackfill';
+import {
+  compressAndStoreNewsImage,
+  newsThumbnailR2Key,
+  thumbNeedsRecompress,
+} from '../services/newsImagePipeline';
+import {
+  backfillNewsThumbnails,
+  recompressNewsThumbnails,
+  resolveNewsThumbSourceUrl,
+} from '../services/newsThumbnailBackfill';
 import { backfillNewsTranslations, countUntranslatedNews, ensureNewsArticleTranslated, resolvePublisherLabel } from '../services/newsTranslation';
 import { needsNewsTranslation } from '../services/newsTranslationUtils';
 import { backfillNewsSources } from '../services/newsSourceBackfill';
@@ -84,7 +92,7 @@ newsRoutes.get('/assets/:docId', async (c) => {
   const docId = c.req.param('docId');
   const r2Key = newsThumbnailR2Key(docId);
 
-  const head = await c.env.R2_ARTIFACTS.head(r2Key);
+  let head = await c.env.R2_ARTIFACTS.head(r2Key);
   if (!head) {
     const row = await c.env.DB.prepare(
       'SELECT thumbnail_url FROM source_documents WHERE id = ?',
@@ -95,6 +103,28 @@ newsRoutes.get('/assets/:docId', async (c) => {
       return c.redirect(row.thumbnail_url, 302);
     }
     return c.json({ error: 'Not found' }, 404);
+  }
+
+  if (thumbNeedsRecompress(head.httpMetadata?.contentType, head.size)) {
+    const sourceUrl = await resolveNewsThumbSourceUrl(c.env, docId);
+    if (sourceUrl) {
+      c.executionCtx.waitUntil(compressAndStoreNewsImage(c.env, docId, sourceUrl));
+      const proxied = await fetch(sourceUrl, {
+        headers: { 'User-Agent': 'wc-tactical-platform/1.0 (news-thumb)' },
+        signal: AbortSignal.timeout(12_000),
+        cf: { cacheTtl: 86400 },
+      } as RequestInit);
+      if (proxied.ok) {
+        const headers = new Headers();
+        headers.set(
+          'Content-Type',
+          proxied.headers.get('content-type') ?? 'image/jpeg',
+        );
+        headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+        headers.set('Access-Control-Allow-Origin', '*');
+        return new Response(proxied.body, { headers });
+      }
+    }
   }
 
   const obj = await c.env.R2_ARTIFACTS.get(r2Key);
@@ -111,6 +141,7 @@ newsRoutes.get('/assets/:docId', async (c) => {
 newsRoutes.get('/', async (c) => {
   const lastCrawl = await c.env.KV.get('meta:last_news_crawl');
   const lastThumbBackfill = await c.env.KV.get('meta:last_news_thumb_backfill');
+  const lastThumbRecompress = await c.env.KV.get('meta:last_news_thumb_recompress');
   const lastSourceBackfill = await c.env.KV.get('meta:last_news_source_backfill');
   if (!lastSourceBackfill) {
     c.executionCtx.waitUntil(
@@ -122,15 +153,32 @@ newsRoutes.get('/', async (c) => {
     );
   }
 
-  const untranslated = await countUntranslatedNews(c.env);
-  if (untranslated > 0) {
-    c.executionCtx.waitUntil(backfillNewsTranslations(c.env, Math.min(15, untranslated)));
+  const untranslated = await c.env.KV.get('meta:news_untranslated_count');
+  if (untranslated === null) {
+    c.executionCtx.waitUntil(
+      (async () => {
+        const n = await countUntranslatedNews(c.env);
+        await c.env.KV.put('meta:news_untranslated_count', String(n), { expirationTtl: 300 });
+        if (n > 0) await backfillNewsTranslations(c.env, Math.min(15, n));
+      })(),
+    );
+  } else if (Number(untranslated) > 0) {
+    c.executionCtx.waitUntil(backfillNewsTranslations(c.env, Math.min(15, Number(untranslated))));
   }
 
   if (!lastThumbBackfill) {
     c.executionCtx.waitUntil(
       backfillNewsThumbnails(c.env, 40).then(() =>
         c.env.KV.put('meta:last_news_thumb_backfill', new Date().toISOString(), {
+          expirationTtl: 3600,
+        }),
+      ),
+    );
+  }
+  if (!lastThumbRecompress) {
+    c.executionCtx.waitUntil(
+      recompressNewsThumbnails(c.env, 25).then(() =>
+        c.env.KV.put('meta:last_news_thumb_recompress', new Date().toISOString(), {
           expirationTtl: 3600,
         }),
       ),
@@ -164,7 +212,7 @@ newsRoutes.get('/', async (c) => {
     .all<NewsRow>();
 
   const hotRowsList = hotRows ?? [];
-  await translateRowsForList(c.env, hotRowsList);
+  c.executionCtx.waitUntil(translateRowsForList(c.env, hotRowsList));
   const hot = hotRowsList.map(mapArticle);
   const hotIds = hot.map((h) => h.id);
   const placeholders = hotIds.length ? hotIds.map(() => '?').join(',') : "''";
@@ -197,25 +245,29 @@ newsRoutes.get('/', async (c) => {
 
   const pageRowsList = pageRows ?? [];
   if (page === 1) {
-    await translateRowsForList(c.env, pageRowsList);
+    c.executionCtx.waitUntil(translateRowsForList(c.env, pageRowsList));
   }
 
-  return c.json({
-    data: {
-      hot,
-      articles: pageRowsList.map(mapArticle),
+  return c.json(
+    {
+      data: {
+        hot,
+        articles: pageRowsList.map(mapArticle),
+      },
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages,
+        hotCount: hot.length,
+        lastCrawl,
+        crawlIntervalSec: 900,
+        cdnAssets: true,
+      },
     },
-    meta: {
-      page,
-      pageSize,
-      total,
-      totalPages,
-      hotCount: hot.length,
-      lastCrawl,
-      crawlIntervalSec: 900,
-      cdnAssets: true,
-    },
-  });
+    200,
+    { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' },
+  );
 });
 
 newsRoutes.get('/:docId', async (c) => {

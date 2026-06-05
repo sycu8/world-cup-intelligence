@@ -22,9 +22,9 @@ export const brandTheme = {
   },
   fonts: {
     /** Plus Jakarta Sans + Be Vietnam Pro both include Vietnamese glyphs */
-    heading: ['"Plus Jakarta Sans"', '"Be Vietnam Pro"', 'system-ui', 'sans-serif'],
+    heading: ['"Be Vietnam Pro"', 'system-ui', 'sans-serif'],
     body: ['"Be Vietnam Pro"', 'system-ui', 'sans-serif'],
-    mono: ['"IBM Plex Mono"', '"JetBrains Mono"', 'ui-monospace', 'monospace'],
+    mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
   },
   radius: {
     card: '18px',

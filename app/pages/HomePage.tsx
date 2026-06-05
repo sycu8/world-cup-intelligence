@@ -1,45 +1,75 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { api, type DashboardData, type ScheduleMatch } from '../lib/api';
-import { MatchScheduleCalendar } from '../components/home/MatchScheduleCalendar';
+import { api, type DashboardData, type NewsArticle, type ScheduleMatch } from '../lib/api';
+import { consumeHomePrefetch } from '../lib/homePrefetch';
 import { FeaturedMatchHero } from '../components/home/FeaturedMatchHero';
 import { WorldCupCountdown } from '../components/home/WorldCupCountdown';
 import { PlatformSnapshot } from '../components/home/PlatformSnapshot';
 import { NewUserQuickStart } from '../components/home/NewUserQuickStart';
-import { HomeNewsPreview } from '../components/home/HomeNewsPreview';
+import { HomePageSkeleton } from '../components/home/HomePageSkeleton';
 import { Bilingual } from '../components/i18n/Bilingual';
 import { useI18n } from '../lib/i18n/I18nContext';
+
+const HomeNewsPreview = lazy(() =>
+  import('../components/home/HomeNewsPreview').then((m) => ({ default: m.HomeNewsPreview })),
+);
+const MatchScheduleCalendar = lazy(() =>
+  import('../components/home/MatchScheduleCalendar').then((m) => ({
+    default: m.MatchScheduleCalendar,
+  })),
+);
 
 const REFRESH_MS = 30_000;
 const WC2026_TOTAL = 104;
 const WC2026_START = '2026-06-11T14:00:00Z';
+
+function SectionFallback({ className = 'min-h-[12rem]' }: { className?: string }) {
+  return <div className={`panel animate-pulse rounded-panel bg-panel2/30 ${className}`} aria-hidden />;
+}
 
 export function HomePage() {
   const { t } = useI18n();
   const [schedule, setSchedule] = useState<Record<string, ScheduleMatch[]>>({});
   const [matches, setMatches] = useState<ScheduleMatch[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [hotNews, setHotNews] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const applyHome = useCallback((payload: Awaited<ReturnType<typeof api.home>>) => {
+    setSchedule(payload.data.schedule.byDate);
+    setMatches(payload.data.schedule.matches);
+    setDashboard(payload.data.dashboard);
+    setHotNews(payload.data.hotNews.slice(0, 3));
+  }, []);
 
   const load = useCallback(async () => {
     try {
-      const [s, d] = await Promise.all([api.schedule(), api.dashboard()]);
-      setSchedule(s.data.byDate);
-      setMatches(s.data.matches);
-      setDashboard(d.data);
+      const prefetched = await consumeHomePrefetch();
+      if (prefetched) {
+        applyHome(prefetched);
+        return;
+      }
+      applyHome(await api.home());
     } catch {
       setSchedule({});
       setMatches([]);
       setDashboard(null);
+      setHotNews([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyHome]);
 
   useEffect(() => {
     load();
-    const timer = setInterval(load, REFRESH_MS);
-    return () => clearInterval(timer);
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const delay = window.setTimeout(() => {
+      interval = window.setInterval(load, REFRESH_MS);
+    }, REFRESH_MS);
+    return () => {
+      window.clearTimeout(delay);
+      if (interval) window.clearInterval(interval);
+    };
   }, [load]);
 
   const tournamentStart = dashboard?.tournamentStartUtc ?? WC2026_START;
@@ -64,9 +94,7 @@ export function HomePage() {
       </header>
 
       {loading ? (
-        <div className="panel text-muted">
-          <Bilingual k="home.calendarLoading" />
-        </div>
+        <HomePageSkeleton />
       ) : (
         <>
           <PlatformSnapshot dashboard={dashboard} />
@@ -76,17 +104,21 @@ export function HomePage() {
             {featured ? (
               <FeaturedMatchHero match={featured} />
             ) : (
-              <div className="panel flex min-h-[200px] items-center justify-center text-muted">
+              <div className="panel flex min-h-[17rem] items-center justify-center text-muted">
                 <Bilingual k="home.noFeatured" />
               </div>
             )}
           </div>
-          <HomeNewsPreview />
-          <MatchScheduleCalendar
-            byDate={schedule}
-            matches={matches}
-            totalExpected={WC2026_TOTAL}
-          />
+          <Suspense fallback={<SectionFallback />}>
+            <HomeNewsPreview initialHot={hotNews} />
+          </Suspense>
+          <Suspense fallback={<SectionFallback className="min-h-[24rem]" />}>
+            <MatchScheduleCalendar
+              byDate={schedule}
+              matches={matches}
+              totalExpected={WC2026_TOTAL}
+            />
+          </Suspense>
         </>
       )}
     </div>

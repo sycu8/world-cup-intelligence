@@ -5,15 +5,25 @@ import { NewsArticleCard } from '../news/NewsArticleCard';
 import { useI18n } from '../../lib/i18n/I18nContext';
 
 const REFRESH_MS = 30_000;
-const POLL_MS = 4_000;
-const MAX_POLLS = 8;
+const POLL_MS = 5_000;
+const MAX_POLLS = 6;
+const POLL_START_DELAY_MS = 8_000;
 
-export function HomeNewsPreview() {
+type Props = {
+  initialHot?: NewsArticle[];
+};
+
+export function HomeNewsPreview({ initialHot = [] }: Props) {
   const { mode, t } = useI18n();
   const navigate = useNavigate();
-  const [hot, setHot] = useState<NewsArticle[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [hot, setHot] = useState<NewsArticle[]>(initialHot);
+  const [loading, setLoading] = useState(initialHot.length === 0);
   const [polls, setPolls] = useState(0);
+
+  useEffect(() => {
+    setHot(initialHot);
+    if (initialHot.length) setLoading(false);
+  }, [initialHot]);
 
   const load = useCallback(async () => {
     try {
@@ -27,35 +37,43 @@ export function HomeNewsPreview() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    setPolls(0);
+    if (initialHot.length) return;
     load();
-  }, [load, mode]);
+  }, [initialHot.length, load, mode]);
 
   useEffect(() => {
-    const timer = setInterval(load, REFRESH_MS);
-    return () => clearInterval(timer);
-  }, [load]);
+    if (initialHot.length) return;
+    const timer = window.setInterval(load, REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [initialHot.length, load]);
 
   const needsVi = mode === 'vi' && hot.some((a) => !a.translated);
 
   useEffect(() => {
     if (!needsVi || polls >= MAX_POLLS) return;
-    const timer = setInterval(() => {
-      setPolls((n) => n + 1);
-      load();
-    }, POLL_MS);
-    return () => clearInterval(timer);
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const start = window.setTimeout(() => {
+      interval = window.setInterval(() => {
+        setPolls((n) => n + 1);
+        load();
+      }, POLL_MS);
+    }, POLL_START_DELAY_MS);
+    return () => {
+      window.clearTimeout(start);
+      if (interval) window.clearInterval(interval);
+    };
   }, [needsVi, polls, load]);
 
   if (loading && !hot.length) {
-    return <section className="panel text-sm text-muted">{t('home.loadingHeadlines')}</section>;
+    return (
+      <section className="panel min-h-[12rem] animate-pulse rounded-panel bg-panel2/30" aria-hidden />
+    );
   }
 
   if (!hot.length) return null;
 
   return (
-    <section className="panel space-y-4">
+    <section className="panel min-h-[12rem] space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="label-tactical text-yellow">{t('home.headlines')}</h2>
         <Link to="/news-intelligence" className="text-sm text-cyan hover:underline">

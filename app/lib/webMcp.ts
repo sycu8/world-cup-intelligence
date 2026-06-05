@@ -27,6 +27,13 @@ export function registerWebMcpTools(): void {
   if (!nav.modelContext?.registerTool) return;
 
   nav.modelContext.registerTool({
+    name: 'get_home',
+    description: 'Fetch homepage bundle: featured match, WC 2026 schedule (104 matches), and hot news.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    execute: async () => apiGet('/home'),
+  });
+
+  nav.modelContext.registerTool({
     name: 'get_schedule',
     description: 'Fetch the FIFA World Cup 2026 match schedule with scores and probabilities.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },

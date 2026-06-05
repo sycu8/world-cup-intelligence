@@ -66,13 +66,18 @@ Sau mỗi trận kết thúc (cron mỗi phút):
 | `/.well-known/openapi.json` | OpenAPI 3.1 |
 | `/docs/api` | API documentation (Markdown) |
 | `/auth.md` | Agent auth policy (public GET, admin token) |
-| `/.well-known/oauth-protected-resource` | PRM — public API, no OAuth issuer |
+| `/.well-known/oauth-protected-resource` | RFC 9727 PRM — `/api/admin` + authorization server |
+| `/.well-known/oauth-authorization-server` | RFC 8414 + `agent_auth` (auth.md registration) |
+| `/.well-known/openid-configuration` | OpenID Connect discovery |
+| `/.well-known/jwks.json` | JWKS document |
+| `/.well-known/dns-aid.json` | DNS-AID SVCB/HTTPS template (publish in DNS) |
+| `GET /api/admin/agents/register` | Agent registration metadata (no auto-provisioning) |
 | `/.well-known/mcp/server-card.json` | MCP server card (REST-first) |
 | `/.well-known/agent-skills/index.json` | Agent skills discovery index |
 
-Homepage trả `Link` headers (RFC 8288) trỏ tới api-catalog, OpenAPI, docs, sitemap. Client đăng ký **WebMCP** tools khi trình duyệt hỗ trợ.
+Homepage trả `Link` headers (RFC 8288) qua Worker + `_headers` — api-catalog, OpenAPI, docs, auth.md, PRM, sitemap. Client đăng ký **WebMCP** tools khi trình duyệt hỗ trợ.
 
-> **DNS-AID** và **OAuth/OIDC authorization server** cần cấu hình DNS + IdP riêng trên domain (vd. `orangecloud.vn`) — không triển khai trong Worker.
+> **DNS-AID:** Worker phục vụ template tại `/.well-known/dns-aid.json`. Để scanner pass, publish bản ghi `_index._agents.wcstat.orangecloud.vn` (HTTPS/SVCB) trên **Cloudflare DNS** zone `orangecloud.vn` và bật **DNSSEC**.
 
 ---
 

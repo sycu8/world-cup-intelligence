@@ -9,7 +9,7 @@ export function Footer() {
   const authorName = mode === 'en' ? 'Cuong Le Sy' : 'Lê Sỹ Cường';
 
   return (
-    <footer className="mt-10 border-t border-border/60 py-8">
+    <footer className="mt-10 min-h-[9.5rem] border-t border-border/60 py-8">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-heading text-lg font-extrabold tracking-tight text-foreground">

@@ -49,7 +49,7 @@ describe('newsScoring', () => {
     const url = normalizeFeedImageUrl(
       'https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/x.jpg',
     );
-    expect(url).toContain('/standard/976/');
+    expect(url).toContain('/standard/240/');
   });
 
   it('adds guardian width for medium thumb', () => {

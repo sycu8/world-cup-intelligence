@@ -3,6 +3,10 @@ import {
   buildRobotsTxt,
   buildApiCatalog,
   buildLinkHeaderValue,
+  buildOAuthProtectedResource,
+  buildOAuthAuthorizationServer,
+  buildOpenIdConfiguration,
+  buildDnsAidManifest,
   AUTH_MD,
   API_DOC_MD,
 } from '../src/services/siteDiscovery';
@@ -31,10 +35,42 @@ describe('siteDiscovery', () => {
     expect(link).toContain('rel="api-catalog"');
     expect(link).toContain('rel="service-doc"');
     expect(link).toContain('rel="service-desc"');
+    expect(link).toContain('rel="oauth-protected-resource"');
+  });
+
+  it('oauth protected resource references authorization server', () => {
+    const prm = buildOAuthProtectedResource(ORIGIN) as {
+      resource: string;
+      authorization_servers: string[];
+    };
+    expect(prm.resource).toBe(`${ORIGIN}/api/admin`);
+    expect(prm.authorization_servers).toContain(ORIGIN);
+  });
+
+  it('oauth authorization server includes agent_auth and OIDC fields', () => {
+    const as = buildOAuthAuthorizationServer(ORIGIN) as {
+      issuer: string;
+      jwks_uri: string;
+      grant_types_supported: string[];
+      agent_auth: { register_uri: string };
+    };
+    expect(as.issuer).toBe(ORIGIN);
+    expect(as.jwks_uri).toContain('/.well-known/jwks.json');
+    expect(as.grant_types_supported.length).toBeGreaterThan(0);
+    expect(as.agent_auth.register_uri).toContain('/auth.md#agent-registration');
+
+    const oidc = buildOpenIdConfiguration(ORIGIN) as { subject_types_supported: string[] };
+    expect(oidc.subject_types_supported).toContain('public');
+  });
+
+  it('dns-aid manifest lists SVCB records for operators', () => {
+    const manifest = buildDnsAidManifest(ORIGIN) as { records: { name: string }[] };
+    expect(manifest.records.some((r) => r.name.includes('_agents.'))).toBe(true);
   });
 
   it('auth.md and api docs are markdown', () => {
     expect(AUTH_MD).toMatch(/# .*auth\.md/i);
+    expect(AUTH_MD).toContain('agent-registration');
     expect(API_DOC_MD).toContain('| GET | /health |');
   });
 });
