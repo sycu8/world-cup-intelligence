@@ -35,19 +35,13 @@ import { ViewModeToggle, type ViewMode } from '../components/tactical/ViewModeTo
 import { EditorialArticleLayout } from '../components/editorial/EditorialArticleLayout';
 import { Bilingual } from '../components/i18n/Bilingual';
 import { derivePlayerImpact, defaultContributionSegments } from '../lib/derivePlayerImpact';
+import { TEAM_DISPLAY_NAMES, resolveTeamDisplayName } from '../lib/matchTeams';
 import { adjustProbabilities } from '../lib/simulator';
 import { pct } from '../lib/format';
 import { pickLocalized } from '../lib/briefingText';
 import { useI18n } from '../lib/i18n/I18nContext';
 
-const TEAM_NAMES: Record<string, string> = {
-  'team-arg': 'Argentina',
-  'team-fra': 'France',
-  'team-usa': 'United States',
-  'team-mex': 'Mexico',
-  'team-bra': 'Brazil',
-  'team-eng': 'England',
-};
+const TEAM_NAMES = TEAM_DISPLAY_NAMES;
 
 export function MatchPage() {
   const { matchId } = useParams();
@@ -84,8 +78,8 @@ export function MatchPage() {
       setHistory(r.data.history);
       setH2hSummary(r.data.summary);
       setTeamNames({
-        home: r.data.current?.home_name ?? TEAM_NAMES[r.data.current?.home_team_id as string] ?? '',
-        away: r.data.current?.away_name ?? TEAM_NAMES[r.data.current?.away_team_id as string] ?? '',
+        home: r.data.current?.home_name ?? resolveTeamDisplayName(r.data.current?.home_team_id),
+        away: r.data.current?.away_name ?? resolveTeamDisplayName(r.data.current?.away_team_id),
       });
     });
     api.matchHints(matchId).then((r) => setHints(r.data.hints)).catch(() => setHints([]));
@@ -110,8 +104,8 @@ export function MatchPage() {
     ]).finally(() => setIntelLoading(false));
   }, [matchId]);
 
-  const home = teamNames.home || TEAM_NAMES[match?.home_team_id ?? ''] || match?.home_team_id || '';
-  const away = teamNames.away || TEAM_NAMES[match?.away_team_id ?? ''] || match?.away_team_id || '';
+  const home = teamNames.home || resolveTeamDisplayName(match?.home_team_id) || '';
+  const away = teamNames.away || resolveTeamDisplayName(match?.away_team_id) || '';
 
   const displayProb = useMemo(() => {
     if (!prob) return null;

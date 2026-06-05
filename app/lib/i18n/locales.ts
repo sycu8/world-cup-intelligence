@@ -623,8 +623,8 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'tournaments.viewSchedule': { vi: 'Xem lịch 104 trận →', en: 'View 104-match schedule →' },
   'tournaments.viewFinal': { vi: 'Xem trận chung kết →', en: 'View final match →' },
   'matchAnalysis.articleSubtitle': {
-    vi: 'Bài phân tích dài — xác suất mô hình, hệ thống đội, kịch bản và tín hiệu thị trường (ngữ cảnh).',
-    en: 'Long-form intelligence article — model probabilities, team systems, scenarios, and market signals for context.',
+    vi: 'Bài phân tích dài — xác suất mô hình, hệ thống đội, kịch bản và so sánh thị trường (nếu có).',
+    en: 'Long-form analysis — model probability, team systems, scenarios, and market comparison when available.',
   },
   'matchAnalysis.scoreline': {
     vi: 'Tỉ số ML {score} — {h} {hp} / {d} {dp} / {a} {ap}.',
