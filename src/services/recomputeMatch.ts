@@ -6,7 +6,7 @@ import * as teamSystemRepo from '../db/repositories/teamSystemRepo';
 import * as scenarioRepo from '../db/repositories/scenarioRepo';
 import { computeFullMatchProbability } from '../models/probability/fullMatchOutput';
 import type { ProbabilityResult } from '../models/probability/types';
-import { buildMatchFeatures } from './matchFeatures';
+import { buildMatchFeaturesWithForm } from './matchFeatures';
 import { buildModelVsMarket } from '../market/services/marketSignalService';
 import { logInfo, logError } from '../utils/logger';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
@@ -25,7 +25,7 @@ export async function recomputeMatchProbability(
     .bind(match.tournament_id)
     .first<{ year: number }>();
 
-  const features = buildMatchFeatures(match, home, away, tournament?.year ?? 2026);
+  const features = await buildMatchFeaturesWithForm(env, match, home, away, tournament?.year ?? 2026);
   const full = await computeFullMatchProbability(features);
 
   const result: ProbabilityResult = {

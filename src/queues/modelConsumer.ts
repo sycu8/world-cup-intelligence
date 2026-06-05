@@ -2,6 +2,7 @@ import type { ModelJob } from './types';
 import type { AppEnv } from '../env';
 import { logInfo, logError } from '../utils/logger';
 import { recomputeMatchProbability } from '../services/recomputeMatch';
+import { runBulkRecomputeIfPending } from '../services/bulkRecomputeRunner';
 import { generateTacticalBriefing } from '../ai/tacticalBriefing';
 import { runMultiVariableAnalysis } from '../ai/multiVariableAnalysis';
 import { extractEntitiesFromArticle } from '../ai/entityExtraction';
@@ -25,6 +26,9 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
             await env.MODEL_QUEUE?.send({ type: 'ai_briefing', matchId });
             await env.MODEL_QUEUE?.send({ type: 'ai_multi_analyze', matchId });
           }
+          break;
+        case 'recompute_wc2026_bulk':
+          await runBulkRecomputeIfPending(env);
           break;
         case 'ai_multi_analyze':
           await runMultiVariableAnalysis(env, msg.body.matchId);

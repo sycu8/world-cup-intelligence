@@ -2,7 +2,7 @@
 
 **PitchIntel** — nền tảng phân tích chiến thuật & xác suất cho **FIFA World Cup 2026**, chạy trên Cloudflare Workers.
 
-🌐 **Production:** [wc-tactical-probability-platform.sycu-lee.workers.dev](https://wc-tactical-probability-platform.sycu-lee.workers.dev)
+🌐 **Production:** [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) · [Workers URL](https://wc-tactical-probability-platform.sycu-lee.workers.dev)
 
 ---
 
@@ -31,18 +31,28 @@ Sau mỗi trận kết thúc (cron mỗi phút):
 ### Chi tiết trận (`/matches/:matchId`)
 - **Xác suất real-time** — poll 30s (15s khi LIVE): tỉ lệ thắng/hòa/thua, xG, độ tin cậy
 - Panel xác suất hiển thị **tên đội** (không còn Chủ nhà/Khách), badge LIVE khi trận đang diễn ra
+- **Đội hình** — badge **Chính thức / Dự kiến / Từ danh sách đội**; trang riêng `/lineups/:matchId`
 - **Cơ cấu đóng góp đội** — section riêng full-width, nhãn đầy đủ (Ép sân, Kiến tạo, …), đặt trên lịch sử đối đầu
 - **Đối đầu World Cup** — các trận giữa hai đội ở các kỳ WC trước 2026, kèm tỉ số & vòng đấu
 - Team system, kịch bản (scenarios), mô hình vs thị trường (ẩn khi không có odds)
 - Preview AI, tactical briefing, biến động xác suất theo thời gian
 - **Mobile:** header tỉ số không còn sticky — cuộn xuống đọc được toàn bộ nội dung
 
+### Đội hình chính thức → trận đấu (backend)
+Cron mỗi phút (`refresh_minute`) và admin API:
+1. Đọc **squad chính thức** (`squads.is_official = 1`, ≥ 7 cầu thủ)
+2. Ghi `lineups` + `lineup_players` cho các trận WC 2026 sắp diễn ra (14 ngày tới)
+3. Không ghi đè XI **match-day** đã xác nhận (`source_type = match_official`)
+4. **Recompute** xác suất cho các trận bị ảnh hưởng; engine dùng `homeLineup` / `awayLineup`
+
+> Squad seed hiện chỉ có vài cầu thủ/đội — cần mở rộng squad hoặc nhập XI qua admin để thấy badge **Chính thức** trên web.
+
 ### Phân tích dài (`/matches/:matchId/analysis`)
 - Tiêu đề trận bằng **tên đội thật** (vd. *United States vs Argentina*), kèm ngày kickoff
 - Xác suất, hệ thống đội, kịch bản, thị trường, lịch sử đối đầu WC — cập nhật real-time
 
 ### Bài viết / News Intelligence (`/news-intelligence`)
-- RSS từ **BBC**, **The Guardian**, **FIFA** (crawl mỗi 15 phút)
+- RSS từ **BBC**, **The Guardian**, **FIFA**, **Reuters**, **AP**, **Sky Sports** (crawl mỗi 15 phút)
 - Danh sách tin + thẻ nóng
 - **Mỗi bài một trang riêng** (`/news-intelligence/:articleId`)
 - Nút **Tiếng Việt | English** trên từng bài (dịch AI: m2m100 + gateway, lưu D1)
@@ -92,12 +102,14 @@ Homepage trả `Link` headers (RFC 8288) qua Worker + `_headers` — api-catalog
 ## Kiến trúc
 
 ```
-Cron (* * * * *) ──► INGEST_QUEUE ──► matchDataRefresh
-                                      ├── live tick + FT
-                                      └── tournamentProgression
-                                              └── bulk recompute (104 trận)
+Cron (* * * * *) ──► INGEST_QUEUE ──► officialLineupSync (squad → trận)
+                                      ├── matchDataRefresh (live + FT)
+                                      ├── tournamentProgression
+                                      └── bulk recompute (KV flag / 104 trận)
 
-Cron (*/15 * * * *) ──► crawl_news ──► RSS ──► D1 + dịch VI
+Cron (*/15 * * * *) ──► crawl_news ──► RSS (6 nguồn) ──► D1 + dịch VI
+
+Cron (0 3 * * 1) ──► StatsBomb open-data pull (WC 2018/2022)
 
 React SPA (Vite) ──► Hono API on Workers ──► D1 / KV / R2 / Queues / AI
                       └── useMatchLiveData (poll 15–30s)
@@ -139,7 +151,8 @@ npx wrangler dev --remote --port 8787
 |--------|--------|
 | `npm run dev` | Frontend Vite |
 | `npm run build` | Build production |
-| `npm run test` | Vitest (45 tests) |
+| `npm run test` | Vitest (66 tests) |
+| `npm run pull:statsbomb` | Pull StatsBomb open-data → D1 + R2 |
 | `npm run typecheck` | TypeScript |
 | `npm run deploy` | Build + `wrangler deploy` |
 | `npm run db:migrate:local` | Migration D1 local |
@@ -155,12 +168,21 @@ npx wrangler dev --remote --port 8787
 
 ```bash
 npx wrangler secret put OPENAI_API_KEY
-npx wrangler secret put ADMIN_TOKEN   # optional, cho /api/admin
+npx wrangler secret put ADMIN_TOKEN   # bắt buộc cho POST /api/admin trên production
 ```
+
+`ADMIN_TOKEN` **không có sẵn** — bạn tự đặt chuỗi bí mật khi chạy lệnh trên. Dùng cùng giá trị làm header:
+
+```bash
+curl -X POST https://wcstat.orangecloud.vn/api/admin/lineups/sync-squads \
+  -H "X-Admin-Token: <ADMIN_TOKEN>"
+```
+
+Local dev: đặt `ADMIN_TOKEN` trong `.dev.vars` (xem `.env.example`). Nếu không set token trong `development`, POST admin vẫn mở.
 
 4. Deploy: `npm run deploy`
 
-Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md).
+Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [auth.md](https://wcstat.orangecloud.vn/auth.md).
 
 ---
 
@@ -172,6 +194,8 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md).
 | `GET /api/dashboard` | Featured match, counts |
 | `GET /api/schedule` | Lịch 104 trận theo ngày |
 | `GET /api/matches/:id` | Chi tiết trận |
+| `GET /api/matches/:id/lineups` | Đội hình hai bên (official / projected / squad) |
+| `GET /api/matches/:id/preview` | Phân tích trước trận (lineup, form, bảng) |
 | `GET /api/matches/:id/probability` | Snapshot xác suất |
 | `GET /api/matches/:id/history` | Đối đầu WC (`worldCupHistory`, `worldCupSummary`) |
 | `GET /api/matches/:id/tactical-briefing` | Briefing AI |
@@ -182,7 +206,16 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md).
 | `GET /api/news/:docId` | Một bài (+ dịch VI on-demand) |
 | `GET /api/analysis/:matchId` | Phân tích đa biến |
 
-Admin (cần `X-Admin-Token`): `POST /api/admin/recompute-all`, `POST /api/admin/recompute/:matchId`, …
+**Admin** (cần header `X-Admin-Token` = secret `ADMIN_TOKEN`):
+
+| Endpoint | Mô tả |
+|----------|--------|
+| `POST /api/admin/recompute-all` | Recompute toàn bộ 104 trận WC 2026 |
+| `POST /api/admin/recompute/:matchId` | Recompute một trận (queue) |
+| `POST /api/admin/lineups/sync-squads` | Đồng bộ squad chính thức → trận sắp đá |
+| `POST /api/admin/matches/:matchId/lineup` | Nhập XI chính thức (≥ 7 cầu thủ) |
+| `POST /api/admin/ingest` | Queue bulk ingest (StatsBomb + news) |
+| `GET /api/admin/sources` | Health nguồn dữ liệu (public GET) |
 
 ---
 
@@ -190,16 +223,18 @@ Admin (cần `X-Admin-Token`): `POST /api/admin/recompute-all`, `POST /api/admin
 
 ```bash
 npm run typecheck   # ✓ pass
-npm test            # ✓ 45 tests, 16 files
+npm test            # ✓ 66 tests, 21 files
 ```
 
 **Đã kiểm tra:**
 - Xác suất & snapshot engine
 - Dịch tin tức (VI detection, backfill, m2m100)
-- RSS images & publishers
+- RSS images & publishers (6 feeds)
 - Post-match lifecycle & xếp hạng bảng
 - Lịch sử đối đầu World Cup (grouping, summary)
 - Market calculations, scoreline, safety copy
+- Team form stats, StatsBomb ingest, bulk recompute runner
+- Official lineup sync, lineup features cho probability engine
 
 ---
 
@@ -210,12 +245,13 @@ app/           React UI (pages, components, i18n)
   lib/         useMatchLiveData, matchTeams, api
 src/
   routes/      Hono API
-  services/    recompute, progression, matchHistory, translation
-  ingestion/   match refresh, news crawler
+  services/    recompute, progression, matchHistory, officialLineupSync, teamFormStats
+  ingestion/   match refresh, news crawler, statsbombIngest
   models/      probability engine
   queues/      ingest + model consumers
   scheduled/   cron
-migrations/    D1 SQL (0001–0013)
+migrations/    D1 SQL (0001–0016)
+scripts/       pull-statsbomb-open-data.mjs
 tests/         Vitest
 ```
 
@@ -230,7 +266,7 @@ Migration `0013_wc_historical_h2h.sql` seed các kỳ WC (1930–2022) và trậ
 ## Dữ liệu & pháp lý
 
 - Không scrape nguồn không kiểm soát
-- Chỉ RSS/API có giấy phép hoặc open data
+- Chỉ RSS/API có giấy phép hoặc open data (StatsBomb open-data, OpenFootball CC0)
 - Raw payload lưu R2 trước khi normalize D1
 - Ghi chú license trong `source_registry`
 
@@ -238,6 +274,10 @@ Migration `0013_wc_historical_h2h.sql` seed các kỳ WC (1930–2022) và trậ
 
 ## Roadmap
 
+- [x] StatsBomb open-data ingest (WC 2018/2022) → form stats + team ratings
+- [x] Auto bulk recompute WC 2026 khi có data mới (StatsBomb, trận kết thúc, cron fallback)
+- [x] Đồng bộ đội hình chính thức (squad / admin XI) lên từng trận + ảnh hưởng engine
+- [ ] Mở rộng squad WC 2026 đủ 23 cầu thủ/đội (hiện seed thưa)
 - [ ] API dữ liệu trận thật (FIFA / partner feed) thay mock ingest
 - [ ] 8 suất hạng 3 tốt nhất → R32 trận 13–16
 - [ ] Bracket visualization UI

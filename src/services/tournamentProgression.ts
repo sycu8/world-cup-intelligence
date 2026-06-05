@@ -1,6 +1,6 @@
 import type { AppEnv } from '../env';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
-import { scheduleBulkRecompute } from '../constants/pipeline';
+import { scheduleRecomputeAfterDataChange } from './bulkRecomputeRunner';
 import * as matchesRepo from '../db/repositories/matchesRepo';
 import {
   matchToOutcome,
@@ -200,7 +200,7 @@ export async function processMatchCompletion(env: AppEnv, matchId: string): Prom
     koTargets.forEach((id) => affected.add(id));
   }
 
-  await scheduleBulkRecompute(env);
+  await scheduleRecomputeAfterDataChange(env, `match-complete:${matchId}`, { queue: true });
   logInfo('match completion processed', {
     match_id: matchId,
     bracket_updates: affected.size,

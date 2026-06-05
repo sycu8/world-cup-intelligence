@@ -3,6 +3,7 @@ import { SectionLabel } from '../tactical/SectionLabel';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { pickLocalized, type LocalizedString } from '../../lib/briefingText';
 import { pct } from '../../lib/format';
+import { lineupSourceBadgeClass, lineupSourceLocaleKey } from '../../lib/lineupSourceLabel';
 
 type Props = {
   preview: MatchPreviewAnalysis | null;
@@ -21,13 +22,22 @@ function Block({ title, text }: { title: string; text: string }) {
 function LineupColumn({
   side,
   label,
+  sourceLabel,
 }: {
   side: MatchPreviewAnalysis['home'];
   label: string;
+  sourceLabel: string;
 }) {
   return (
     <div className="rounded-card border border-border/50 bg-background/40 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>
+        <span
+          className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${lineupSourceBadgeClass(side.lineupSource)}`}
+        >
+          {sourceLabel}
+        </span>
+      </div>
       <p className="mt-1 font-heading text-lg text-foreground">
         {side.teamName}{' '}
         <span className="font-mono-data text-sm text-cyan">{side.formation}</span>
@@ -115,8 +125,16 @@ export function MatchPreviewAnalysisPanel({ preview, loading }: Props) {
         <p className="label-tactical mb-2 text-magenta">{t('match.previewLineup')}</p>
         <p className="mb-3 text-sm text-muted">{pick(preview.sections.lineup)}</p>
         <div className="grid gap-3 md:grid-cols-2">
-          <LineupColumn side={preview.home} label={t('common.home')} />
-          <LineupColumn side={preview.away} label={t('common.away')} />
+          <LineupColumn
+            side={preview.home}
+            label={t('common.home')}
+            sourceLabel={t(lineupSourceLocaleKey(preview.home.lineupSource))}
+          />
+          <LineupColumn
+            side={preview.away}
+            label={t('common.away')}
+            sourceLabel={t(lineupSourceLocaleKey(preview.away.lineupSource))}
+          />
         </div>
       </div>
 

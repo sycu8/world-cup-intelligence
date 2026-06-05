@@ -5,7 +5,7 @@ import * as teamsRepo from '../db/repositories/teamsRepo';
 import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import * as tournamentsRepo from '../db/repositories/tournamentsRepo';
 import { computeProbability } from '../models/probability/engine';
-import { buildMatchFeatures } from '../services/matchFeatures';
+import { buildMatchFeaturesWithForm } from '../services/matchFeatures';
 import { generateTacticalBriefing } from '../ai/tacticalBriefing';
 import { parseEnv } from '../env';
 
@@ -71,7 +71,7 @@ async function resolveProbability(c: { env: AppEnv }, matchId: string, recompute
     .prepare('SELECT year FROM tournaments WHERE id = ?')
     .bind(match.tournament_id)
     .first<{ year: number }>();
-  const features = buildMatchFeatures(match, home, away, tournament?.year ?? 2026);
+  const features = await buildMatchFeaturesWithForm(c.env, match, home, away, tournament?.year ?? 2026);
   const result = await computeProbability(features);
   await probabilityRepo.saveSnapshot(c.env.DB, result);
   return { fromSnapshot: false, data: result };

@@ -9,6 +9,10 @@ import {
   ingestMatchMarkets,
 } from '../market/services/marketIngestionService';
 import { recomputeMatchProbability, recomputeAllWc2026Matches } from '../services/recomputeMatch';
+import {
+  applyOfficialLineupToMatch,
+  syncOfficialLineupsToMatches,
+} from '../services/officialLineupSync';
 
 const marketSourceSchema = z.object({
   id: z.string().min(1),
@@ -39,6 +43,24 @@ const sourceRegistrySchema = z.object({
 
 const sourcePatchSchema = z.object({
   health_status: z.string().optional(),
+});
+
+const officialLineupSchema = z.object({
+  teamId: z.string().min(1),
+  formation: z.string().min(1),
+  players: z
+    .array(
+      z.object({
+        playerId: z.string().min(1),
+        isStarter: z.boolean().optional(),
+        positionSlot: z.string().optional().nullable(),
+        shirtNumber: z.number().int().optional().nullable(),
+      }),
+    )
+    .min(7)
+    .max(23),
+  sourceId: z.string().optional().nullable(),
+  confidence: z.number().min(0).max(1).optional(),
 });
 
 export const adminRoutes = new Hono<{ Bindings: AppEnv }>();
@@ -164,6 +186,27 @@ adminRoutes.post('/recompute-scenarios/:matchId', async (c) => {
 adminRoutes.post('/recompute-team-system/:matchId', async (c) => {
   await recomputeMatchProbability(c.env, c.req.param('matchId'));
   return c.json({ status: 'ok', matchId: c.req.param('matchId') });
+});
+
+adminRoutes.post('/matches/:matchId/lineup', async (c) => {
+  const body = officialLineupSchema.parse(await c.req.json());
+  const result = await applyOfficialLineupToMatch(c.env, {
+    matchId: c.req.param('matchId'),
+    teamId: body.teamId,
+    formation: body.formation,
+    players: body.players,
+    sourceId: body.sourceId,
+    confidence: body.confidence,
+  });
+  if (result.updated) {
+    await recomputeMatchProbability(c.env, c.req.param('matchId'));
+  }
+  return c.json({ status: 'ok', ...result });
+});
+
+adminRoutes.post('/lineups/sync-squads', async (c) => {
+  const data = await syncOfficialLineupsToMatches(c.env, { recompute: true });
+  return c.json({ data });
 });
 
 adminRoutes.patch('/sources/:sourceId', async (c) => {

@@ -23,6 +23,19 @@ function parseScorelineJson(json: string | null): Record<string, number> | undef
 
 export type LocalizedLine = { vi: string; en: string };
 
+function lineupSourceLabel(source: TeamPreviewSide['lineupSource']): LocalizedLine {
+  switch (source) {
+    case 'official':
+      return { vi: 'chính thức', en: 'official' };
+    case 'squad':
+      return { vi: 'từ danh sách đội', en: 'from squad' };
+    case 'projected':
+      return { vi: 'dự kiến', en: 'projected' };
+    default:
+      return { vi: 'chưa rõ', en: 'unknown' };
+  }
+}
+
 export type TeamPreviewSide = {
   teamId: string;
   teamName: string;
@@ -175,9 +188,11 @@ function ruleBasedPreview(
     }`,
   };
 
+  const homeSrc = lineupSourceLabel(home.lineupSource);
+  const awaySrc = lineupSourceLabel(away.lineupSource);
   const lineup: LocalizedLine = {
-    vi: `${home.teamName} (${home.formation}, ${home.lineupSource}): ${home.fullLineup.join(', ')}. ${away.teamName} (${away.formation}, ${away.lineupSource}): ${away.fullLineup.join(', ')}.`,
-    en: `${home.teamName} (${home.formation}, ${home.lineupSource}): ${home.fullLineup.join(', ')}. ${away.teamName} (${away.formation}, ${away.lineupSource}): ${away.fullLineup.join(', ')}.`,
+    vi: `${home.teamName} (${home.formation}, ${homeSrc.vi}): ${home.fullLineup.join(', ')}. ${away.teamName} (${away.formation}, ${awaySrc.vi}): ${away.fullLineup.join(', ')}.`,
+    en: `${home.teamName} (${home.formation}, ${homeSrc.en}): ${home.fullLineup.join(', ')}. ${away.teamName} (${away.formation}, ${awaySrc.en}): ${away.fullLineup.join(', ')}.`,
   };
 
   const form: LocalizedLine = {

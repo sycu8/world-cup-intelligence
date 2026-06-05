@@ -7,6 +7,8 @@ import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import { getHeadToHead } from '../services/matchHistory';
 import { buildProbabilityHints } from '../services/matchHints';
 import { getMatchPreviewAnalysis } from '../services/matchPreviewAnalysis';
+import { getProjectedLineupForMatch } from '../services/matchLineupProjection';
+import * as teamsRepo from '../db/repositories/teamsRepo';
 
 export const matchRoutes = new Hono<{ Bindings: AppEnv }>();
 
@@ -27,8 +29,30 @@ matchRoutes.get('/:matchId/events', async (c) => {
 });
 
 matchRoutes.get('/:matchId/lineups', async (c) => {
-  const data = await lineupsRepo.getMatchLineups(c.env.DB, c.req.param('matchId'));
-  return c.json({ data });
+  const matchId = c.req.param('matchId');
+  const match = await matchesRepo.getMatch(c.env.DB, matchId);
+  if (!match) return c.json({ error: 'Not found' }, 404);
+
+  const [homeTeam, awayTeam] = await Promise.all([
+    teamsRepo.getTeam(c.env.DB, match.home_team_id),
+    teamsRepo.getTeam(c.env.DB, match.away_team_id),
+  ]);
+  if (!homeTeam || !awayTeam) return c.json({ error: 'Teams not found' }, 404);
+
+  const [home, away, raw] = await Promise.all([
+    getProjectedLineupForMatch(c.env, matchId, homeTeam.id, homeTeam.name),
+    getProjectedLineupForMatch(c.env, matchId, awayTeam.id, awayTeam.name),
+    lineupsRepo.getMatchLineups(c.env.DB, matchId),
+  ]);
+
+  return c.json({
+    data: {
+      matchId,
+      home: { teamId: homeTeam.id, teamName: homeTeam.name, ...home },
+      away: { teamId: awayTeam.id, teamName: awayTeam.name, ...away },
+      records: raw,
+    },
+  });
 });
 
 matchRoutes.get('/:matchId/history', async (c) => {

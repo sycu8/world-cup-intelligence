@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "pull:statsbomb": "node scripts/pull-statsbomb-open-data.mjs",
+    "pull:statsbomb:local": "node scripts/pull-statsbomb-open-data.mjs --local",
     "test": "vitest run",
     "lint": "eslint src app --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",

@@ -63,6 +63,7 @@ export const api = {
     get<{ data: { hints: ProbabilityHint[] } }>(`/matches/${id}/hints`),
   matchBriefing: (id: string) => get<{ data: TacticalBriefing }>(`/matches/${id}/tactical-briefing`),
   matchPreview: (id: string) => get<{ data: MatchPreviewAnalysis }>(`/matches/${id}/preview`),
+  matchLineups: (id: string) => get<{ data: MatchLineupsPayload }>(`/matches/${id}/lineups`),
   matchTeamSystem: (id: string) =>
     get<{ data: TeamSystemPayload; ai?: unknown }>(`/matches/${id}/team-system`),
   matchScenarios: (id: string) =>
@@ -239,6 +240,21 @@ export type ProbabilityData = {
   intervalDistribution?: Record<string, { homeWinProb: number; drawProb: number; awayWinProb: number }>;
   confidence?: number;
   modelVersion?: string;
+};
+
+export type MatchLineupSide = {
+  teamId: string;
+  teamName: string;
+  formation: string;
+  players: string[];
+  source: string;
+};
+
+export type MatchLineupsPayload = {
+  matchId: string;
+  home: MatchLineupSide;
+  away: MatchLineupSide;
+  records?: unknown[];
 };
 
 export type MatchPreviewSidePreview = {

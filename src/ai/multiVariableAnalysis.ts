@@ -7,7 +7,7 @@ import * as matchesRepo from '../db/repositories/matchesRepo';
 import * as teamsRepo from '../db/repositories/teamsRepo';
 import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import * as eventsRepo from '../db/repositories/eventsRepo';
-import { buildMatchFeatures } from '../services/matchFeatures';
+import { buildMatchFeaturesWithForm } from '../services/matchFeatures';
 import { buildExplanationFactors } from '../models/probability/explainFactors';
 
 export const MultiVariableAnalysisSchema = z.object({
@@ -64,7 +64,7 @@ export async function runMultiVariableAnalysis(
     .bind(match.tournament_id)
     .first<{ year: number; name: string }>();
 
-  const features = buildMatchFeatures(match, home, away, tournament?.year ?? 2026);
+  const features = await buildMatchFeaturesWithForm(env, match, home, away, tournament?.year ?? 2026);
   const { positive, negative } = buildExplanationFactors(features);
 
   const ctx = {

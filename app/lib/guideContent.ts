@@ -45,8 +45,8 @@ export const quickStartSteps: {
     accent: 'yellow',
     title: { vi: '3. Đọc tin đã lọc', en: '3. Read filtered news' },
     desc: {
-      vi: 'RSS BBC, Guardian, FIFA — có ảnh, tóm tắt tiếng Việt, điểm độ tin cậy nguồn.',
-      en: 'BBC, Guardian, FIFA RSS — thumbnails, Vietnamese summaries, source reliability.',
+      vi: 'RSS BBC, Guardian, FIFA, Reuters, AP, Sky — ảnh, tóm tắt VI, điểm độ tin cậy nguồn.',
+      en: 'BBC, Guardian, FIFA, Reuters, AP, Sky RSS — thumbnails, VI summaries, source reliability.',
     },
   },
   {

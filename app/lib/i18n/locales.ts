@@ -62,6 +62,13 @@ export type LocaleKey =
   | 'match.previewSubtitle'
   | 'match.previewStrength'
   | 'match.previewLineup'
+  | 'match.lineupOfficial'
+  | 'match.lineupProjected'
+  | 'match.lineupSquad'
+  | 'match.lineupUnknown'
+  | 'lineups.title'
+  | 'lineups.back'
+  | 'lineups.loading'
   | 'match.previewForm'
   | 'match.previewContext'
   | 'match.previewTactical'
@@ -391,7 +398,14 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'Squad strength · expected lineups · form (from collected data)',
   },
   'match.previewStrength': { vi: 'Lực lượng', en: 'Squad strength' },
-  'match.previewLineup': { vi: 'Đội hình dự kiến', en: 'Expected lineups' },
+  'match.previewLineup': { vi: 'Đội hình', en: 'Lineups' },
+  'match.lineupOfficial': { vi: 'Chính thức', en: 'Official' },
+  'match.lineupProjected': { vi: 'Dự kiến', en: 'Projected' },
+  'match.lineupSquad': { vi: 'Từ danh sách đội', en: 'From squad' },
+  'match.lineupUnknown': { vi: 'Chưa rõ', en: 'Unknown' },
+  'lineups.title': { vi: 'Đội hình trận đấu', en: 'Match lineups' },
+  'lineups.back': { vi: '← Về trận đấu', en: '← Back to match' },
+  'lineups.loading': { vi: 'Đang tải đội hình…', en: 'Loading lineups…' },
   'match.previewForm': { vi: 'Phong độ', en: 'Form' },
   'match.previewContext': { vi: 'Bối cảnh giải', en: 'Tournament context' },
   'match.previewTactical': { vi: 'Góc chiến thuật', en: 'Tactical angle' },

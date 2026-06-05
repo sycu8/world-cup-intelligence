@@ -21,6 +21,27 @@ export const WC_NEWS_FEEDS = [
     url: 'https://www.fifa.com/news/rss',
     reliability: 0.9,
   },
+  {
+    id: 'rss-ap-soccer',
+    name: 'AP Soccer',
+    publisher: 'Associated Press',
+    url: 'https://apnews.com/hub/soccer?output=rss',
+    reliability: 0.84,
+  },
+  {
+    id: 'rss-sky-football',
+    name: 'Sky Sports Football',
+    publisher: 'Sky Sports',
+    url: 'https://www.skysports.com/rss/12040',
+    reliability: 0.8,
+  },
+  {
+    id: 'rss-reuters-soccer',
+    name: 'Reuters Soccer',
+    publisher: 'Reuters',
+    url: 'https://www.reuters.com/sports/soccer/rss',
+    reliability: 0.86,
+  },
 ] as const;
 
 export type NewsFeed = (typeof WC_NEWS_FEEDS)[number];

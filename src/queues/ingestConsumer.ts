@@ -1,23 +1,23 @@
 import type { IngestJob } from './types';
 import type { AppEnv } from '../env';
-import { BULK_RECOMPUTE_KV_KEY } from '../constants/pipeline';
 import { logInfo } from '../utils/logger';
 import { refreshMatchData, handleCompletedMatches } from '../ingestion/matchDataRefresh';
 import { crawlWorldCupNews } from '../ingestion/newsCrawler';
-import { recomputeAllWc2026Matches, recomputeMatchProbability } from '../services/recomputeMatch';
+import { ingestStatsbombWorldCup } from '../ingestion/statsbombIngest';
+import { getIngestHandler } from '../ingestion/sourceRegistry';
+import { recomputeMatchProbability } from '../services/recomputeMatch';
 import { processMatchCompletion } from '../services/tournamentProgression';
+import {
+  runBulkRecomputeIfPending,
+  scheduleRecomputeAfterDataChange,
+} from '../services/bulkRecomputeRunner';
+import { syncOfficialLineupsToMatches } from '../services/officialLineupSync';
 
-async function runBulkRecomputeIfPending(env: AppEnv): Promise<boolean> {
-  const bulkPending = await env.KV.get(BULK_RECOMPUTE_KV_KEY);
-  if (bulkPending !== '1') return false;
-  const result = await recomputeAllWc2026Matches(env);
-  await env.KV.delete(BULK_RECOMPUTE_KV_KEY);
-  logInfo('bulk wc2026 recompute finished', {
-    total: result.total,
-    recomputed: result.recomputed,
-    failed: result.failed.length,
-  });
-  return true;
+function statsbombDataChanged(result: {
+  matchesInserted: number;
+  teamsUpdated: number;
+}): boolean {
+  return result.matchesInserted > 0 || result.teamsUpdated > 0;
 }
 
 export async function handleIngestBatch(
@@ -29,6 +29,8 @@ export async function handleIngestBatch(
       switch (msg.body.type) {
         case 'refresh_minute': {
           if (await runBulkRecomputeIfPending(env)) break;
+
+          await syncOfficialLineupsToMatches(env, { recompute: true });
 
           const { updatedIds, completedIds } = await refreshMatchData(env);
 
@@ -63,19 +65,29 @@ export async function handleIngestBatch(
           break;
         }
         case 'crawl_news': {
-          const count = await crawlWorldCupNews(env);
-          if (count > 0 && env.MODEL_QUEUE) {
-            const { results } = await env.DB.prepare(
-              `SELECT id FROM matches WHERE status IN ('scheduled', 'live') LIMIT 5`,
-            ).all<{ id: string }>();
-            for (const m of results ?? []) {
-              await env.MODEL_QUEUE.send({ type: 'ai_briefing', matchId: m.id });
+          await crawlWorldCupNews(env);
+          break;
+        }
+        case 'source_ingest': {
+          const handler = getIngestHandler(msg.body.sourceId);
+          if (handler === 'statsbomb') {
+            const result = await ingestStatsbombWorldCup(env);
+            if (statsbombDataChanged(result)) {
+              await scheduleRecomputeAfterDataChange(env, 'statsbomb-ingest', { immediate: true });
             }
+          } else {
+            logInfo('source ingest not configured', { sourceId: msg.body.sourceId });
           }
           break;
         }
-        default:
-          logInfo('ingest job noop', { job_id: msg.body.idempotencyKey });
+        case 'bulk_ingest': {
+          const result = await ingestStatsbombWorldCup(env);
+          await crawlWorldCupNews(env);
+          if (statsbombDataChanged(result)) {
+            await scheduleRecomputeAfterDataChange(env, 'bulk-ingest', { immediate: true });
+          }
+          break;
+        }
       }
       msg.ack();
     } catch (e) {
