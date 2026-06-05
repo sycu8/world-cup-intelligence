@@ -21,6 +21,8 @@ import type { IngestJob } from './queues/types';
 import type { ModelJob } from './queues/types';
 import { MatchRoom } from './durable-objects/MatchRoom';
 import { handleScheduledCron } from './scheduled/cron';
+import { discoveryRoutes } from './routes/discovery';
+import { buildLinkHeaderValue, siteOrigin } from './services/siteDiscovery';
 
 const app = new Hono<{ Bindings: AppEnv }>();
 
@@ -51,6 +53,16 @@ app.route('/api/schedule', scheduleRoutes);
 app.route('/api/news', newsRoutes);
 app.route('/api/analysis', analysisRoutes);
 app.route('/api/admin', adminRoutes);
+
+app.route('/', discoveryRoutes);
+
+app.get('/', async (c) => {
+  const origin = siteOrigin(c.req.url);
+  const asset = await c.env.ASSETS.fetch(c.req.raw);
+  const headers = new Headers(asset.headers);
+  headers.set('Link', buildLinkHeaderValue(origin));
+  return new Response(asset.body, { status: asset.status, headers });
+});
 
 app.all('*', async (c) => {
   const asset = await c.env.ASSETS.fetch(c.req.raw);

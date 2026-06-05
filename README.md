@@ -56,9 +56,25 @@ Sau mỗi trận kết thúc (cron mỗi phút):
 - `/players/:playerId` — thông tin cầu thủ
 - `/lineups/:matchId` — đội hình trận
 
----
+## Agent & crawler discovery
 
-## Nguyên tắc thiết kế
+| URL | Mô tả |
+|-----|--------|
+| `/robots.txt` | RFC 9309 — AI bot rules, Content-Signal, sitemap |
+| `/sitemap.xml` | Sitemap (trang tĩnh + 104 trận + phân tích) |
+| `/.well-known/api-catalog` | RFC 9727 `application/linkset+json` |
+| `/.well-known/openapi.json` | OpenAPI 3.1 |
+| `/docs/api` | API documentation (Markdown) |
+| `/auth.md` | Agent auth policy (public GET, admin token) |
+| `/.well-known/oauth-protected-resource` | PRM — public API, no OAuth issuer |
+| `/.well-known/mcp/server-card.json` | MCP server card (REST-first) |
+| `/.well-known/agent-skills/index.json` | Agent skills discovery index |
+
+Homepage trả `Link` headers (RFC 8288) trỏ tới api-catalog, OpenAPI, docs, sitemap. Client đăng ký **WebMCP** tools khi trình duyệt hỗ trợ.
+
+> **DNS-AID** và **OAuth/OIDC authorization server** cần cấu hình DNS + IdP riêng trên domain (vd. `orangecloud.vn`) — không triển khai trong Worker.
+
+---
 
 | Lớp | Vai trò |
 |-----|---------|
@@ -118,7 +134,7 @@ npx wrangler dev --remote --port 8787
 |--------|--------|
 | `npm run dev` | Frontend Vite |
 | `npm run build` | Build production |
-| `npm run test` | Vitest (41 tests) |
+| `npm run test` | Vitest (45 tests) |
 | `npm run typecheck` | TypeScript |
 | `npm run deploy` | Build + `wrangler deploy` |
 | `npm run db:migrate:local` | Migration D1 local |
@@ -169,7 +185,7 @@ Admin (cần `X-Admin-Token`): `POST /api/admin/recompute-all`, `POST /api/admin
 
 ```bash
 npm run typecheck   # ✓ pass
-npm test            # ✓ 41 tests, 15 files
+npm test            # ✓ 45 tests, 16 files
 ```
 
 **Đã kiểm tra:**

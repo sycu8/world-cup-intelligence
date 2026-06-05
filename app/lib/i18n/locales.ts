@@ -76,6 +76,8 @@ export type LocaleKey =
   | 'footer.tagline'
   | 'footer.description'
   | 'footer.analytics'
+  | 'footer.builtBy'
+  | 'footer.github'
   | 'common.home'
   | 'common.draw'
   | 'common.away'
@@ -410,6 +412,8 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'Predictive match analysis, tactical insights, and probability intelligence.',
   },
   'footer.analytics': { vi: 'Phân tích', en: 'Analytics' },
+  'footer.builtBy': { vi: 'Xây dựng bởi', en: 'Built by' },
+  'footer.github': { vi: 'GitHub', en: 'GitHub' },
   'common.home': { vi: 'Chủ nhà', en: 'Home' },
   'common.draw': { vi: 'Hòa', en: 'Draw' },
   'common.away': { vi: 'Khách', en: 'Away' },
