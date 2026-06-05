@@ -1,7 +1,6 @@
 import { pct } from '../../lib/format';
 import type { ModelVsMarketData } from '../../lib/api';
 import { useI18n } from '../../lib/i18n/I18nContext';
-import { MarketDisclaimer } from './MarketDisclaimer';
 
 type Props = { data: ModelVsMarketData };
 
@@ -35,7 +34,6 @@ export function ModelVsMarketChart({ data }: Props) {
           </div>
         </div>
       ))}
-      <MarketDisclaimer className="mt-3" />
     </div>
   );
 }
