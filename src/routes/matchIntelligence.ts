@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
-import * as matchesRepo from '../db/repositories/matchesRepo';
+import { resolveMatchRef } from '../services/matchRef';
 import {
   getTeamSystemPayload,
   getScenariosPayload,
@@ -15,36 +15,32 @@ import { explainTeamSystemStrength } from '../ai/explainTeamSystemStrength';
 export const matchIntelligenceRoutes = new Hono<{ Bindings: AppEnv }>();
 
 matchIntelligenceRoutes.get('/:matchId/team-system', async (c) => {
-  const matchId = c.req.param('matchId');
-  const match = await matchesRepo.getMatch(c.env.DB, matchId);
-  if (!match) return c.json({ error: 'Not found' }, 404);
-  const data = await getTeamSystemPayload(c.env, matchId);
+  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
+  if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const data = await getTeamSystemPayload(c.env, resolved.id);
   const ai = await explainTeamSystemStrength(c.env, data).catch(() => null);
   return c.json({ data, ai });
 });
 
 matchIntelligenceRoutes.get('/:matchId/scenarios', async (c) => {
-  const matchId = c.req.param('matchId');
-  const match = await matchesRepo.getMatch(c.env.DB, matchId);
-  if (!match) return c.json({ error: 'Not found' }, 404);
-  const data = await getScenariosPayload(c.env, matchId);
+  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
+  if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const data = await getScenariosPayload(c.env, resolved.id);
   const ai = await explainScenarioLikelihood(c.env, data).catch(() => null);
   return c.json({ data, ai });
 });
 
 matchIntelligenceRoutes.get('/:matchId/market-signals', async (c) => {
-  const matchId = c.req.param('matchId');
-  const match = await matchesRepo.getMatch(c.env.DB, matchId);
-  if (!match) return c.json({ error: 'Not found' }, 404);
-  const data = await getMarketSignalsPayload(c.env, matchId);
+  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
+  if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const data = await getMarketSignalsPayload(c.env, resolved.id);
   return c.json({ data });
 });
 
 matchIntelligenceRoutes.get('/:matchId/model-vs-market', async (c) => {
-  const matchId = c.req.param('matchId');
-  const match = await matchesRepo.getMatch(c.env.DB, matchId);
-  if (!match) return c.json({ error: 'Not found' }, 404);
-  const comparison = await buildModelVsMarket(c.env, matchId);
+  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
+  if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const comparison = await buildModelVsMarket(c.env, resolved.id);
   if (!comparison) {
     return c.json({
       data: null,
@@ -56,7 +52,8 @@ matchIntelligenceRoutes.get('/:matchId/model-vs-market', async (c) => {
 });
 
 matchIntelligenceRoutes.get('/:matchId/probability-movement', async (c) => {
-  const matchId = c.req.param('matchId');
-  const data = await getProbabilityMovement(c.env, matchId);
+  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
+  if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const data = await getProbabilityMovement(c.env, resolved.id);
   return c.json({ data });
 });

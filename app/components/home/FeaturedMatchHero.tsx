@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { ScheduleMatch, ProbabilityData } from '../../lib/api';
+import { resolveMatchHref } from '../../lib/matchPaths';
 import { pct } from '../../lib/format';
 import { ProbabilityStrip } from '../match/ProbabilityStrip';
 import { Bilingual } from '../i18n/Bilingual';
@@ -86,7 +87,7 @@ export function FeaturedMatchHero({ match }: Props) {
 
       <div className="flex justify-center">
         <Link
-          to={`/matches/${match.id}`}
+          to={resolveMatchHref(match)}
           className="rounded-full border border-cyan/40 bg-cyan/10 px-8 py-2.5 text-sm font-semibold text-cyan transition hover:bg-cyan/20"
         >
           <Bilingual k="match.fullAnalysis" as="span" /> →

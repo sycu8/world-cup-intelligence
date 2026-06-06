@@ -66,6 +66,7 @@ export type LocaleKey =
   | 'match.lineupProjected'
   | 'match.lineupSquad'
   | 'match.lineupUnknown'
+  | 'match.lineupPending'
   | 'lineups.title'
   | 'lineups.back'
   | 'lineups.loading'
@@ -137,6 +138,17 @@ export type LocaleKey =
   | 'scenario.pathA'
   | 'scenario.pathB'
   | 'scenario.comparisonToggle'
+  | 'scenario.likelihoodLabel'
+  | 'scenario.modelConfidence'
+  | 'scenario.initialConditions'
+  | 'scenario.triggers'
+  | 'scenario.invalidation'
+  | 'scenario.mostLikelyScore'
+  | 'scenario.comparisonTitle'
+  | 'scenario.likelihoodGap'
+  | 'scenario.awayWinDelta'
+  | 'scenario.lastUpdated'
+  | 'scenario.legacyDisclaimer'
   | 'analysis.twoScenarios'
   | 'probMovement.title'
   | 'probMovement.subtitle'
@@ -409,6 +421,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'match.lineupProjected': { vi: 'Dự kiến', en: 'Projected' },
   'match.lineupSquad': { vi: 'Từ danh sách đội', en: 'From squad' },
   'match.lineupUnknown': { vi: 'Chưa rõ', en: 'Unknown' },
+  'match.lineupPending': {
+    vi: 'Chưa có thông tin chính xác, sẽ cập nhật sau.',
+    en: 'No confirmed lineup yet — will update when official teams are published.',
+  },
   'lineups.title': { vi: 'Đội hình trận đấu', en: 'Match lineups' },
   'lineups.back': { vi: '← Về trận đấu', en: '← Back to match' },
   'lineups.loading': { vi: 'Đang tải đội hình…', en: 'Loading lineups…' },
@@ -507,6 +523,20 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'scenario.pathA': { vi: 'Kịch bản A', en: 'Scenario A' },
   'scenario.pathB': { vi: 'Kịch bản B', en: 'Scenario B' },
   'scenario.comparisonToggle': { vi: 'So sánh kịch bản', en: 'Scenario comparison' },
+  'scenario.likelihoodLabel': { vi: 'Xác suất kịch bản', en: 'Scenario likelihood' },
+  'scenario.modelConfidence': { vi: 'Độ tin cậy mô hình', en: 'Model confidence' },
+  'scenario.initialConditions': { vi: 'Điều kiện ban đầu', en: 'Initial conditions' },
+  'scenario.triggers': { vi: 'Điều kiện kích hoạt', en: 'Triggers' },
+  'scenario.invalidation': { vi: 'Điều kiện vô hiệu', en: 'Invalidation' },
+  'scenario.mostLikelyScore': { vi: 'Tỉ số khả dĩ nhất', en: 'Most likely score' },
+  'scenario.comparisonTitle': { vi: 'So sánh kịch bản', en: 'Scenario comparison' },
+  'scenario.likelihoodGap': { vi: 'Chênh xác suất kịch bản', en: 'Likelihood gap' },
+  'scenario.awayWinDelta': { vi: 'Chênh thắng khách', en: 'Away win delta' },
+  'scenario.lastUpdated': { vi: 'Cập nhật lúc', en: 'Last updated' },
+  'scenario.legacyDisclaimer': {
+    vi: 'Xác suất kịch bản là ước lượng phân tích — không phải dự đoán chắc chắn.',
+    en: 'Scenario likelihoods are model estimates — not outcome guarantees.',
+  },
   'analysis.twoScenarios': {
     vi: 'Hai kịch bản trận đấu quan trọng nhất',
     en: 'Two most important match scenarios',

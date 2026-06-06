@@ -19,9 +19,12 @@ export function formatMatchVersus(
   awayTeamId: string | undefined,
   homeName?: string | null,
   awayName?: string | null,
+  separator = ' vs ',
 ): string {
   const home = resolveTeamDisplayName(homeTeamId, homeName);
   const away = resolveTeamDisplayName(awayTeamId, awayName);
   if (!home && !away) return '';
-  return `${home} vs ${away}`;
+  if (!home) return away;
+  if (!away) return home;
+  return `${home}${separator}${away}`;
 }

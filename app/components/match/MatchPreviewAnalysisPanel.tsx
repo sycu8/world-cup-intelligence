@@ -3,7 +3,8 @@ import { SectionLabel } from '../tactical/SectionLabel';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { pickLocalized, type LocalizedString } from '../../lib/briefingText';
 import { pct } from '../../lib/format';
-import { lineupSourceBadgeClass, lineupSourceLocaleKey } from '../../lib/lineupSourceLabel';
+import { formatMatchVersus } from '../../lib/matchTeams';
+import { LineupColumn } from './LineupColumn';
 
 type Props = {
   preview: MatchPreviewAnalysis | null;
@@ -15,38 +16,6 @@ function Block({ title, text }: { title: string; text: string }) {
     <div className="rounded-card border border-border/50 bg-panel2/40 px-3 py-3">
       <p className="label-tactical mb-1.5 text-cyan/90">{title}</p>
       <p className="text-sm leading-relaxed text-foreground/90">{text}</p>
-    </div>
-  );
-}
-
-function LineupColumn({
-  side,
-  label,
-  sourceLabel,
-}: {
-  side: MatchPreviewAnalysis['home'];
-  label: string;
-  sourceLabel: string;
-}) {
-  return (
-    <div className="rounded-card border border-border/50 bg-background/40 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>
-        <span
-          className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${lineupSourceBadgeClass(side.lineupSource)}`}
-        >
-          {sourceLabel}
-        </span>
-      </div>
-      <p className="mt-1 font-heading text-lg text-foreground">
-        {side.teamName}{' '}
-        <span className="font-mono-data text-sm text-cyan">{side.formation}</span>
-      </p>
-      <ul className="mt-2 space-y-0.5 font-mono-data text-[11px] text-muted">
-        {side.fullLineup.map((p, i) => (
-          <li key={`${p}-${i}`}>{p}</li>
-        ))}
-      </ul>
     </div>
   );
 }
@@ -66,6 +35,12 @@ export function MatchPreviewAnalysisPanel({ preview, loading }: Props) {
 
   const pick = (line: LocalizedString) => pickLocalized(line, mode);
   const locale = mode === 'en' ? 'en' : 'vi-VN';
+  const versusLabel = formatMatchVersus(
+    preview.home.teamId,
+    preview.away.teamId,
+    preview.home.teamName,
+    preview.away.teamName,
+  );
 
   return (
     <section className="panel-elevated space-y-5 border-cyan/20">
@@ -78,7 +53,7 @@ export function MatchPreviewAnalysisPanel({ preview, loading }: Props) {
           />
           <p className="mt-2 font-heading text-xl text-foreground">{pick(preview.matchLabel)}</p>
           <p className="mt-1 font-mono-data text-xs text-muted-dim">
-            {preview.matchId} ·{' '}
+            {versusLabel} ·{' '}
             {new Date(preview.kickoffUtc).toLocaleString(locale, {
               dateStyle: 'medium',
               timeStyle: 'short',
@@ -125,16 +100,8 @@ export function MatchPreviewAnalysisPanel({ preview, loading }: Props) {
         <p className="label-tactical mb-2 text-magenta">{t('match.previewLineup')}</p>
         <p className="mb-3 text-sm text-muted">{pick(preview.sections.lineup)}</p>
         <div className="grid gap-3 md:grid-cols-2">
-          <LineupColumn
-            side={preview.home}
-            label={t('common.home')}
-            sourceLabel={t(lineupSourceLocaleKey(preview.home.lineupSource))}
-          />
-          <LineupColumn
-            side={preview.away}
-            label={t('common.away')}
-            sourceLabel={t(lineupSourceLocaleKey(preview.away.lineupSource))}
-          />
+          <LineupColumn side={preview.home} label={t('common.home')} />
+          <LineupColumn side={preview.away} label={t('common.away')} />
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import type { AppEnv } from '../env';
+import { attachSlugToScheduleRow } from '../services/matchRef';
 import {
   resolveScheduleTournamentId,
   WC2026_MATCH_COUNT,
@@ -27,7 +28,8 @@ export async function buildSchedulePayload(
     .all();
 
   const byDate: Record<string, unknown[]> = {};
-  for (const row of results ?? []) {
+  const list = (results ?? []).map((row) => attachSlugToScheduleRow(row as Record<string, unknown>));
+  for (const row of list) {
     const d =
       (row as { match_date?: string; kickoff_utc?: string }).match_date ??
       (row as { kickoff_utc?: string }).kickoff_utc?.slice(0, 10) ??
@@ -36,7 +38,6 @@ export async function buildSchedulePayload(
     byDate[d].push(row);
   }
 
-  const list = results ?? [];
   return {
     data: { byDate, matches: list, tournamentId, total: list.length },
     meta: {

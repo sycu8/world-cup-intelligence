@@ -3,13 +3,13 @@ import * as matchesRepo from '../db/repositories/matchesRepo';
 import * as teamsRepo from '../db/repositories/teamsRepo';
 import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import { getHeadToHead } from './matchHistory';
-import { getProjectedLineupForMatch } from './matchLineupProjection';
+import { getLineupDisplayForMatch, formatLineupPlayerLine, type LineupPlayerEntry } from './lineupDisplay';
 import { getGroupContextForMatch } from './matchGroupContext';
 import { recomputeMatchProbability } from './recomputeMatch';
 import { isGatewayConfigured, gatewayChatJson } from '../ai/gatewayClient';
 import { nowIso } from '../utils/time';
 
-const CACHE_PREFIX = 'preview:v3:';
+const CACHE_PREFIX = 'preview:v4:';
 
 function parseScorelineJson(json: string | null): Record<string, number> | undefined {
   if (!json) return undefined;
@@ -23,17 +23,17 @@ function parseScorelineJson(json: string | null): Record<string, number> | undef
 
 export type LocalizedLine = { vi: string; en: string };
 
-function lineupSourceLabel(source: TeamPreviewSide['lineupSource']): LocalizedLine {
-  switch (source) {
-    case 'official':
-      return { vi: 'chính thức', en: 'official' };
-    case 'squad':
-      return { vi: 'từ danh sách đội', en: 'from squad' };
-    case 'projected':
-      return { vi: 'dự kiến', en: 'projected' };
-    default:
-      return { vi: 'chưa rõ', en: 'unknown' };
+const LINEUP_PENDING: LocalizedLine = {
+  vi: 'Chưa có thông tin chính xác, sẽ cập nhật sau.',
+  en: 'No confirmed lineup yet — will update when official teams are published.',
+};
+
+function describeSideLineup(side: TeamPreviewSide, mode: 'vi' | 'en'): string {
+  if (!side.hasAccurateLineup) {
+    return mode === 'vi' ? LINEUP_PENDING.vi : LINEUP_PENDING.en;
   }
+  const src = mode === 'vi' ? 'chính thức' : 'official';
+  return `${side.teamName} (${side.formation}, ${src}): ${side.fullLineup.join('; ')}`;
 }
 
 export type TeamPreviewSide = {
@@ -44,7 +44,9 @@ export type TeamPreviewSide = {
   fifaRanking: number | null;
   collectiveStrength: number | null;
   formation: string | null;
-  lineupSource: 'official' | 'squad' | 'projected' | 'unknown';
+  lineupSource: 'official' | 'unknown';
+  hasAccurateLineup: boolean;
+  lineupPlayers: LineupPlayerEntry[];
   keyPlayers: string[];
   fullLineup: string[];
   recentForm: string;
@@ -188,12 +190,21 @@ function ruleBasedPreview(
     }`,
   };
 
-  const homeSrc = lineupSourceLabel(home.lineupSource);
-  const awaySrc = lineupSourceLabel(away.lineupSource);
-  const lineup: LocalizedLine = {
-    vi: `${home.teamName} (${home.formation}, ${homeSrc.vi}): ${home.fullLineup.join(', ')}. ${away.teamName} (${away.formation}, ${awaySrc.vi}): ${away.fullLineup.join(', ')}.`,
-    en: `${home.teamName} (${home.formation}, ${homeSrc.en}): ${home.fullLineup.join(', ')}. ${away.teamName} (${away.formation}, ${awaySrc.en}): ${away.fullLineup.join(', ')}.`,
-  };
+  const lineupVi = [
+    home.hasAccurateLineup ? describeSideLineup(home, 'vi') : `${home.teamName}: ${LINEUP_PENDING.vi}`,
+    away.hasAccurateLineup ? describeSideLineup(away, 'vi') : `${away.teamName}: ${LINEUP_PENDING.vi}`,
+  ].join(' ');
+  const lineupEn = [
+    home.hasAccurateLineup ? describeSideLineup(home, 'en') : `${home.teamName}: ${LINEUP_PENDING.en}`,
+    away.hasAccurateLineup ? describeSideLineup(away, 'en') : `${away.teamName}: ${LINEUP_PENDING.en}`,
+  ].join(' ');
+  const lineup: LocalizedLine =
+    home.hasAccurateLineup || away.hasAccurateLineup
+      ? { vi: lineupVi, en: lineupEn }
+      : LINEUP_PENDING;
+
+  const homeShape = home.formation ?? '—';
+  const awayShape = away.formation ?? '—';
 
   const form: LocalizedLine = {
     vi:
@@ -208,13 +219,14 @@ function ruleBasedPreview(
 
   const tactical: LocalizedLine = {
     vi: fav
-      ? `Mô hình nghiêng về ${fav}. xG kỳ vọng ${prob ? `${prob.xgHome.toFixed(2)}–${prob.xgAway.toFixed(2)}` : '—'} — ${home.formation} đấu ${away.formation} sẽ quyết định khoảng trống giữa các tuyến.`
-      : `Thế trận cân bằng: ${home.formation} trước ${away.formation}; ai kiểm soát giữa sân sẽ kéo xG về phía mình.`,
+      ? `Mô hình nghiêng về ${fav}. xG kỳ vọng ${prob ? `${prob.xgHome.toFixed(2)}–${prob.xgAway.toFixed(2)}` : '—'} — ${homeShape} đấu ${awayShape} sẽ quyết định khoảng trống giữa các tuyến.`
+      : `Thế trận cân bằng: ${homeShape} trước ${awayShape}; ai kiểm soát giữa sân sẽ kéo xG về phía mình.`,
     en: fav
-      ? `Model leans ${fav}. Expected xG ${prob ? `${prob.xgHome.toFixed(2)}–${prob.xgAway.toFixed(2)}` : '—'} — ${home.formation} vs ${away.formation} should decide central space.`
-      : `Balanced shape battle: ${home.formation} against ${away.formation}; midfield control should sway chance quality.`,
+      ? `Model leans ${fav}. Expected xG ${prob ? `${prob.xgHome.toFixed(2)}–${prob.xgAway.toFixed(2)}` : '—'} — ${homeShape} vs ${awayShape} should decide central space.`
+      : `Balanced shape battle: ${homeShape} against ${awayShape}; midfield control should sway chance quality.`,
   };
 
+  const versus = `${home.teamName} vs ${away.teamName}`;
   let probabilityNote: LocalizedLine | null = null;
   const insights: LocalizedLine[] = [];
   if (prob) {
@@ -222,8 +234,8 @@ function ruleBasedPreview(
     const dr = (prob.draw * 100).toFixed(1);
     const aw = (prob.awayWin * 100).toFixed(1);
     probabilityNote = {
-      vi: `Xác suất (engine, trận ${matchId}): H ${hw}% · D ${dr}% · A ${aw}% · xG ${prob.xgHome.toFixed(2)}–${prob.xgAway.toFixed(2)}${prob.mostLikely ? ` · ML ${prob.mostLikely}` : ''}.`,
-      en: `Engine (${matchId}): H ${hw}% · D ${dr}% · A ${aw}% · xG ${prob.xgHome.toFixed(2)}–${prob.xgAway.toFixed(2)}${prob.mostLikely ? ` · ML ${prob.mostLikely}` : ''}.`,
+      vi: `Xác suất mô hình (${versus}): ${home.teamName} ${hw}% · Hòa ${dr}% · ${away.teamName} ${aw}% · xG ${prob.xgHome.toFixed(2)}–${prob.xgAway.toFixed(2)}${prob.mostLikely ? ` · Tỉ số ML ${prob.mostLikely}` : ''}.`,
+      en: `Model probability (${versus}): ${home.teamName} ${hw}% · Draw ${dr}% · ${away.teamName} ${aw}% · xG ${prob.xgHome.toFixed(2)}–${prob.xgAway.toFixed(2)}${prob.mostLikely ? ` · ML ${prob.mostLikely}` : ''}.`,
     };
     insights.push({
       vi: `Tỉ số có khả năng cao: ${topScorelines(prob.scorelineDistribution).map((s) => `${s.score} (${(s.prob * 100).toFixed(1)}%)`).join(', ') || prob.mostLikely || '—'}.`,
@@ -232,8 +244,8 @@ function ruleBasedPreview(
   }
 
   const summary: LocalizedLine = {
-    vi: `Phân tích riêng trận ${matchId}: ${home.teamName} (${home.formation}) gặp ${away.teamName} (${away.formation}). ${fav ? `${fav} được mô hình ưu tiên.` : 'Cân tài về xác suất.'}`,
-    en: `Match-specific ${matchId}: ${home.teamName} (${home.formation}) vs ${away.teamName} (${away.formation}). ${fav ? `Model favours ${fav}.` : 'Probabilities are tight.'}`,
+    vi: `Phân tích ${versus}: ${home.teamName}${home.hasAccurateLineup ? ` (${homeShape})` : ''} gặp ${away.teamName}${away.hasAccurateLineup ? ` (${awayShape})` : ''}. ${fav ? `${fav} được mô hình ưu tiên.` : 'Cân tài về xác suất.'}`,
+    en: `Analysis for ${versus}: ${home.teamName}${home.hasAccurateLineup ? ` (${homeShape})` : ''} vs ${away.teamName}${away.hasAccurateLineup ? ` (${awayShape})` : ''}. ${fav ? `Model favours ${fav}.` : 'Probabilities are tight.'}`,
   };
 
   return {
@@ -272,9 +284,9 @@ export async function buildMatchPreviewContext(env: AppEnv, matchId: string) {
   const h2h = await getHeadToHead(env, matchId);
   const groupCtx = await getGroupContextForMatch(env, matchId, match.group_code);
 
-  const [homeLu, awayLu] = await Promise.all([
-    getProjectedLineupForMatch(env, matchId, home.id, home.name),
-    getProjectedLineupForMatch(env, matchId, away.id, away.name),
+  const [homeDisplay, awayDisplay] = await Promise.all([
+    getLineupDisplayForMatch(env, matchId, home.id),
+    getLineupDisplayForMatch(env, matchId, away.id),
   ]);
 
   const homeSide: TeamPreviewSide = {
@@ -284,10 +296,12 @@ export async function buildMatchPreviewContext(env: AppEnv, matchId: string) {
     elo: home.elo_rating,
     fifaRanking: home.fifa_ranking,
     collectiveStrength: home.collective_strength_rating,
-    formation: homeLu.formation,
-    lineupSource: homeLu.source,
-    keyPlayers: homeLu.players.slice(0, 5),
-    fullLineup: homeLu.players,
+    formation: homeDisplay.formation,
+    lineupSource: homeDisplay.hasAccurateLineup ? 'official' : 'unknown',
+    hasAccurateLineup: homeDisplay.hasAccurateLineup,
+    lineupPlayers: homeDisplay.players,
+    keyPlayers: homeDisplay.players.slice(0, 5).map(formatLineupPlayerLine),
+    fullLineup: homeDisplay.displayLines,
     recentForm: h2h?.summary.recentFormHome ?? '—',
     formMatches: h2h?.summary.totalMatches ?? 0,
   };
@@ -299,10 +313,12 @@ export async function buildMatchPreviewContext(env: AppEnv, matchId: string) {
     elo: away.elo_rating,
     fifaRanking: away.fifa_ranking,
     collectiveStrength: away.collective_strength_rating,
-    formation: awayLu.formation,
-    lineupSource: awayLu.source,
-    keyPlayers: awayLu.players.slice(0, 5),
-    fullLineup: awayLu.players,
+    formation: awayDisplay.formation,
+    lineupSource: awayDisplay.hasAccurateLineup ? 'official' : 'unknown',
+    hasAccurateLineup: awayDisplay.hasAccurateLineup,
+    lineupPlayers: awayDisplay.players,
+    keyPlayers: awayDisplay.players.slice(0, 5).map(formatLineupPlayerLine),
+    fullLineup: awayDisplay.displayLines,
     recentForm: h2h?.summary.recentFormAway ?? '—',
     formMatches: h2h?.summary.totalMatches ?? 0,
   };

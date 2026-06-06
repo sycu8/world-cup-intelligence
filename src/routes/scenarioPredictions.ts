@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
-import * as matchesRepo from '../db/repositories/matchesRepo';
+import { resolveMatchRef } from '../services/matchRef';
 import * as matchPredictionScenarioRepo from '../db/repositories/matchPredictionScenarioRepo';
 import {
   generateMatchScenarios,
@@ -12,16 +12,17 @@ import { explainScenarioPrediction } from '../ai/explainScenarioPrediction';
 export const scenarioPredictionRoutes = new Hono<{ Bindings: AppEnv }>();
 
 scenarioPredictionRoutes.get('/:matchId/scenario-predictions', async (c) => {
-  const matchId = c.req.param('matchId');
-  const match = await matchesRepo.getMatch(c.env.DB, matchId);
-  if (!match) return c.json({ error: 'Not found' }, 404);
-  const data = await getMatchScenarioSet(c.env, matchId);
+  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
+  if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const data = await getMatchScenarioSet(c.env, resolved.id);
   if (!data) return c.json({ error: 'Not found' }, 404);
   return c.json({ data });
 });
 
 scenarioPredictionRoutes.get('/:matchId/scenario-predictions/:scenarioId', async (c) => {
-  const matchId = c.req.param('matchId');
+  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
+  if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const matchId = resolved.id;
   const scenarioId = c.req.param('scenarioId');
   const scenario = await matchPredictionScenarioRepo.getScenarioById(c.env.DB, scenarioId);
   if (!scenario || scenario.matchId !== matchId) return c.json({ error: 'Not found' }, 404);
@@ -30,10 +31,9 @@ scenarioPredictionRoutes.get('/:matchId/scenario-predictions/:scenarioId', async
 });
 
 scenarioPredictionRoutes.get('/:matchId/scenario-comparison', async (c) => {
-  const matchId = c.req.param('matchId');
-  const match = await matchesRepo.getMatch(c.env.DB, matchId);
-  if (!match) return c.json({ error: 'Not found' }, 404);
-  const data = await getMatchScenarioSet(c.env, matchId);
+  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
+  if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const data = await getMatchScenarioSet(c.env, resolved.id);
   if (!data) return c.json({ error: 'Not found' }, 404);
   const ai = await explainScenarioComparison(c.env, data).catch(() => null);
   return c.json({
@@ -55,8 +55,9 @@ scenarioPredictionRoutes.get('/:matchId/scenario-comparison', async (c) => {
 });
 
 scenarioPredictionRoutes.post('/:matchId/scenario-predictions/regenerate', async (c) => {
-  const matchId = c.req.param('matchId');
-  const data = await generateMatchScenarios(c.env, matchId);
+  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
+  if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const data = await generateMatchScenarios(c.env, resolved.id);
   if (!data) return c.json({ error: 'Not found' }, 404);
   return c.json({ data });
 });

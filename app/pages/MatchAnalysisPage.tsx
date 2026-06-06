@@ -23,11 +23,15 @@ import { formatMatchVersus, resolveTeamDisplayName } from '../lib/matchTeams';
 import { pickLocalized } from '../lib/briefingText';
 import { useMatchLiveData } from '../lib/useMatchLiveData';
 import { useI18n } from '../lib/i18n/I18nContext';
+import { resolveMatchHref } from '../lib/matchPaths';
+import { useLegacyMatchRedirect } from '../lib/useLegacyMatchRedirect';
+import { matchAnalysisPath } from '@/utils/matchSlug';
 
 export function MatchAnalysisPage() {
   const { matchId } = useParams();
   const { t, mode } = useI18n();
   const { match, prob } = useMatchLiveData(matchId);
+  useLegacyMatchRedirect(matchId, match?.slug, matchAnalysisPath);
   const [preview, setPreview] = useState<MatchPreviewAnalysis | null>(null);
   const [teamSystem, setTeamSystem] = useState<TeamSystemPayload | null>(null);
   const [scenarios, setScenarios] = useState<ScenariosPayload | null>(null);
@@ -45,8 +49,8 @@ export function MatchAnalysisPage() {
       api.matchPreview(matchId).then((r) => setPreview(r.data)).catch(() => setPreview(null)),
       api.matchHistory(matchId).then((r) => {
         setTeamNames({
-          home: r.data.current?.home_name ?? '',
-          away: r.data.current?.away_name ?? '',
+          home: r.data.current?.home_name ?? resolveTeamDisplayName(r.data.current?.home_team_id),
+          away: r.data.current?.away_name ?? resolveTeamDisplayName(r.data.current?.away_team_id),
         });
         setWcHistory(r.data.worldCupHistory ?? r.data.history);
         setWcSummary(r.data.worldCupSummary ?? r.data.summary);
@@ -73,14 +77,10 @@ export function MatchAnalysisPage() {
       const stage = match?.stage ?? preview?.stage ?? null;
       const group = preview?.groupCode ?? null;
       if (stage === 'Group' && group) {
-        return mode === 'vi'
-          ? `Bảng ${group}: ${versus.replace(' vs ', ' – ')}`
-          : `Group ${group}: ${versus}`;
+        return mode === 'vi' ? `Bảng ${group}: ${versus}` : `Group ${group}: ${versus}`;
       }
       if (stage) {
-        return mode === 'vi'
-          ? `${stage}: ${versus.replace(' vs ', ' – ')}`
-          : `${stage}: ${versus}`;
+        return mode === 'vi' ? `${stage}: ${versus}` : `${stage}: ${versus}`;
       }
       return versus;
     }
@@ -128,7 +128,10 @@ export function MatchAnalysisPage() {
   return (
     <article className="mx-auto max-w-[860px] space-y-8 pb-12">
       <header className="space-y-3">
-        <Link to={`/matches/${matchId}`} className="text-sm text-muted hover:text-cyan">
+        <Link
+          to={resolveMatchHref({ id: match?.id ?? matchId!, slug: match?.slug ?? matchId })}
+          className="text-sm text-muted hover:text-cyan"
+        >
           ← {t('matchAnalysis.back')}
         </Link>
         <div className="space-y-2">
@@ -168,7 +171,12 @@ export function MatchAnalysisPage() {
         />
       )}
       <MatchPreviewAnalysisPanel preview={preview} loading={loading} />
-      <ScenarioPredictionPanel data={scenarioPredictions} loading={loading} />
+      <ScenarioPredictionPanel
+        data={scenarioPredictions}
+        loading={loading}
+        homeName={home}
+        awayName={away}
+      />
       <ScenarioLikelihoodPanel data={scenarios} loading={loading} />
       <MarketSignalPanel payload={market} loading={loading} />
       <TacticalBriefingPanel briefing={null} />

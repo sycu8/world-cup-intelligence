@@ -3,6 +3,7 @@ import type { AppEnv } from '../env';
 import { getCachedAnalysis, runMultiVariableAnalysis } from '../ai/multiVariableAnalysis';
 import { isGatewayConfigured } from '../ai/gatewayClient';
 import { listRoutingTable } from '../ai/modelRouter';
+import { resolveMatchRef } from '../services/matchRef';
 
 export const analysisRoutes = new Hono<{ Bindings: AppEnv }>();
 
@@ -18,7 +19,9 @@ analysisRoutes.get('/config', (c) => {
 });
 
 analysisRoutes.get('/:matchId', async (c) => {
-  const matchId = c.req.param('matchId');
+  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
+  if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const matchId = resolved.id;
   let analysis = await getCachedAnalysis(c.env, matchId);
   if (!analysis && isGatewayConfigured(c.env)) {
     analysis = await runMultiVariableAnalysis(c.env, matchId);

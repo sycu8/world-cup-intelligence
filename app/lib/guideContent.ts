@@ -32,7 +32,7 @@ export const quickStartSteps: {
     },
   },
   {
-    to: '/matches/m-w26-ga-1v2',
+    to: '/matches/vong-bang-a-united-states-vs-mexico',
     accent: 'magenta',
     title: { vi: '2. Mở một trận cụ thể', en: '2. Open a specific match' },
     desc: {

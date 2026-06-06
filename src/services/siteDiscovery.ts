@@ -1,5 +1,6 @@
 import type { AppEnv } from '../env';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
+import { buildMatchSlug } from '../utils/matchSlug';
 
 export function siteOrigin(url: string): string {
   return new URL(url).origin;
@@ -52,10 +53,22 @@ export async function buildSitemapXml(env: AppEnv, origin: string): Promise<stri
   const now = new Date().toISOString().slice(0, 10);
 
   const { results } = await env.DB.prepare(
-    `SELECT id, kickoff_utc FROM matches WHERE tournament_id = ? ORDER BY kickoff_utc`,
+    `SELECT m.id, m.kickoff_utc, m.stage, m.group_code, ht.name AS home_name, at.name AS away_name
+     FROM matches m
+     JOIN teams ht ON ht.id = m.home_team_id
+     JOIN teams at ON at.id = m.away_team_id
+     WHERE m.tournament_id = ?
+     ORDER BY m.kickoff_utc`,
   )
     .bind(WC2026_TOURNAMENT_ID)
-    .all<{ id: string; kickoff_utc: string }>();
+    .all<{
+      id: string;
+      kickoff_utc: string;
+      stage: string | null;
+      group_code: string | null;
+      home_name: string;
+      away_name: string;
+    }>();
 
   const urls: { loc: string; lastmod: string; changefreq: string; priority: string }[] =
     staticPaths.map((path) => ({
@@ -67,14 +80,20 @@ export async function buildSitemapXml(env: AppEnv, origin: string): Promise<stri
 
   for (const m of results ?? []) {
     const lastmod = m.kickoff_utc?.slice(0, 10) ?? now;
+    const slug = buildMatchSlug({
+      stage: m.stage,
+      groupCode: m.group_code,
+      homeName: m.home_name,
+      awayName: m.away_name,
+    });
     urls.push({
-      loc: `${origin}/matches/${m.id}`,
+      loc: `${origin}/matches/${slug}`,
       lastmod,
       changefreq: 'weekly',
       priority: '0.7',
     });
     urls.push({
-      loc: `${origin}/matches/${m.id}/analysis`,
+      loc: `${origin}/matches/${slug}/analysis`,
       lastmod,
       changefreq: 'weekly',
       priority: '0.6',

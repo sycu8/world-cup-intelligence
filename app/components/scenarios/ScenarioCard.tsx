@@ -2,6 +2,7 @@ import { pct } from '../../lib/format';
 import type { ScenarioItem } from '../../lib/api';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { scenarioTypeLabel } from '../../lib/i18n/termLabels';
+import { legacyFactorLabel } from '../../lib/i18n/scenarioPredictionLabels';
 
 export function ScenarioCard({ scenario }: { scenario: ScenarioItem }) {
   const { t, mode } = useI18n();
@@ -17,7 +18,9 @@ export function ScenarioCard({ scenario }: { scenario: ScenarioItem }) {
         {t('scenario.confidence')} {pct(scenario.confidence)}
       </p>
       {scenario.explanationFactors[0] && (
-        <p className="mt-2 text-xs text-foreground/80">{scenario.explanationFactors[0]}</p>
+        <p className="mt-2 text-xs text-foreground/80">
+          {legacyFactorLabel(scenario.explanationFactors[0], mode)}
+        </p>
       )}
     </div>
   );

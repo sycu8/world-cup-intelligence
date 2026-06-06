@@ -18,6 +18,27 @@
 - Lịch đầy đủ **104 trận** WC 2026 (vòng bảng + knockout)
 - Tỉ số **LIVE** và **FT** trên lịch, làm mới mỗi 30 giây
 - Lọc: tất cả / vòng bảng / knockout
+- Link trận dùng **slug tiếng Việt** (xem mục URL trận bên dưới)
+
+### URL trận (slug SEO-friendly)
+
+Mỗi trận có URL dạng **`vòng-đội-a-vs-đội-b`** (ASCII, không dấu):
+
+| Vòng | Slug vòng | Ví dụ |
+|------|-----------|--------|
+| Bảng A | `vong-bang-a` | `/matches/vong-bang-a-united-states-vs-mexico` |
+| Vòng 1/16 | `vong-1-16` | `/matches/vong-1-16-argentina-vs-france` |
+| Vòng 1/8 | `vong-1-8` | … |
+| Tứ kết | `vong-tu-ket` | … |
+| Bán kết | `vong-ban-ket` | … |
+| Tranh hạng 3 | `tranh-hang-3` | … |
+| Chung kết | `chung-ket` | `/matches/chung-ket-argentina-vs-france` |
+
+- Phân tích dài: `/matches/{slug}/analysis`
+- Đội hình: `/lineups/{slug}`
+- API & sitemap dùng cùng slug; response có field `slug`
+- URL cũ `m-w26-ga-1v2` vẫn hoạt động → **redirect client-side** sang slug canonical
+- Logic: `src/utils/matchSlug.ts`, `src/services/matchRef.ts`
 
 ### Pipeline sau trận (backend)
 Sau mỗi trận kết thúc (cron mỗi phút):
@@ -28,10 +49,11 @@ Sau mỗi trận kết thúc (cron mỗi phút):
 
 > Hiện dùng mock ingest (tỉ số theo thời gian kickoff). Sẵn sàng thay bằng API dữ liệu thật trong `src/ingestion/matchDataRefresh.ts`.
 
-### Chi tiết trận (`/matches/:matchId`)
+### Chi tiết trận (`/matches/:slug`)
 - **Xác suất real-time** — poll 30s (15s khi LIVE): tỉ lệ thắng/hòa/thua, xG, độ tin cậy
 - Panel xác suất hiển thị **tên đội** (không còn Chủ nhà/Khách), badge LIVE khi trận đang diễn ra
-- **Đội hình** — badge **Chính thức / Dự kiến / Từ danh sách đội**; trang riêng `/lineups/:matchId`
+- **Đội hình** — chỉ hiển thị khi có XI **chính thức** (`is_official = 1`, ≥ 7 cầu thủ); format `(số) - tên - vị trí`; nếu chưa có → *"Chưa có thông tin chính xác, sẽ cập nhật sau"*
+- Trang riêng `/lineups/:slug`
 - **Cơ cấu đóng góp đội** — section riêng full-width, nhãn đầy đủ (Ép sân, Kiến tạo, …), đặt trên lịch sử đối đầu
 - **Đối đầu World Cup** — các trận giữa hai đội ở các kỳ WC trước 2026, kèm tỉ số & vòng đấu
 - Team system, **dự đoán đa kịch bản** (Scenario Predictions), kịch bản sự kiện (legacy scenarios), mô hình vs thị trường
@@ -67,11 +89,11 @@ Mỗi trận có **≥ 2 kịch bản phân tích** (baseline + alternative), do
 5. Recompute tự động sau `recomputeMatchProbability`; queue `SCENARIO_GENERATE` / `SCENARIO_RECOMPUTE`
 6. WebSocket `SCENARIO_UPDATE` qua Durable Object `MatchRoom`
 
-**UI:** `ScenarioPredictionPanel` trên trang trận và phân tích dài — badge model confidence, so sánh kịch bản (collapse trên mobile).
+**UI:** `ScenarioPredictionPanel` trên trang trận và phân tích dài — badge model confidence, so sánh kịch bản (collapse trên mobile). **Giao diện VI:** tên kịch bản, điều kiện trigger và xác suất hiển thị **%**; tiêu đề trận dạng *Đội A vs Đội B* (không còn mã `m-w26-…`).
 
 > Thuật ngữ: *Scenario Likelihood*, *Probability Path*, *Analytical Context* — **không** phải khuyến nghị cược.
 
-### Phân tích dài (`/matches/:matchId/analysis`)
+### Phân tích dài (`/matches/:slug/analysis`)
 - Tiêu đề trận bằng **tên đội thật** (vd. *United States vs Argentina*), kèm ngày kickoff
 - Xác suất, hệ thống đội, **hai kịch bản quan trọng nhất**, thị trường, lịch sử đối đầu WC — cập nhật real-time
 
@@ -88,14 +110,14 @@ Mỗi trận có **≥ 2 kịch bản phân tích** (baseline + alternative), do
 ### Đội / Cầu thủ
 - `/teams/:teamId` — hồ sơ đội + **tổng hợp đối đầu World Cup** theo từng đối thủ (W/D/L, tỉ số từng trận)
 - `/players/:playerId` — thông tin cầu thủ
-- `/lineups/:matchId` — đội hình trận
+- `/lineups/:slug` — đội hình trận (chỉ khi có XI chính thức)
 
 ## Agent & crawler discovery
 
 | URL | Mô tả |
 |-----|--------|
 | `/robots.txt` | RFC 9309 — AI bot rules, Content-Signal, sitemap |
-| `/sitemap.xml` | Sitemap (trang tĩnh + 104 trận + phân tích) |
+| `/sitemap.xml` | Sitemap (trang tĩnh + 104 trận slug + phân tích) |
 | `/.well-known/api-catalog` | RFC 9727 `application/linkset+json` |
 | `/.well-known/openapi.json` | OpenAPI 3.1 |
 | `/docs/api` | API documentation (Markdown) |
@@ -179,7 +201,7 @@ npx wrangler dev --remote --port 8787
 |--------|--------|
 | `npm run dev` | Frontend Vite |
 | `npm run build` | Build production |
-| `npm run test` | Vitest (74 tests) |
+| `npm run test` | Vitest (81 tests) |
 | `npm run pull:statsbomb` | Pull StatsBomb open-data → D1 + R2 |
 | `npm run typecheck` | TypeScript |
 | `npm run deploy` | Build + `wrangler deploy` |
@@ -221,21 +243,21 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 | `GET /api/health` | Health + meta refresh |
 | `GET /api/dashboard` | Featured match, counts |
 | `GET /api/schedule` | Lịch 104 trận theo ngày |
-| `GET /api/matches/:id` | Chi tiết trận |
-| `GET /api/matches/:id/lineups` | Đội hình hai bên (official / projected / squad) |
-| `GET /api/matches/:id/preview` | Phân tích trước trận (lineup, form, bảng) |
-| `GET /api/matches/:id/probability` | Snapshot xác suất |
-| `GET /api/matches/:id/history` | Đối đầu WC (`worldCupHistory`, `worldCupSummary`) |
-| `GET /api/matches/:id/tactical-briefing` | Briefing AI |
-| `GET /api/matches/:id/scenarios` | Kịch bản sự kiện (legacy 10 loại) |
-| `GET /api/matches/:id/scenario-predictions` | **≥2 kịch bản** + comparison + model confidence |
-| `GET /api/matches/:id/scenario-predictions/:scenarioId` | Chi tiết 1 kịch bản + AI explain |
-| `GET /api/matches/:id/scenario-comparison` | So sánh baseline vs alternative |
-| `GET /api/matches/:id/probability-movement` | Lịch sử biến động xác suất |
+| `GET /api/matches/:ref` | Chi tiết trận (`ref` = slug hoặc id cũ `m-*`; trả thêm `slug`) |
+| `GET /api/matches/:ref/lineups` | Đội hình hai bên (official only trên UI) |
+| `GET /api/matches/:ref/preview` | Phân tích trước trận (lineup, form, bảng) |
+| `GET /api/matches/:ref/probability` | Snapshot xác suất |
+| `GET /api/matches/:ref/history` | Đối đầu WC (`worldCupHistory`, `worldCupSummary`) |
+| `GET /api/matches/:ref/tactical-briefing` | Briefing AI |
+| `GET /api/matches/:ref/scenarios` | Kịch bản sự kiện (legacy 10 loại) |
+| `GET /api/matches/:ref/scenario-predictions` | **≥2 kịch bản** + comparison + model confidence |
+| `GET /api/matches/:ref/scenario-predictions/:scenarioId` | Chi tiết 1 kịch bản + AI explain |
+| `GET /api/matches/:ref/scenario-comparison` | So sánh baseline vs alternative |
+| `GET /api/matches/:ref/probability-movement` | Lịch sử biến động xác suất |
 | `GET /api/teams/:id/wc-h2h` | Lịch sử WC của đội theo đối thủ |
 | `GET /api/news` | Danh sách tin (paginate, hot) |
 | `GET /api/news/:docId` | Một bài (+ dịch VI on-demand) |
-| `GET /api/analysis/:matchId` | Phân tích đa biến |
+| `GET /api/analysis/:ref` | Phân tích đa biến (`ref` = slug hoặc `m-*`) |
 
 **Admin** (cần header `X-Admin-Token` = secret `ADMIN_TOKEN`):
 
@@ -258,7 +280,7 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 
 ```bash
 npm run typecheck   # ✓ pass
-npm test            # ✓ 74 tests, 22 files
+npm test            # ✓ 81 tests, 24 files
 ```
 
 **Đã kiểm tra:**
@@ -271,6 +293,8 @@ npm test            # ✓ 74 tests, 22 files
 - Team form stats, StatsBomb ingest, bulk recompute runner
 - Official lineup sync, lineup features cho probability engine
 - **Multi-scenario engine** (generation, comparison, realtime update, AI schema, prohibited betting copy)
+- **Match URL slugs** (`matchSlug`, `matchRef`, legacy redirect)
+- **Lineup display** (official-only UI, `(số) - tên - vị trí`)
 
 ---
 
@@ -278,10 +302,11 @@ npm test            # ✓ 74 tests, 22 files
 
 ```
 app/           React UI (pages, components, i18n)
-  lib/         useMatchLiveData, matchTeams, api
+  lib/         useMatchLiveData, matchPaths, matchTeams, api, scenarioPredictionLabels
 src/
   routes/      Hono API
-  services/    recompute, matchScenarioService, officialLineupSync, teamFormStats
+  services/    recompute, matchScenarioService, matchRef, officialLineupSync, lineupDisplay
+  utils/       matchSlug (URL slug builder)
   ingestion/   match refresh, news crawler, statsbombIngest
   models/      probability engine, scenarios/ (multi-scenario prediction)
   queues/      ingest + model consumers
@@ -314,6 +339,8 @@ Migration `0013_wc_historical_h2h.sql` seed các kỳ WC (1930–2022) và trậ
 - [x] Auto bulk recompute WC 2026 khi có data mới (StatsBomb, trận kết thúc, cron fallback)
 - [x] Đồng bộ đội hình chính thức (squad / admin XI) lên từng trận + ảnh hưởng engine
 - [x] Multi-scenario prediction engine (baseline + alternative, D1 + R2 + UI + WebSocket)
+- [x] URL slug trận đấu (`vong-bang-a-united-states-vs-mexico`) + redirect id cũ `m-*`
+- [x] UI VI cho kịch bản (% + tên trận); đội hình chỉ hiện khi XI chính thức
 - [ ] WebSocket client auto-refresh ScenarioPredictionPanel
 - [ ] Scenario backtest đầy đủ trên WC 2018/2022 (Brier, calibration)
 - [ ] Mở rộng squad WC 2026 đủ 23 cầu thủ/đội (hiện seed thưa)

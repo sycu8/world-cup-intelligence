@@ -16,7 +16,7 @@ export function ScenarioLikelihoodPanel({ data, loading }: Props) {
     <section className="panel-elevated space-y-4">
       <div>
         <h2 className="label-tactical text-magenta">{t('scenario.title')}</h2>
-        <p className="mt-1 text-xs text-muted">{data.disclaimer}</p>
+        <p className="mt-1 text-xs text-muted">{t('scenario.legacyDisclaimer')}</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {data.scenarios.map((s) => (

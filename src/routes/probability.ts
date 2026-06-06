@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
-import * as matchesRepo from '../db/repositories/matchesRepo';
+import { resolveMatchRef } from '../services/matchRef';
 import * as teamsRepo from '../db/repositories/teamsRepo';
 import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import * as tournamentsRepo from '../db/repositories/tournamentsRepo';
@@ -40,9 +40,11 @@ function snapshotIsComplete(snap: {
   return parseDistributionJson(snap.scoreline_json) !== null && parseIntervalJson(snap.interval_json) !== null;
 }
 
-async function resolveProbability(c: { env: AppEnv }, matchId: string, recompute = false) {
-  const match = await matchesRepo.getMatch(c.env.DB, matchId);
-  if (!match) return null;
+async function resolveProbability(c: { env: AppEnv }, ref: string, recompute = false) {
+  const resolved = await resolveMatchRef(c.env.DB, ref);
+  if (!resolved) return null;
+  const match = resolved;
+  const matchId = resolved.id;
   if (!recompute) {
     const snap = await probabilityRepo.getLatestSnapshot(c.env.DB, matchId);
     if (snap && snapshotIsComplete(snap)) {

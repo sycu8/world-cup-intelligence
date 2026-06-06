@@ -43,12 +43,16 @@ import { adjustProbabilities } from '../lib/simulator';
 import { pct } from '../lib/format';
 import { pickLocalized } from '../lib/briefingText';
 import { useI18n } from '../lib/i18n/I18nContext';
+import { resolveMatchAnalysisHref } from '../lib/matchPaths';
+import { useLegacyMatchRedirect } from '../lib/useLegacyMatchRedirect';
+import { matchPagePath } from '@/utils/matchSlug';
 
 export function MatchPage() {
   const { matchId } = useParams();
   const { t, mode } = useI18n();
   const [viewMode, setViewMode] = useState<ViewMode>('tactical');
   const { match, prob, loadError } = useMatchLiveData(matchId);
+  useLegacyMatchRedirect(matchId, match?.slug, matchPagePath);
   const [briefing, setBriefing] = useState<TacticalBriefing | null>(null);
   const [events, setEvents] = useState<{ x?: number; y?: number; event_type?: string; xg?: number }[]>([]);
   const [analysis, setAnalysis] = useState<MultiVariableAnalysis | null>(null);
@@ -274,7 +278,7 @@ export function MatchPage() {
 
       <div className="space-y-2">
         <Link
-          to={`/matches/${matchId}/analysis`}
+          to={resolveMatchAnalysisHref({ id: match?.id ?? matchId!, slug: match?.slug ?? matchId })}
           className="inline-block text-sm font-medium text-cyan hover:underline"
         >
           {t('match.fullArticle')}
@@ -291,7 +295,12 @@ export function MatchPage() {
         away={teamSystem?.away ?? null}
         loading={intelLoading}
       />
-      <ScenarioPredictionPanel data={scenarioPredictions} loading={intelLoading} />
+      <ScenarioPredictionPanel
+        data={scenarioPredictions}
+        loading={intelLoading}
+        homeName={home}
+        awayName={away}
+      />
       <ScenarioLikelihoodPanel data={scenarios} loading={intelLoading} />
       <MarketSignalPanel payload={marketSignals} loading={intelLoading} />
 

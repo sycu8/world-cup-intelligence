@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { ScheduleMatch } from '../../lib/api';
+import { resolveMatchHref } from '../../lib/matchPaths';
 import { Bilingual } from '../i18n/Bilingual';
 import { useI18n } from '../../lib/i18n/I18nContext';
 
@@ -118,7 +119,7 @@ export function MatchScheduleCalendar({ byDate, matches, totalExpected = 104 }: 
                 {filteredByDate[date].map((m) => (
                   <li key={m.id}>
                     <Link
-                      to={`/matches/${m.id}`}
+                      to={resolveMatchHref(m)}
                       className="flex h-full flex-col rounded-xl border border-border/60 bg-panel2/40 px-3 py-2.5 text-sm transition hover:border-pressing/50 hover:bg-pressing/5"
                     >
                       <div className="flex items-start justify-between gap-2">

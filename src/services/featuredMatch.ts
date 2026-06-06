@@ -1,6 +1,7 @@
 import type { AppEnv } from '../env';
 import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
+import { buildMatchSlug } from '../utils/matchSlug';
 
 type MatchRow = Record<string, unknown> & {
   id: string;
@@ -61,5 +62,14 @@ export async function getFeaturedMatchPayload(env: AppEnv) {
       }
     : null;
 
-  return { ...featured, probability };
+  return {
+    ...featured,
+    slug: buildMatchSlug({
+      stage: featured.stage as string | null,
+      groupCode: featured.group_code as string | null,
+      homeName: String(featured.home_name),
+      awayName: String(featured.away_name),
+    }),
+    probability,
+  };
 }

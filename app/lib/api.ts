@@ -175,6 +175,7 @@ export type DashboardData = {
 
 export type ScheduleMatch = {
   id: string;
+  slug?: string;
   kickoff_utc: string;
   status: string;
   stage?: string;
@@ -208,8 +209,11 @@ export type NewsArticle = {
 
 export type MatchSummary = {
   id: string;
+  slug?: string;
   home_team_id: string;
   away_team_id: string;
+  home_name?: string;
+  away_name?: string;
   status: string;
   home_score: number;
   away_score: number;
@@ -246,16 +250,25 @@ export type ProbabilityData = {
   modelVersion?: string;
 };
 
+export type LineupPlayerRow = {
+  shirtNumber: number | null;
+  name: string;
+  position: string;
+};
+
 export type MatchLineupSide = {
   teamId: string;
   teamName: string;
-  formation: string;
+  formation: string | null;
   players: string[];
+  lineupPlayers?: LineupPlayerRow[];
+  hasAccurateLineup?: boolean;
   source: string;
 };
 
 export type MatchLineupsPayload = {
   matchId: string;
+  slug?: string;
   home: MatchLineupSide;
   away: MatchLineupSide;
   records?: unknown[];
@@ -270,6 +283,8 @@ export type MatchPreviewSidePreview = {
   collectiveStrength: number | null;
   formation: string | null;
   lineupSource: string;
+  hasAccurateLineup?: boolean;
+  lineupPlayers?: LineupPlayerRow[];
   keyPlayers: string[];
   fullLineup: string[];
   recentForm: string;
