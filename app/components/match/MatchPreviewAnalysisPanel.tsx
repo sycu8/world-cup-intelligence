@@ -4,6 +4,7 @@ import { useI18n } from '../../lib/i18n/I18nContext';
 import { pickLocalized, type LocalizedString } from '../../lib/briefingText';
 import { pct } from '../../lib/format';
 import { formatMatchVersus } from '../../lib/matchTeams';
+import { matchVersusSeparator } from '../../lib/i18n/stageLabels';
 import { LineupColumn } from './LineupColumn';
 
 type Props = {
@@ -40,6 +41,7 @@ export function MatchPreviewAnalysisPanel({ preview, loading }: Props) {
     preview.away.teamId,
     preview.home.teamName,
     preview.away.teamName,
+    matchVersusSeparator(mode),
   );
 
   return (

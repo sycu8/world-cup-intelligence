@@ -35,9 +35,9 @@ export function TeamPage() {
       <header className="panel max-w-xl">
         <h1 className="font-heading text-3xl text-foreground">{team.name}</h1>
         <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
-          <dt className="text-muted">FIFA rank</dt>
+          <dt className="text-muted">{t('team.fifaRank')}</dt>
           <dd>{team.fifa_ranking ?? '—'}</dd>
-          <dt className="text-muted">Elo</dt>
+          <dt className="text-muted">{t('team.elo')}</dt>
           <dd>{team.elo_rating?.toFixed(0) ?? '—'}</dd>
         </dl>
       </header>

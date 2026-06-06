@@ -5,6 +5,7 @@
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { nationMeta } from './nationIsoCodes.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -28,15 +29,15 @@ const PLACEHOLDER_IDS = [
 const lines = [
   '-- Rename WC 2026 placeholder teams to real nation names (groups B–L)',
   '-- Group A uses team-usa, team-mex, team-arg, team-bra from reference seed',
+  '-- country_code = ISO 3166-1 alpha-2 (not name-prefix slices)',
   '',
 ];
 
 PLACEHOLDER_IDS.forEach((teamId, i) => {
   const nation = NATIONS[i % NATIONS.length];
-  const short = nation.length <= 3 ? nation.toUpperCase() : nation.slice(0, 3).toUpperCase();
-  const cc = nation.slice(0, 2).toUpperCase();
+  const { iso, short } = nationMeta(nation);
   lines.push(
-    `UPDATE teams SET name = '${nation.replace(/'/g, "''")}', short_name = '${short}', country_code = '${cc}' WHERE id = '${teamId}';`,
+    `UPDATE teams SET name = '${nation.replace(/'/g, "''")}', short_name = '${short}', country_code = '${iso}' WHERE id = '${teamId}';`,
   );
 });
 

@@ -23,6 +23,7 @@ import { formatMatchVersus, resolveTeamDisplayName } from '../lib/matchTeams';
 import { pickLocalized } from '../lib/briefingText';
 import { useMatchLiveData } from '../lib/useMatchLiveData';
 import { useI18n } from '../lib/i18n/I18nContext';
+import { matchStageLabel, matchVersusSeparator } from '../lib/i18n/stageLabels';
 import { resolveMatchHref } from '../lib/matchPaths';
 import { useLegacyMatchRedirect } from '../lib/useLegacyMatchRedirect';
 import { useMatchScenarioLive } from '../lib/useMatchScenarioLive';
@@ -74,16 +75,24 @@ export function MatchAnalysisPage() {
     const awayId = match?.away_team_id ?? preview?.away.teamId;
     const homeName = teamNames.home || preview?.home.teamName;
     const awayName = teamNames.away || preview?.away.teamName;
-    const versus = formatMatchVersus(homeId, awayId, homeName, awayName);
+    const versus = formatMatchVersus(
+      homeId,
+      awayId,
+      homeName,
+      awayName,
+      matchVersusSeparator(mode),
+    );
 
     if (versus) {
       const stage = match?.stage ?? preview?.stage ?? null;
       const group = preview?.groupCode ?? null;
       if (stage === 'Group' && group) {
-        return mode === 'vi' ? `Bảng ${group}: ${versus}` : `Group ${group}: ${versus}`;
+        return t('matchAnalysis.groupTitle').replace('{group}', group).replace('{versus}', versus);
       }
       if (stage) {
-        return mode === 'vi' ? `${stage}: ${versus}` : `${stage}: ${versus}`;
+        return t('matchAnalysis.stageTitle')
+          .replace('{stage}', matchStageLabel(stage, t))
+          .replace('{versus}', versus);
       }
       return versus;
     }

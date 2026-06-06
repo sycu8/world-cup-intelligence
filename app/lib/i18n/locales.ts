@@ -22,6 +22,11 @@ export type LocaleKey =
   | 'standings.pts'
   | 'standings.noResults'
   | 'standings.thirdPlace'
+  | 'standings.played'
+  | 'standings.gd'
+  | 'standings.thirdBadge'
+  | 'standings.thirdRowDetail'
+  | 'standings.qualifiesR32'
   | 'bracket.title'
   | 'bracket.subtitle'
   | 'bracket.loading'
@@ -46,6 +51,7 @@ export type LocaleKey =
   | 'news.translatingBody'
   | 'news.translationFallback'
   | 'news.notFound'
+  | 'news.articleLangLabel'
   | 'home.title'
   | 'home.subtitle'
   | 'home.badge'
@@ -123,6 +129,8 @@ export type LocaleKey =
   | 'common.ft'
   | 'common.startingSoon'
   | 'common.group'
+  | 'common.groupStage'
+  | 'common.vs'
   | 'common.match'
   | 'common.prev'
   | 'common.next'
@@ -145,6 +153,8 @@ export type LocaleKey =
   | 'team.subtitle'
   | 'team.loading'
   | 'team.empty'
+  | 'team.fifaRank'
+  | 'team.elo'
   | 'scenario.title'
   | 'scenario.loading'
   | 'scenario.empty'
@@ -216,6 +226,9 @@ export type LocaleKey =
   | 'match.guideProbNote'
   | 'common.liveLabel'
   | 'match.topScores'
+  | 'matchAnalysis.groupTitle'
+  | 'matchAnalysis.stageTitle'
+  | 'lineups.apiError'
   | 'matchAnalysis.back'
   | 'matchAnalysis.title'
   | 'matchAnalysis.subtitle'
@@ -303,9 +316,11 @@ export type LocaleKey =
   | 'team.wcH2hEmpty'
   | 'team.wcH2hRecord'
   | 'team.wcH2hMeetings'
+  | 'history.stageR32'
   | 'history.stageR16'
   | 'history.stageQf'
   | 'history.stageSf'
+  | 'history.stageThird'
   | 'history.stageFinal'
   | 'history.matchStage';
 
@@ -338,7 +353,15 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'standings.team': { vi: 'Đội', en: 'Team' },
   'standings.pts': { vi: 'Đ', en: 'Pts' },
   'standings.noResults': { vi: 'Chưa có trận kết thúc', en: 'No finished matches yet' },
-  'standings.thirdPlace': { vi: 'Xếp hạng hạng 3 (8 suất tốt nhất → R32)', en: 'Third-place ranking (top 8 → R32)' },
+  'standings.thirdPlace': { vi: 'Xếp hạng hạng 3 (8 suất tốt nhất → Vòng 1/16)', en: 'Third-place ranking (top 8 → Round of 32)' },
+  'standings.played': { vi: 'Tr', en: 'P' },
+  'standings.gd': { vi: 'HS', en: 'GD' },
+  'standings.thirdBadge': { vi: 'H3', en: '3rd' },
+  'standings.thirdRowDetail': {
+    vi: '({group}) · {pts} đ · HS {gd}',
+    en: '({group}) · {pts} pts · GD {gd}',
+  },
+  'standings.qualifiesR32': { vi: '→ Vòng 1/16', en: '→ R32' },
   'bracket.title': { vi: 'Nhánh knockout', en: 'Knockout bracket' },
   'bracket.subtitle': {
     vi: 'Vòng 1/16 → Chung kết — bấm trận để mở phân tích',
@@ -381,6 +404,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'Auto-translation unavailable — showing English. Open the source link below for the original.',
   },
   'news.notFound': { vi: 'Không tìm thấy bài viết.', en: 'Article not found.' },
+  'news.articleLangLabel': { vi: 'Ngôn ngữ bài viết', en: 'Article language' },
   'home.title': { vi: 'Trung tâm Chiến thuật World Cup', en: 'World Cup Tactical Command' },
   'home.subtitle': {
     vi: 'Dữ liệu cập nhật mỗi phút. Xác suất tính trên backend. Tin tức crawl mỗi 15 phút.',
@@ -466,6 +490,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'lineups.title': { vi: 'Đội hình trận đấu', en: 'Match lineups' },
   'lineups.back': { vi: '← Về trận đấu', en: '← Back to match' },
   'lineups.loading': { vi: 'Đang tải đội hình…', en: 'Loading lineups…' },
+  'lineups.apiError': { vi: 'Lỗi tải dữ liệu', en: 'Failed to load data' },
   'match.previewForm': { vi: 'Phong độ', en: 'Form' },
   'match.previewContext': { vi: 'Bối cảnh giải', en: 'Tournament context' },
   'match.previewTactical': { vi: 'Góc chiến thuật', en: 'Tactical angle' },
@@ -509,6 +534,8 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'common.ft': { vi: 'KẾT THÚC', en: 'FT' },
   'common.startingSoon': { vi: 'Sắp bắt đầu', en: 'Starting soon' },
   'common.group': { vi: 'BẢNG', en: 'GROUP' },
+  'common.groupStage': { vi: 'Vòng bảng', en: 'Group stage' },
+  'common.vs': { vi: ' gặp ', en: ' vs ' },
   'common.match': { vi: 'TRẬN', en: 'MATCH' },
   'common.prev': { vi: 'Trước', en: 'Previous' },
   'common.next': { vi: 'Sau', en: 'Next' },
@@ -546,6 +573,8 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     vi: 'Hồ sơ tập thể sẽ hiện sau khi engine xác suất chạy cho trận này.',
     en: 'Team collective profiles appear after the probability engine runs for this match.',
   },
+  'team.fifaRank': { vi: 'Hạng FIFA', en: 'FIFA rank' },
+  'team.elo': { vi: 'Elo', en: 'Elo' },
   'scenario.title': { vi: 'Xác suất kịch bản', en: 'Scenario likelihood' },
   'scenario.loading': { vi: 'Đang tải kịch bản…', en: 'Loading scenarios…' },
   'scenario.empty': {
@@ -693,6 +722,8 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'common.liveLabel': { vi: 'Trực tiếp', en: 'Live' },
   'match.topScores': { vi: 'Tỉ số ML', en: 'Top scores' },
   'matchAnalysis.back': { vi: 'Bảng chiến thuật', en: 'Tactical dashboard' },
+  'matchAnalysis.groupTitle': { vi: 'Bảng {group}: {versus}', en: 'Group {group}: {versus}' },
+  'matchAnalysis.stageTitle': { vi: '{stage}: {versus}', en: '{stage}: {versus}' },
   'matchAnalysis.title': { vi: 'Phân tích chiến thuật đầy đủ', en: 'Full tactical analysis' },
   'matchAnalysis.subtitle': {
     vi: 'Hệ thống đội, kịch bản, tín hiệu thị trường và biến động xác suất.',
@@ -821,9 +852,11 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'W {w} · D {d} · L {l} · GF {gf}–{ga}',
   },
   'team.wcH2hMeetings': { vi: 'trận', en: 'matches' },
+  'history.stageR32': { vi: 'Vòng 1/16', en: 'Round of 32' },
   'history.stageR16': { vi: 'Vòng 1/8', en: 'Round of 16' },
   'history.stageQf': { vi: 'Tứ kết', en: 'Quarter-final' },
   'history.stageSf': { vi: 'Bán kết', en: 'Semi-final' },
+  'history.stageThird': { vi: 'Tranh hạng 3', en: 'Third place' },
   'history.stageFinal': { vi: 'Chung kết', en: 'Final' },
   'history.matchStage': { vi: 'Trận', en: 'Match' },
 };

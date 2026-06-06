@@ -4,6 +4,7 @@ import type { ScheduleMatch } from '../../lib/api';
 import { resolveMatchHref } from '../../lib/matchPaths';
 import { Bilingual } from '../i18n/Bilingual';
 import { useI18n } from '../../lib/i18n/I18nContext';
+import { formatLocalizedVersus, matchStageLabel } from '../../lib/i18n/stageLabels';
 
 type Props = {
   byDate: Record<string, ScheduleMatch[]>;
@@ -124,12 +125,16 @@ export function MatchScheduleCalendar({ byDate, matches, totalExpected = 104 }: 
                     >
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-medium leading-snug">
-                          {m.home_short ?? m.home_name}
-                          <span className="text-muted"> vs </span>
-                          {m.away_short ?? m.away_name}
+                          {formatLocalizedVersus(
+                            m.home_short ?? m.home_name,
+                            m.away_short ?? m.away_name,
+                            mode,
+                          )}
                         </span>
                         {m.status === 'live' && (
-                          <span className="shrink-0 text-xs font-semibold text-live">LIVE</span>
+                          <span className="shrink-0 text-xs font-semibold text-live">
+                            {t('common.live')}
+                          </span>
                         )}
                       </div>
                       <p className="mt-1 text-xs text-muted">
@@ -138,7 +143,7 @@ export function MatchScheduleCalendar({ byDate, matches, totalExpected = 104 }: 
                           minute: '2-digit',
                         })}
                         {m.stage === 'Group' && m.group_code ? ` · ${t('calendar.groupLabel')} ${m.group_code}` : ''}
-                        {m.stage && m.stage !== 'Group' ? ` · ${m.stage}` : ''}
+                        {m.stage && m.stage !== 'Group' ? ` · ${matchStageLabel(m.stage, t)}` : ''}
                         {m.status === 'live' && ` · ${m.home_score}-${m.away_score}`}
                         {m.status === 'completed' && ` · ${m.home_score}-${m.away_score}`}
                       </p>

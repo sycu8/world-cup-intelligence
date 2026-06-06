@@ -5,6 +5,7 @@ import { pct } from '../../lib/format';
 import { ProbabilityStrip } from '../match/ProbabilityStrip';
 import { Bilingual } from '../i18n/Bilingual';
 import { useI18n } from '../../lib/i18n/I18nContext';
+import { groupStageLabel, matchStageLabel } from '../../lib/i18n/stageLabels';
 import { MatchKickoffCountdown } from './MatchKickoffCountdown';
 
 type Props = {
@@ -16,8 +17,10 @@ export function FeaturedMatchHero({ match }: Props) {
   const p = match.probability;
   const stageLabel =
     match.stage === 'Group' && match.group_code
-      ? `${t('common.group')} ${match.group_code}`
-      : (match.stage?.toUpperCase() ?? t('common.match'));
+      ? groupStageLabel(match.group_code, t)
+      : match.stage
+        ? matchStageLabel(match.stage, t)
+        : t('common.match');
 
   return (
     <section className="space-y-4">

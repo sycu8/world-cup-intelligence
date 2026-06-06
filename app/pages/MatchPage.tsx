@@ -43,10 +43,11 @@ import { adjustProbabilities } from '../lib/simulator';
 import { pct } from '../lib/format';
 import { pickLocalized } from '../lib/briefingText';
 import { useI18n } from '../lib/i18n/I18nContext';
-import { resolveMatchAnalysisHref } from '../lib/matchPaths';
+import { resolveMatchAnalysisHref, matchPagePath } from '../lib/matchPaths';
 import { useLegacyMatchRedirect } from '../lib/useLegacyMatchRedirect';
 import { useMatchScenarioLive } from '../lib/useMatchScenarioLive';
-import { matchPagePath } from '@/utils/matchSlug';
+import { matchAnalysisPath } from '@/utils/matchSlug';
+import { formatLocalizedVersus } from '../lib/i18n/stageLabels';
 
 export function MatchPage() {
   const { matchId } = useParams();
@@ -165,7 +166,7 @@ export function MatchPage() {
 
   const probLine =
     displayProb &&
-    `H ${pct(displayProb.homeWin)} · D ${pct(displayProb.draw)} · A ${pct(displayProb.awayWin)}`;
+    `${t('common.abbrHome')} ${pct(displayProb.homeWin)} · ${t('common.abbrDraw')} ${pct(displayProb.draw)} · ${t('common.abbrAway')} ${pct(displayProb.awayWin)}`;
 
   if (viewMode === 'editorial') {
     return (
@@ -177,7 +178,7 @@ export function MatchPage() {
           <ViewModeToggle mode={viewMode} onChange={setViewMode} />
         </div>
         <EditorialArticleLayout
-          title={`${home} vs ${away}`}
+          title={formatLocalizedVersus(home, away, mode)}
           subtitle={
             preview
               ? pickLocalized(preview.summary, mode)

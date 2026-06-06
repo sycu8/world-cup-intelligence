@@ -8,13 +8,13 @@ type Props = {
 };
 
 export function ViewModeToggle({ mode, onChange }: Props) {
-  const { mode: lang } = useI18n();
+  const { mode: lang, t } = useI18n();
 
   return (
     <div
       className="inline-flex rounded-lg border border-border/80 bg-panel2/80 p-0.5"
       role="group"
-      aria-label="View mode"
+      aria-label={t('viewMode.label')}
     >
       {(
         [

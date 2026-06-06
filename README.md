@@ -11,7 +11,8 @@
 ### Trang chủ (`/`)
 - Trận nổi bật (featured match) + xác suất real-time
 - Lịch thi đấu rút gọn, tin nóng, snapshot giải (scheduled / live / completed)
-- Song ngữ **Tiếng Việt / English** (toàn site)
+- Song ngữ **Tiếng Việt / English** — chuyển một lần trên header; toàn site (nav, lịch, bảng, nhánh, trận, tin, hướng dẫn) hiển thị khác nhau theo locale
+- Nhãn vòng đấu VI: *Bảng A*, *Vòng 1/16*, *Chung kết*; đối đầu: *Đội A gặp Đội B* (`app/lib/i18n/stageLabels.ts`)
 - Tin nóng tự dịch VI; làm mới mỗi 30 giây
 
 ### Trận đấu (`/matches`)
@@ -89,9 +90,11 @@ Mỗi trận có **≥ 2 kịch bản phân tích** (baseline + alternative), do
 5. Recompute tự động sau `recomputeMatchProbability`; queue `SCENARIO_GENERATE` / `SCENARIO_RECOMPUTE`
 6. WebSocket `SCENARIO_UPDATE` qua Durable Object `MatchRoom`
 
-**UI:** `ScenarioPredictionPanel` trên trang trận và phân tích dài — badge model confidence, so sánh kịch bản (collapse trên mobile). **Giao diện VI:** tên kịch bản, điều kiện trigger và xác suất hiển thị **%**; tiêu đề trận dạng *Đội A vs Đội B* (không còn mã `m-w26-…`).
+**UI:** `ScenarioPredictionPanel` trên trang trận và phân tích dài — badge model confidence, so sánh kịch bản (collapse trên mobile).
 
-> Thuật ngữ: *Scenario Likelihood*, *Probability Path*, *Analytical Context* — **không** phải khuyến nghị cược.
+**Giao diện VI:** tên kịch bản, điều kiện trigger, driver/so sánh và nhãn **Xác suất kịch bản** dịch đầy đủ (`scenarioPredictionLabels.ts`); tiêu đề trận dạng *Đội A gặp Đội B* (không còn mã `m-w26-…`).
+
+> Thuật ngữ EN: *Scenario Likelihood* — bản VI: **Xác suất kịch bản** (không phải khuyến nghị cược).
 
 ### Phân tích dài (`/matches/:slug/analysis`)
 - Tiêu đề trận bằng **tên đội thật** (vd. *United States vs Argentina*), kèm ngày kickoff
@@ -201,7 +204,7 @@ npx wrangler dev --remote --port 8787
 |--------|--------|
 | `npm run dev` | Frontend Vite |
 | `npm run build` | Build production |
-| `npm run test` | Vitest (81 tests) |
+| `npm run test` | Vitest (91 tests) |
 | `npm run pull:statsbomb` | Pull StatsBomb open-data → D1 + R2 |
 | `npm run typecheck` | TypeScript |
 | `npm run deploy` | Build + `wrangler deploy` |
@@ -280,8 +283,10 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 
 ```bash
 npm run typecheck   # ✓ pass
-npm test            # ✓ 81 tests, 24 files
+npm test            # ✓ 91 tests, 27 files
 ```
+
+**Deploy production gần nhất:** [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) · Worker version `1ee886ef-a027-440d-8aab-9d81a093aec7`
 
 **Đã kiểm tra:**
 - Xác suất & snapshot engine
@@ -295,6 +300,8 @@ npm test            # ✓ 81 tests, 24 files
 - **Multi-scenario engine** (generation, comparison, realtime update, AI schema, prohibited betting copy)
 - **Match URL slugs** (`matchSlug`, `matchRef`, legacy redirect)
 - **Lineup display** (official-only UI, `(số) - tên - vị trí`)
+- **Nation ISO codes** (`nationIsoCodes.mjs`, migration 0019 — sửa mã quốc gia sai từ name-prefix)
+- **Scenario VI labels** (`scenarioPredictionLabels.test.ts`)
 
 ---
 
@@ -302,17 +309,17 @@ npm test            # ✓ 81 tests, 24 files
 
 ```
 app/           React UI (pages, components, i18n)
-  lib/         useMatchLiveData, matchPaths, matchTeams, api, scenarioPredictionLabels
+  lib/         useMatchLiveData, matchPaths, matchTeams, api, scenarioPredictionLabels, stageLabels
 src/
   routes/      Hono API
   services/    recompute, matchScenarioService, matchRef, officialLineupSync, lineupDisplay
   utils/       matchSlug (URL slug builder)
-  ingestion/   match refresh, news crawler, statsbombIngest
+  ingestion/   match refresh, news crawler, statsbombIngest, matchDataProvider
   models/      probability engine, scenarios/ (multi-scenario prediction)
   queues/      ingest + model consumers
   scheduled/   cron
-migrations/    D1 SQL (0001–0017)
-scripts/       pull-statsbomb-open-data.mjs
+migrations/    D1 SQL (0001–0019)
+scripts/       pull-statsbomb, expand-wc2026-data, nationIsoCodes
 tests/         Vitest
 ```
 
@@ -343,12 +350,22 @@ Migration `0013_wc_historical_h2h.sql` seed các kỳ WC (1930–2022) và trậ
 - [x] UI VI cho kịch bản (% + tên trận); đội hình chỉ hiện khi XI chính thức
 - [x] WebSocket client auto-refresh ScenarioPredictionPanel
 - [x] Scenario backtest WC 2018/2022 (Brier, calibration buckets — `POST /api/admin/scenario-backtest?year=2018`)
-- [x] Mở rộng squad WC 2026 — migration `0018` đổi tên 42 đội placeholder; script `expand-wc2026-data.mjs` (23 cầu thủ/đội: mở rộng script)
+- [x] Mở rộng squad WC 2026 — migration `0018` đổi tên 42 đội placeholder; script `expand-wc2026-data.mjs`
+- [x] ISO 3166-1 alpha-2 cho 42 đội WC 2026 — sửa mã sai (`UN`→`US`, `CA` Canada vs `CM` Cameroon, …); migration `0019` + `scripts/nationIsoCodes.mjs`
 - [x] API dữ liệu trận — `MatchDataProvider` interface; mock mặc định, `FootballDataProvider` stub khi `MOCK_SOURCES=false`
 - [x] 8 suất hạng 3 tốt nhất → R32 trận 13–16 (`applyBestThirdQualifiers`)
 - [x] Bracket visualization UI — tab **Nhánh đấu** trên `/matches`
 - [x] Bảng xếp hạng vòng bảng — tab **Bảng xếp hạng** + `GET /api/tournament/2026/standings`
-- [x] Mở rộng seed lịch sử WC cho 48 đội — tên đội thật cho placeholder `team-w26-*` (migration 0018); H2H đầy đủ → StatsBomb ingest
+- [x] Mở rộng seed lịch sử WC cho 48 đội — tên đội thật cho placeholder `team-w26-*`; H2H đầy đủ → StatsBomb ingest
+- [x] **i18n EN/VI toàn site** — `locales.ts` + `stageLabels.ts`; aria-label, vòng đấu, standings/bracket, dịch nội dung kịch bản backend sang VI
+
+Chi tiết thực thi từng hạng mục: [docs/ROADMAP_EXECUTION.md](./docs/ROADMAP_EXECUTION.md)
+
+### Tiếp theo (gợi ý)
+
+- [ ] Squad 23 cầu thủ/đội (seed `squad_players` đầy đủ cho 48 đội)
+- [ ] Provider dữ liệu trận thật (Football-Data / API chính thức) thay mock cron
+- [ ] Tên đội tiếng Việt (tùy chọn, tách khỏi tên EN trong DB)
 
 ---
 

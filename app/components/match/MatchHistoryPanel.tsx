@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Bilingual } from '../i18n/Bilingual';
 import { useI18n } from '../../lib/i18n/I18nContext';
+import { matchStageLabel } from '../../lib/i18n/stageLabels';
 
 export type HistoryMatch = {
   id: string;
@@ -35,13 +36,7 @@ type Props = {
 };
 
 function stageLabel(stage: string | null, t: ReturnType<typeof useI18n>['t']) {
-  if (!stage) return t('history.matchStage');
-  if (stage === 'Group') return t('common.group');
-  if (stage === 'R16') return t('history.stageR16');
-  if (stage === 'QF') return t('history.stageQf');
-  if (stage === 'SF') return t('history.stageSf');
-  if (stage === 'Final') return t('history.stageFinal');
-  return stage;
+  return matchStageLabel(stage, t);
 }
 
 function MeetingRow({ m, mode, t }: { m: HistoryMatch; mode: string; t: ReturnType<typeof useI18n>['t'] }) {

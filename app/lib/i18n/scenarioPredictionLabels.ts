@@ -149,7 +149,25 @@ export function scenarioStatusLabel(status: string, mode: DisplayMode): string {
 export function legacyFactorLabel(text: string, mode: DisplayMode): string {
   const row = LEGACY_FACTOR_LABELS[text];
   if (row) return pick(mode, row.vi, row.en);
-  return text;
+  return translateKeyDriver(text, mode);
+}
+
+function translateScenarioLikelihoodLine(line: string, mode: DisplayMode): string {
+  if (mode === 'en') return line;
+
+  const likelihood = line.match(
+    /^Scenario likelihood ([\d.]+)% with model confidence ([\d.]+)%\.$/,
+  );
+  if (likelihood) {
+    return `Xác suất kịch bản ${likelihood[1]}% · độ tin cậy mô hình ${likelihood[2]}%.`;
+  }
+
+  const conditional = line.match(/^Conditional W\/D\/L: ([\d.]+)\/([\d.]+)\/([\d.]+)\.$/);
+  if (conditional) {
+    return `W/D/L có điều kiện: ${conditional[1]}/${conditional[2]}/${conditional[3]}.`;
+  }
+
+  return line;
 }
 
 /** Format scenario field values — ratios 0–1 as %, booleans as Có/Không. */
@@ -175,6 +193,9 @@ export function formatScenarioMetricValue(
 
 function translateKeyDriver(line: string, mode: DisplayMode): string {
   if (mode === 'en') return line;
+
+  const scenarioLine = translateScenarioLikelihoodLine(line, mode);
+  if (scenarioLine !== line) return scenarioLine;
 
   const collective = line.match(/^(.+) collective strength (\d+)%$/);
   if (collective) return `Sức mạnh tập thể ${collective[1]}: ${collective[2]}%`;
@@ -245,7 +266,7 @@ export function translateComparisonSummary(
     const side = awayShift ? awayName || 'đội khách' : homeName || 'đội chủ nhà';
     return `Kịch bản cơ sở vẫn có khả năng cao hơn, nhưng ${altLabel.toLowerCase()} làm lệch đáng kể xác suất thắng ${side}.`;
   }
-  if (summary.includes('tightly balanced')) {
+  if (summary.includes('tightly balanced') || summary.includes('Scenario likelihood is tightly balanced')) {
     return `Xác suất kịch bản cân bằng giữa ${baseLabel.toLowerCase()} và ${altLabel.toLowerCase()}.`;
   }
   return summary;

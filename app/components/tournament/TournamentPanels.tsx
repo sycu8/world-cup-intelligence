@@ -3,8 +3,13 @@ import { Link } from 'react-router-dom';
 import { api, type GroupStandingsPayload } from '../../lib/api';
 import { resolveMatchHref } from '../../lib/matchPaths';
 import { useI18n } from '../../lib/i18n/I18nContext';
+import { formatLocalizedVersus, matchStageLabel } from '../../lib/i18n/stageLabels';
 
 const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as const;
+
+function formatGd(gd: number): string {
+  return gd > 0 ? `+${gd}` : String(gd);
+}
 
 export function GroupStandingsGrid() {
   const { t, mode } = useI18n();
@@ -74,8 +79,8 @@ export function GroupStandingsGrid() {
                   <tr className="text-left text-muted">
                     <th className="pb-1">#</th>
                     <th className="pb-1">{t('standings.team')}</th>
-                    <th className="pb-1 text-right">P</th>
-                    <th className="pb-1 text-right">GD</th>
+                    <th className="pb-1 text-right">{t('standings.played')}</th>
+                    <th className="pb-1 text-right">{t('standings.gd')}</th>
                     <th className="pb-1 text-right">{t('standings.pts')}</th>
                   </tr>
                 </thead>
@@ -102,13 +107,13 @@ export function GroupStandingsGrid() {
                         <td className="py-0.5 pr-1 leading-tight">
                           {row.shortName ?? row.teamName}
                           {row.rank === 3 && (
-                            <span className="ml-1 text-[9px] text-yellow">3rd</span>
+                            <span className="ml-1 text-[9px] text-yellow">
+                              {t('standings.thirdBadge')}
+                            </span>
                           )}
                         </td>
                         <td className="py-0.5 text-right font-mono-data">{row.played}</td>
-                        <td className="py-0.5 text-right font-mono-data">
-                          {row.gd > 0 ? `+${row.gd}` : row.gd}
-                        </td>
+                        <td className="py-0.5 text-right font-mono-data">{formatGd(row.gd)}</td>
                         <td className="py-0.5 text-right font-mono-data font-semibold">
                           {row.points}
                         </td>
@@ -130,9 +135,12 @@ export function GroupStandingsGrid() {
               <li key={`${row.group}-${row.teamId}`} className="font-mono-data text-xs text-foreground/90">
                 {i + 1}. {row.shortName ?? row.teamName}{' '}
                 <span className="text-muted">
-                  ({t('calendar.groupLabel')} {row.group}) · {row.points}pts · GD {row.gd > 0 ? `+${row.gd}` : row.gd}
+                  {t('standings.thirdRowDetail')
+                    .replace('{group}', `${t('calendar.groupLabel')} ${row.group}`)
+                    .replace('{pts}', String(row.points))
+                    .replace('{gd}', formatGd(row.gd))}
                 </span>
-                {i < 8 && <span className="ml-1 text-live">→ R32</span>}
+                {i < 8 && <span className="ml-1 text-live">{t('standings.qualifiesR32')}</span>}
               </li>
             ))}
           </ol>
@@ -191,7 +199,7 @@ export function BracketPanel() {
         rounds.map((round) => (
           <div key={round.stage} className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-cyan">
-              {round.stage}
+              {matchStageLabel(round.stage, t)}
             </h3>
             <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {round.matches.map((m) => (
@@ -202,12 +210,12 @@ export function BracketPanel() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate font-medium">
-                        {m.homeName}
-                        <span className="text-muted"> vs </span>
-                        {m.awayName}
+                        {formatLocalizedVersus(m.homeName, m.awayName, mode)}
                       </span>
                       {m.status === 'live' && (
-                        <span className="shrink-0 text-[10px] font-bold text-live">LIVE</span>
+                        <span className="shrink-0 text-[10px] font-bold text-live">
+                          {t('common.live')}
+                        </span>
                       )}
                       {m.status === 'completed' && (
                         <span className="shrink-0 font-mono-data text-xs text-foreground">

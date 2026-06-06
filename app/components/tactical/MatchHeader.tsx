@@ -1,5 +1,6 @@
 import { Bilingual } from '../i18n/Bilingual';
 import { useI18n } from '../../lib/i18n/I18nContext';
+import { matchStageLabel } from '../../lib/i18n/stageLabels';
 import { pct } from '../../lib/format';
 
 type Props = {
@@ -44,7 +45,7 @@ export function MatchHeader({
     <header className="hero-glow panel border-cyan/20">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2 md:pb-3">
         <p className="label-tactical text-muted">
-          {stage ?? t('matchHeader.matchLabel')}
+          {stage ? matchStageLabel(stage, t) : t('matchHeader.matchLabel')}
         </p>
         <span
           className={`font-display text-sm tracking-widest ${

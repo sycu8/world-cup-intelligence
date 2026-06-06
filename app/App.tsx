@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { I18nProvider } from './lib/i18n/I18nContext';
+import { I18nProvider, useI18n } from './lib/i18n/I18nContext';
 import { AppShell } from './components/layout/AppShell';
 import { HomePage } from './pages/HomePage';
 
@@ -21,8 +21,13 @@ const MatchAnalysisPage = lazy(() =>
 const MatchesPage = lazy(() => import('./pages/MatchesPage').then((m) => ({ default: m.MatchesPage })));
 
 function RouteFallback() {
+  const { t } = useI18n();
   return (
-    <div className="panel min-h-[40vh] animate-pulse rounded-panel bg-panel2/30" aria-busy aria-label="Loading" />
+    <div
+      className="panel min-h-[40vh] animate-pulse rounded-panel bg-panel2/30"
+      aria-busy
+      aria-label={t('common.loading')}
+    />
   );
 }
 

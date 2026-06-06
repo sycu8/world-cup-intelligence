@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { api, type MatchLineupsPayload } from '../lib/api';
 import { useI18n } from '../lib/i18n/I18nContext';
 import { formatMatchVersus } from '../lib/matchTeams';
+import { matchVersusSeparator } from '../lib/i18n/stageLabels';
 import { lineupSourceBadgeClass } from '../lib/lineupSourceLabel';
 import { resolveMatchHref } from '../lib/matchPaths';
 import { useLegacyMatchRedirect } from '../lib/useLegacyMatchRedirect';
@@ -53,7 +54,7 @@ function LineupSide({
 
 export function LineupPage() {
   const { matchId } = useParams();
-  const { t } = useI18n();
+  const { t, mode } = useI18n();
   const [data, setData] = useState<MatchLineupsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -76,7 +77,13 @@ export function LineupPage() {
 
   const versusLabel =
     data &&
-    formatMatchVersus(data.home.teamId, data.away.teamId, data.home.teamName, data.away.teamName);
+    formatMatchVersus(
+      data.home.teamId,
+      data.away.teamId,
+      data.home.teamName,
+      data.away.teamName,
+      matchVersusSeparator(mode),
+    );
 
   return (
     <div className="panel space-y-4">
@@ -88,7 +95,7 @@ export function LineupPage() {
       </div>
 
       {loading && <p className="text-sm text-muted">{t('lineups.loading')}</p>}
-      {error && <p className="text-sm text-magenta">API error</p>}
+      {error && <p className="text-sm text-magenta">{t('lineups.apiError')}</p>}
 
       {data && (
         <div className="grid gap-4 md:grid-cols-2">

@@ -1,3 +1,5 @@
+import { useI18n } from '../../lib/i18n/I18nContext';
+
 export type ArticleLang = 'vi' | 'en';
 
 type Props = {
@@ -6,11 +8,13 @@ type Props = {
 };
 
 export function NewsArticleLangToggle({ lang, onChange }: Props) {
+  const { t } = useI18n();
+
   return (
     <div
       className="inline-flex rounded-lg border border-border/80 bg-panel2/80 p-0.5"
       role="group"
-      aria-label="Article language"
+      aria-label={t('news.articleLangLabel')}
     >
       {(
         [

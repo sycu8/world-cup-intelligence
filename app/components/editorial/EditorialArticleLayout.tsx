@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useI18n } from '../../lib/i18n/I18nContext';
+import { formatLocalizedVersus } from '../../lib/i18n/stageLabels';
 
 type StickyContext = {
   home: string;
@@ -28,7 +29,7 @@ export function EditorialArticleLayout({
   stickyContext,
   takeaways,
 }: Props) {
-  const { t } = useI18n();
+  const { t, mode } = useI18n();
 
   return (
     <div className="mx-auto max-w-[1200px]">
@@ -70,9 +71,7 @@ export function EditorialArticleLayout({
                 {t('editorial.context')}
               </p>
               <p className="font-display mt-2 text-2xl tracking-wide">
-                {stickyContext.home}
-                <span className="text-cyan"> vs </span>
-                {stickyContext.away}
+                {formatLocalizedVersus(stickyContext.home, stickyContext.away, mode)}
               </p>
               <p className="font-mono-data mt-2 text-3xl text-foreground">{stickyContext.score}</p>
               <p className="mt-1 text-xs uppercase tracking-wider text-muted">
