@@ -14,14 +14,15 @@ export async function getTeam(db: D1Database, teamId: string): Promise<TeamRow |
   return row ? applyEffectiveTeamProfile(row) : null;
 }
 
+/** Official WC draw slots only — excludes knockout TBD placeholders (team-w26-ko-*). */
 export async function getTeamsByTournament(db: D1Database, tournamentId: string): Promise<TeamRow[]> {
   const { results } = await db
     .prepare(
-      `SELECT DISTINCT t.* FROM teams t
-       JOIN matches m ON t.id = m.home_team_id OR t.id = m.away_team_id
-       WHERE m.tournament_id = ?`,
+      `SELECT t.* FROM teams t
+       WHERE t.id GLOB 'team-w26-[a-l][1-4]'
+       ORDER BY t.id ASC`,
     )
-    .bind(tournamentId)
     .all<TeamRow>();
+  void tournamentId;
   return results ?? [];
 }

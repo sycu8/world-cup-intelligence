@@ -1,0 +1,522 @@
+[
+  {
+    "fifaNumber": 1,
+    "vnDate": "12/06",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 2,
+    "vnDate": "12/06",
+    "vnTime": "09:00"
+  },
+  {
+    "fifaNumber": 3,
+    "vnDate": "13/06",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 4,
+    "vnDate": "13/06",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 5,
+    "vnDate": "14/06",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 6,
+    "vnDate": "14/06",
+    "vnTime": "05:00"
+  },
+  {
+    "fifaNumber": 7,
+    "vnDate": "14/06",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 8,
+    "vnDate": "14/06",
+    "vnTime": "11:00"
+  },
+  {
+    "fifaNumber": 9,
+    "vnDate": "15/06",
+    "vnTime": "00:00"
+  },
+  {
+    "fifaNumber": 10,
+    "vnDate": "15/06",
+    "vnTime": "03:00"
+  },
+  {
+    "fifaNumber": 11,
+    "vnDate": "15/06",
+    "vnTime": "06:00"
+  },
+  {
+    "fifaNumber": 12,
+    "vnDate": "15/06",
+    "vnTime": "09:00"
+  },
+  {
+    "fifaNumber": 13,
+    "vnDate": "15/06",
+    "vnTime": "23:00"
+  },
+  {
+    "fifaNumber": 14,
+    "vnDate": "16/06",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 15,
+    "vnDate": "16/06",
+    "vnTime": "05:00"
+  },
+  {
+    "fifaNumber": 16,
+    "vnDate": "16/06",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 17,
+    "vnDate": "17/06",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 18,
+    "vnDate": "17/06",
+    "vnTime": "05:00"
+  },
+  {
+    "fifaNumber": 19,
+    "vnDate": "17/06",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 20,
+    "vnDate": "17/06",
+    "vnTime": "11:00"
+  },
+  {
+    "fifaNumber": 21,
+    "vnDate": "18/06",
+    "vnTime": "00:00"
+  },
+  {
+    "fifaNumber": 22,
+    "vnDate": "18/06",
+    "vnTime": "03:00"
+  },
+  {
+    "fifaNumber": 23,
+    "vnDate": "18/06",
+    "vnTime": "06:00"
+  },
+  {
+    "fifaNumber": 24,
+    "vnDate": "18/06",
+    "vnTime": "09:00"
+  },
+  {
+    "fifaNumber": 25,
+    "vnDate": "19/06",
+    "vnTime": "00:00"
+  },
+  {
+    "fifaNumber": 26,
+    "vnDate": "19/06",
+    "vnTime": "03:00"
+  },
+  {
+    "fifaNumber": 27,
+    "vnDate": "19/06",
+    "vnTime": "06:00"
+  },
+  {
+    "fifaNumber": 28,
+    "vnDate": "19/06",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 29,
+    "vnDate": "20/06",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 30,
+    "vnDate": "20/06",
+    "vnTime": "05:00"
+  },
+  {
+    "fifaNumber": 31,
+    "vnDate": "20/06",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 32,
+    "vnDate": "20/06",
+    "vnTime": "11:00"
+  },
+  {
+    "fifaNumber": 33,
+    "vnDate": "21/06",
+    "vnTime": "00:00"
+  },
+  {
+    "fifaNumber": 34,
+    "vnDate": "21/06",
+    "vnTime": "03:00"
+  },
+  {
+    "fifaNumber": 35,
+    "vnDate": "21/06",
+    "vnTime": "07:00"
+  },
+  {
+    "fifaNumber": 36,
+    "vnDate": "21/06",
+    "vnTime": "11:00"
+  },
+  {
+    "fifaNumber": 37,
+    "vnDate": "22/06",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 38,
+    "vnDate": "22/06",
+    "vnTime": "05:00"
+  },
+  {
+    "fifaNumber": 39,
+    "vnDate": "22/06",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 40,
+    "vnDate": "22/06",
+    "vnTime": "23:00"
+  },
+  {
+    "fifaNumber": 41,
+    "vnDate": "23/06",
+    "vnTime": "00:00"
+  },
+  {
+    "fifaNumber": 42,
+    "vnDate": "23/06",
+    "vnTime": "04:00"
+  },
+  {
+    "fifaNumber": 43,
+    "vnDate": "23/06",
+    "vnTime": "07:00"
+  },
+  {
+    "fifaNumber": 44,
+    "vnDate": "23/06",
+    "vnTime": "10:00"
+  },
+  {
+    "fifaNumber": 45,
+    "vnDate": "24/06",
+    "vnTime": "00:00"
+  },
+  {
+    "fifaNumber": 46,
+    "vnDate": "24/06",
+    "vnTime": "03:00"
+  },
+  {
+    "fifaNumber": 47,
+    "vnDate": "24/06",
+    "vnTime": "06:00"
+  },
+  {
+    "fifaNumber": 48,
+    "vnDate": "24/06",
+    "vnTime": "09:00"
+  },
+  {
+    "fifaNumber": 49,
+    "vnDate": "25/06",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 50,
+    "vnDate": "25/06",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 51,
+    "vnDate": "25/06",
+    "vnTime": "05:00"
+  },
+  {
+    "fifaNumber": 52,
+    "vnDate": "25/06",
+    "vnTime": "05:00"
+  },
+  {
+    "fifaNumber": 53,
+    "vnDate": "25/06",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 54,
+    "vnDate": "25/06",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 55,
+    "vnDate": "26/06",
+    "vnTime": "03:00"
+  },
+  {
+    "fifaNumber": 56,
+    "vnDate": "26/06",
+    "vnTime": "03:00"
+  },
+  {
+    "fifaNumber": 57,
+    "vnDate": "26/06",
+    "vnTime": "06:00"
+  },
+  {
+    "fifaNumber": 58,
+    "vnDate": "26/06",
+    "vnTime": "06:00"
+  },
+  {
+    "fifaNumber": 59,
+    "vnDate": "26/06",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 60,
+    "vnDate": "26/06",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 61,
+    "vnDate": "27/06",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 62,
+    "vnDate": "27/06",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 63,
+    "vnDate": "27/06",
+    "vnTime": "07:00"
+  },
+  {
+    "fifaNumber": 64,
+    "vnDate": "27/06",
+    "vnTime": "07:00"
+  },
+  {
+    "fifaNumber": 65,
+    "vnDate": "27/06",
+    "vnTime": "10:00"
+  },
+  {
+    "fifaNumber": 66,
+    "vnDate": "27/06",
+    "vnTime": "10:00"
+  },
+  {
+    "fifaNumber": 67,
+    "vnDate": "28/06",
+    "vnTime": "04:00"
+  },
+  {
+    "fifaNumber": 68,
+    "vnDate": "28/06",
+    "vnTime": "04:00"
+  },
+  {
+    "fifaNumber": 69,
+    "vnDate": "28/06",
+    "vnTime": "06:30"
+  },
+  {
+    "fifaNumber": 70,
+    "vnDate": "28/06",
+    "vnTime": "06:30"
+  },
+  {
+    "fifaNumber": 71,
+    "vnDate": "28/06",
+    "vnTime": "09:00"
+  },
+  {
+    "fifaNumber": 72,
+    "vnDate": "28/06",
+    "vnTime": "09:00"
+  },
+  {
+    "fifaNumber": 73,
+    "vnDate": "29/06",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 74,
+    "vnDate": "30/06",
+    "vnTime": "00:00"
+  },
+  {
+    "fifaNumber": 75,
+    "vnDate": "30/06",
+    "vnTime": "03:30"
+  },
+  {
+    "fifaNumber": 76,
+    "vnDate": "30/06",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 77,
+    "vnDate": "01/07",
+    "vnTime": "00:00"
+  },
+  {
+    "fifaNumber": 78,
+    "vnDate": "01/07",
+    "vnTime": "04:00"
+  },
+  {
+    "fifaNumber": 79,
+    "vnDate": "01/07",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 80,
+    "vnDate": "02/07",
+    "vnTime": "03:00"
+  },
+  {
+    "fifaNumber": 81,
+    "vnDate": "02/07",
+    "vnTime": "07:00"
+  },
+  {
+    "fifaNumber": 82,
+    "vnDate": "02/07",
+    "vnTime": "23:00"
+  },
+  {
+    "fifaNumber": 83,
+    "vnDate": "03/07",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 84,
+    "vnDate": "03/07",
+    "vnTime": "06:00"
+  },
+  {
+    "fifaNumber": 85,
+    "vnDate": "03/07",
+    "vnTime": "10:00"
+  },
+  {
+    "fifaNumber": 86,
+    "vnDate": "04/07",
+    "vnTime": "01:00"
+  },
+  {
+    "fifaNumber": 87,
+    "vnDate": "04/07",
+    "vnTime": "05:00"
+  },
+  {
+    "fifaNumber": 88,
+    "vnDate": "04/07",
+    "vnTime": "08:30"
+  },
+  {
+    "fifaNumber": 89,
+    "vnDate": "05/07",
+    "vnTime": "00:00"
+  },
+  {
+    "fifaNumber": 90,
+    "vnDate": "05/07",
+    "vnTime": "04:00"
+  },
+  {
+    "fifaNumber": 91,
+    "vnDate": "06/07",
+    "vnTime": "03:00"
+  },
+  {
+    "fifaNumber": 92,
+    "vnDate": "06/07",
+    "vnTime": "07:00"
+  },
+  {
+    "fifaNumber": 93,
+    "vnDate": "07/07",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 94,
+    "vnDate": "07/07",
+    "vnTime": "07:00"
+  },
+  {
+    "fifaNumber": 95,
+    "vnDate": "07/07",
+    "vnTime": "23:00"
+  },
+  {
+    "fifaNumber": 96,
+    "vnDate": "08/07",
+    "vnTime": "03:00"
+  },
+  {
+    "fifaNumber": 97,
+    "vnDate": "10/07",
+    "vnTime": "03:00"
+  },
+  {
+    "fifaNumber": 98,
+    "vnDate": "11/07",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 99,
+    "vnDate": "12/07",
+    "vnTime": "04:00"
+  },
+  {
+    "fifaNumber": 100,
+    "vnDate": "12/07",
+    "vnTime": "08:00"
+  },
+  {
+    "fifaNumber": 101,
+    "vnDate": "15/07/2026",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 102,
+    "vnDate": "16/07/2026",
+    "vnTime": "02:00"
+  },
+  {
+    "fifaNumber": 103,
+    "vnDate": "19/07/2026",
+    "vnTime": "04:00"
+  },
+  {
+    "fifaNumber": 104,
+    "vnDate": "20/07/2026",
+    "vnTime": "02:00"
+  }
+]

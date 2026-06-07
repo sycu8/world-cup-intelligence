@@ -4,9 +4,9 @@ import { getCountdownParts } from '../app/lib/useCountdown';
 describe('getCountdownParts', () => {
   it('computes remaining time until target', () => {
     const now = Date.parse('2026-06-04T12:00:00Z');
-    const parts = getCountdownParts('2026-06-11T14:00:00Z', now);
+    const parts = getCountdownParts('2026-06-11T19:00:00Z', now);
     expect(parts.days).toBe(7);
-    expect(parts.hours).toBe(2);
+    expect(parts.hours).toBe(7);
     expect(parts.expired).toBe(false);
   });
 

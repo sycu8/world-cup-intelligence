@@ -1,6 +1,16 @@
 import type { DisplayMode } from './I18nContext';
 import type { LocaleKey } from './locales';
 
+/** Knockout round order — keep in sync with src/services/bracketPayload.ts */
+export const KNOCKOUT_STAGE_ORDER = [
+  'Round of 32',
+  'Round of 16',
+  'Quarter-final',
+  'Semi-final',
+  'Third place',
+  'Final',
+] as const;
+
 const STAGE_KEYS: Record<string, LocaleKey> = {
   Group: 'common.groupStage',
   'Round of 32': 'history.stageR32',

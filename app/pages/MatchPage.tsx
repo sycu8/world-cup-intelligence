@@ -115,8 +115,8 @@ export function MatchPage() {
     if (loadError && !match) setNotFound(true);
   }, [loadError, match]);
 
-  const home = teamNames.home || resolveTeamDisplayName(match?.home_team_id) || '';
-  const away = teamNames.away || resolveTeamDisplayName(match?.away_team_id) || '';
+  const home = teamNames.home || match?.home_name || '';
+  const away = teamNames.away || match?.away_name || '';
 
   const displayProb = useMemo(() => {
     if (!prob) return null;
@@ -168,6 +168,15 @@ export function MatchPage() {
     displayProb &&
     `${t('common.abbrHome')} ${pct(displayProb.homeWin)} · ${t('common.abbrDraw')} ${pct(displayProb.draw)} · ${t('common.abbrAway')} ${pct(displayProb.awayWin)}`;
 
+  const statusLabel =
+    match.status === 'live'
+      ? t('common.live')
+      : match.status === 'scheduled'
+        ? t('match.scheduled')
+        : match.status === 'completed'
+          ? t('common.ft')
+          : match.status.toUpperCase();
+
   if (viewMode === 'editorial') {
     return (
       <div className="space-y-4">
@@ -188,13 +197,13 @@ export function MatchPage() {
           }
           takeaways={
             briefing?.probabilityExplanation.map((line) => pickLocalized(line, mode)) ??
-            hints.map((h) => h.vi).slice(0, 4)
+            hints.map((h) => (mode === 'en' ? h.en : h.vi)).slice(0, 4)
           }
           stickyContext={{
             home,
             away,
             score: `${match.home_score} – ${match.away_score}`,
-            status: match.status,
+            status: statusLabel,
             probLine: probLine ?? undefined,
           }}
           sidebar={
@@ -224,6 +233,7 @@ export function MatchPage() {
               key={matchId}
               preview={preview}
               loading={previewLoading}
+              variant="editorial"
             />
           )}
           {briefing?.summary && !preview && <p>{pickLocalized(briefing.summary, mode)}</p>}
@@ -255,6 +265,8 @@ export function MatchPage() {
       <MatchHeader
         home={home}
         away={away}
+        homeCountryCode={match.home_country_code}
+        awayCountryCode={match.away_country_code}
         homeScore={match.home_score}
         awayScore={match.away_score}
         status={match.status}

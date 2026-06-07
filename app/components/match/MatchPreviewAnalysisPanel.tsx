@@ -10,6 +10,7 @@ import { LineupColumn } from './LineupColumn';
 type Props = {
   preview: MatchPreviewAnalysis | null;
   loading?: boolean;
+  variant?: 'default' | 'editorial';
 };
 
 function Block({ title, text }: { title: string; text: string }) {
@@ -21,8 +22,9 @@ function Block({ title, text }: { title: string; text: string }) {
   );
 }
 
-export function MatchPreviewAnalysisPanel({ preview, loading }: Props) {
+export function MatchPreviewAnalysisPanel({ preview, loading, variant = 'default' }: Props) {
   const { mode, t } = useI18n();
+  const editorial = variant === 'editorial';
 
   if (loading) {
     return (
@@ -45,16 +47,33 @@ export function MatchPreviewAnalysisPanel({ preview, loading }: Props) {
   );
 
   return (
-    <section className="panel-elevated space-y-5 border-cyan/20">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/50 pb-4">
-        <div>
-          <SectionLabel
-            title={t('match.previewTitle')}
-            subtitle={t('match.previewSubtitle')}
-            accent="cyan"
-          />
-          <p className="mt-2 font-heading text-xl text-foreground">{pick(preview.matchLabel)}</p>
-          <p className="mt-1 font-mono-data text-xs text-muted-dim">
+    <section
+      className={
+        editorial
+          ? 'space-y-5 border-t border-border/40 pt-6'
+          : 'panel-elevated space-y-5 border-cyan/20'
+      }
+    >
+      <div
+        className={`flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between ${
+          editorial ? 'border-b border-border/40 pb-5' : 'gap-3 border-b border-border/50 pb-4'
+        }`}
+      >
+        <div className="min-w-0">
+          {!editorial && (
+            <SectionLabel
+              title={t('match.previewTitle')}
+              subtitle={t('match.previewSubtitle')}
+              accent="cyan"
+            />
+          )}
+          {editorial && (
+            <p className="label-tactical text-cyan">{t('match.previewTitle')}</p>
+          )}
+          <p className={`font-heading text-foreground ${editorial ? 'mt-2 text-lg sm:text-xl' : 'mt-2 text-xl'}`}>
+            {pick(preview.matchLabel)}
+          </p>
+          <p className="mt-1 break-words font-mono-data text-[11px] text-muted-dim sm:text-xs">
             {versusLabel} ·{' '}
             {new Date(preview.kickoffUtc).toLocaleString(locale, {
               dateStyle: 'medium',
@@ -63,7 +82,11 @@ export function MatchPreviewAnalysisPanel({ preview, loading }: Props) {
           </p>
         </div>
         {preview.scorelineTop3.length > 0 && (
-          <div className="rounded-card border border-yellow/25 bg-yellow/5 px-3 py-2">
+          <div
+            className={`shrink-0 rounded-card border border-yellow/25 bg-yellow/5 px-3 py-2 ${
+              editorial ? 'w-full sm:w-auto' : ''
+            }`}
+          >
             <p className="label-tactical text-yellow">{t('match.topScores')}</p>
             <ul className="mt-1 font-mono-data text-sm">
               {preview.scorelineTop3.map((s) => (
@@ -76,7 +99,9 @@ export function MatchPreviewAnalysisPanel({ preview, loading }: Props) {
         )}
       </div>
 
-      <p className="text-base leading-relaxed text-foreground">{pick(preview.summary)}</p>
+      <p className={`leading-relaxed text-foreground ${editorial ? 'text-base sm:text-lg' : 'text-base'}`}>
+        {pick(preview.summary)}
+      </p>
 
       {preview.insights.length > 0 && (
         <ul className="space-y-2">
@@ -91,7 +116,7 @@ export function MatchPreviewAnalysisPanel({ preview, loading }: Props) {
         </ul>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className={`grid gap-3 ${editorial ? 'sm:grid-cols-2' : 'lg:grid-cols-2'}`}>
         <Block title={t('match.previewContext')} text={pick(preview.sections.context)} />
         <Block title={t('match.previewTactical')} text={pick(preview.sections.tactical)} />
         <Block title={t('match.previewStrength')} text={pick(preview.sections.strength)} />

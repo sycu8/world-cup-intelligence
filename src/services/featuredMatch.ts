@@ -9,8 +9,8 @@ type MatchRow = Record<string, unknown> & {
   status: string;
 };
 
-const matchSelect = `SELECT m.*, ht.name AS home_name, ht.short_name AS home_short,
-            at.name AS away_name, at.short_name AS away_short
+const matchSelect = `SELECT m.*, ht.name AS home_name, ht.short_name AS home_short, ht.country_code AS home_country_code,
+            at.name AS away_name, at.short_name AS away_short, at.country_code AS away_country_code
      FROM matches m
      JOIN teams ht ON ht.id = m.home_team_id
      JOIN teams at ON at.id = m.away_team_id

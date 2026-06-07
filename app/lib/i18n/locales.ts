@@ -9,6 +9,9 @@ export type LocaleKey =
   | 'nav.guide'
   | 'matches.pageTitle'
   | 'matches.pageSubtitle'
+  | 'matches.pageSubtitleCompact'
+  | 'matches.hubSubtitle'
+  | 'matches.hubNav'
   | 'matches.loading'
   | 'matches.tabSchedule'
   | 'matches.tabStandings'
@@ -114,6 +117,7 @@ export type LocaleKey =
   | 'common.abbrHome'
   | 'common.abbrDraw'
   | 'common.abbrAway'
+  | 'common.tbd'
   | 'common.model'
   | 'common.market'
   | 'common.consensus'
@@ -155,6 +159,11 @@ export type LocaleKey =
   | 'team.empty'
   | 'team.fifaRank'
   | 'team.elo'
+  | 'team.coach'
+  | 'team.coachPending'
+  | 'team.squadTitle'
+  | 'team.squadSubtitle'
+  | 'team.squadEmpty'
   | 'scenario.title'
   | 'scenario.loading'
   | 'scenario.empty'
@@ -248,6 +257,8 @@ export type LocaleKey =
   | 'editorial.context'
   | 'featured.modelNow'
   | 'featured.probLoading'
+  | 'featured.sectionLive'
+  | 'featured.sectionUpcoming'
   | 'wc.title'
   | 'wc.underway'
   | 'wc.countdownTo'
@@ -263,6 +274,43 @@ export type LocaleKey =
   | 'calendar.countLabel'
   | 'calendar.seedLabel'
   | 'calendar.groupLabel'
+  | 'calendar.addGoogle'
+  | 'calendar.downloadAll'
+  | 'calendar.downloadOne'
+  | 'calendar.syncHint'
+  | 'schedule.hubTitle'
+  | 'schedule.viewGrid'
+  | 'schedule.viewList'
+  | 'schedule.timezoneBannerVn'
+  | 'schedule.timezoneBannerLocal'
+  | 'schedule.vnReference'
+  | 'schedule.vnTimeShort'
+  | 'favorites.tab'
+  | 'favorites.title'
+  | 'favorites.subtitle'
+  | 'favorites.matchesTab'
+  | 'favorites.teamsTab'
+  | 'favorites.noMatches'
+  | 'favorites.noTeams'
+  | 'favorites.teamFixtures'
+  | 'favorites.add'
+  | 'favorites.remove'
+  | 'teams.tab'
+  | 'teams.directoryTitle'
+  | 'teams.directorySubtitle'
+  | 'teams.searchPlaceholder'
+  | 'groupBoard.title'
+  | 'groupBoard.tabGroup'
+  | 'groupBoard.tabKnockout'
+  | 'groupBoard.knockoutEmpty'
+  | 'groupBoard.subtitle'
+  | 'groupBoard.loading'
+  | 'groupBoard.probHint'
+  | 'groupBoard.standingsHint'
+  | 'groupBoard.knockoutTitle'
+  | 'groupBoard.knockoutSubtitle'
+  | 'groupBoard.knockoutLocked'
+  | 'groupBoard.openAnalysis'
   | 'home.newUserHint'
   | 'home.newUserHintLink'
   | 'home.newUserHintTail'
@@ -338,6 +386,15 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     vi: 'Trận đang diễn ra hoặc sắp đá ở trên — toàn bộ lịch World Cup 2026 bên dưới.',
     en: 'Live or next-up match on top — full World Cup 2026 schedule below.',
   },
+  'matches.pageSubtitleCompact': {
+    vi: '12 bảng · bảng xếp hạng và lịch từng bảng. Cột số là tỉ lệ C·H·K (%) — bấm trận để xem phân tích.',
+    en: '12 groups · standings and fixtures per group. Numbers are H·D·A model % — tap a match for analysis.',
+  },
+  'matches.hubSubtitle': {
+    vi: 'Lịch trực quan · đồng bộ calendar · yêu thích trận/đội · bảng A–L · tra cứu đội tuyển.',
+    en: 'Visual schedule · calendar sync · favorite matches & teams · groups A–L · team lookup.',
+  },
+  'matches.hubNav': { vi: 'Mục lịch World Cup', en: 'World Cup hub sections' },
   'matches.loading': { vi: 'Đang tải lịch thi đấu…', en: 'Loading match schedule…' },
   'matches.tabSchedule': { vi: 'Lịch thi đấu', en: 'Schedule' },
   'matches.tabStandings': { vi: 'Bảng xếp hạng', en: 'Standings' },
@@ -417,8 +474,8 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'World Cup 2026 Match Schedule',
   },
   'home.calendarSubtitle': {
-    vi: '104 trận — 48 đội, vòng bảng và vòng knock-out. Chọn trận để xem xác suất, lịch sử đối đầu và gợi ý.',
-    en: '104 matches — 48 teams, group stage and knockout rounds. Open a match for probabilities, H2H history, and hints.',
+    vi: '12 bảng — bảng xếp hạng và lịch từng bảng. Số bên cạnh trận là tỉ lệ C·H·K; bấm trận khi cần phân tích.',
+    en: '12 groups — standings and fixtures per group. Match numbers are H·D·A %; tap when you want analysis.',
   },
   'home.noFeatured': {
     vi: 'Chưa có trận sắp diễn ra.',
@@ -519,6 +576,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'common.abbrHome': { vi: 'C', en: 'H' },
   'common.abbrDraw': { vi: 'H', en: 'D' },
   'common.abbrAway': { vi: 'K', en: 'A' },
+  'common.tbd': { vi: 'Chưa xác định', en: 'TBD' },
   'common.model': { vi: 'Mô hình', en: 'Model' },
   'common.market': { vi: 'Thị trường', en: 'Market' },
   'common.consensus': { vi: 'Đồng thuận', en: 'Consensus' },
@@ -575,6 +633,17 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   },
   'team.fifaRank': { vi: 'Hạng FIFA', en: 'FIFA rank' },
   'team.elo': { vi: 'Elo', en: 'Elo' },
+  'team.coach': { vi: 'HLV', en: 'Head coach' },
+  'team.coachPending': { vi: 'Đang cập nhật', en: 'To be updated' },
+  'team.squadTitle': { vi: 'Đội hình triệu tập', en: 'Squad list' },
+  'team.squadSubtitle': {
+    vi: 'Danh sách cầu thủ chính thức tại World Cup 2026 (nếu đã có dữ liệu).',
+    en: 'Official World Cup 2026 squad when available.',
+  },
+  'team.squadEmpty': {
+    vi: 'Chưa có danh sách triệu tập — sẽ cập nhật khi có công bố chính thức.',
+    en: 'Squad not published yet — will update when official lists are available.',
+  },
   'scenario.title': { vi: 'Xác suất kịch bản', en: 'Scenario likelihood' },
   'scenario.loading': { vi: 'Đang tải kịch bản…', en: 'Loading scenarios…' },
   'scenario.empty': {
@@ -751,6 +820,8 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'editorial.context': { vi: 'Ngữ cảnh trận', en: 'Match context' },
   'featured.modelNow': { vi: 'Mô hình hiện tại', en: 'Model now' },
   'featured.probLoading': { vi: 'Đang tải xác suất…', en: 'Probability loading…' },
+  'featured.sectionLive': { vi: 'Trận đang diễn ra', en: 'Live match' },
+  'featured.sectionUpcoming': { vi: 'Trận đấu gần nhất', en: 'Next up' },
   'wc.title': { vi: 'World Cup 2026', en: 'FIFA World Cup 2026' },
   'wc.underway': { vi: 'Giải đấu đã bắt đầu', en: 'Tournament underway' },
   'wc.countdownTo': { vi: 'Đếm ngược tới World Cup 2026', en: 'Countdown to FIFA World Cup 2026' },
@@ -775,6 +846,79 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'Schedule seed: {n}/{total} matches loaded',
   },
   'calendar.groupLabel': { vi: 'Bảng', en: 'Group' },
+  'calendar.addGoogle': { vi: 'Google Calendar', en: 'Google Calendar' },
+  'calendar.downloadAll': { vi: 'Tải lịch .ics', en: 'Download .ics' },
+  'calendar.downloadOne': { vi: 'Tải trận .ics', en: 'Download match .ics' },
+  'calendar.syncHint': {
+    vi: 'Tải file .ics để import vào iPhone, Outlook hoặc app lịch khác — tự nhắc giờ bóng lăn.',
+    en: 'Download .ics to import into iPhone, Outlook, or other calendar apps — kickoff reminders included.',
+  },
+  'schedule.hubTitle': { vi: 'Lịch thi đấu trực quan', en: 'Visual match schedule' },
+  'schedule.viewGrid': { vi: 'Lưới', en: 'Grid' },
+  'schedule.viewList': { vi: 'Danh sách', en: 'List' },
+  'schedule.timezoneBannerVn': {
+    vi: 'Giờ thi đấu theo giờ Việt Nam (GMT+7) — khớp lịch Thể Thao 247 / VTV.',
+    en: 'Kickoffs shown in Vietnam time (GMT+7) — aligned with Thể Thao 247 / VTV schedule.',
+  },
+  'schedule.timezoneBannerLocal': {
+    vi: 'Giờ thi đấu theo múi giờ của bạn ({tz}).',
+    en: 'Kickoffs in your local timezone ({tz}).',
+  },
+  'schedule.vnReference': {
+    vi: 'tham chiếu VN',
+    en: 'VN reference',
+  },
+  'schedule.vnTimeShort': {
+    vi: 'VN',
+    en: 'VN',
+  },
+  'favorites.tab': { vi: 'Yêu thích', en: 'Favorites' },
+  'favorites.title': { vi: 'Trận & đội yêu thích', en: 'Saved matches & teams' },
+  'favorites.subtitle': {
+    vi: 'Thả sao trên lịch hoặc trang đội — lưu trên thiết bị của bạn.',
+    en: 'Star matches on the schedule or team pages — saved on your device.',
+  },
+  'favorites.matchesTab': { vi: 'Trận yêu thích', en: 'Favorite matches' },
+  'favorites.teamsTab': { vi: 'Đội yêu thích', en: 'Favorite teams' },
+  'favorites.noMatches': { vi: 'Chưa có trận yêu thích — bấm ☆ trên lịch thi đấu.', en: 'No favorite matches yet — tap ☆ on the schedule.' },
+  'favorites.noTeams': { vi: 'Chưa có đội yêu thích — bấm ☆ ở mục Đội tuyển.', en: 'No favorite teams yet — tap ☆ in Teams.' },
+  'favorites.teamFixtures': { vi: 'Lịch các đội yêu thích', en: 'Fixtures for your teams' },
+  'favorites.add': { vi: 'Thêm yêu thích', en: 'Add favorite' },
+  'favorites.remove': { vi: 'Bỏ yêu thích', en: 'Remove favorite' },
+  'teams.tab': { vi: 'Đội tuyển', en: 'Teams' },
+  'teams.directoryTitle': { vi: '48 đội tuyển World Cup 2026', en: '48 World Cup 2026 teams' },
+  'teams.directorySubtitle': {
+    vi: 'Tra cứu nhanh — bấm đội để xem HLV, đội hình triệu tập và lịch sử đối đầu.',
+    en: 'Quick lookup — open a team for coach, squad, and head-to-head history.',
+  },
+  'teams.searchPlaceholder': { vi: 'Tìm đội…', en: 'Search teams…' },
+  'groupBoard.title': { vi: 'Bảng đấu', en: 'Tournament board' },
+  'groupBoard.tabGroup': { vi: 'Bảng đấu vòng bảng', en: 'Group stage' },
+  'groupBoard.tabKnockout': { vi: 'Knock Out', en: 'Knock Out' },
+  'groupBoard.knockoutEmpty': { vi: 'Chưa có trận ở vòng này.', en: 'No matches in this round yet.' },
+  'groupBoard.subtitle': {
+    vi: 'Bảng xếp hạng và lịch thi đấu theo từng bảng — gọn như bảng đấu World Cup.',
+    en: 'Standings and fixtures per group — compact tournament view.',
+  },
+  'groupBoard.loading': { vi: 'Đang tải bảng đấu…', en: 'Loading groups…' },
+  'groupBoard.probHint': {
+    vi: 'C · H · K = % mô hình (chủ · hòa · khách)',
+    en: 'H · D · A = model % (home · draw · away)',
+  },
+  'groupBoard.standingsHint': {
+    vi: 'Tr · Trận · HS · Hiệu số · Đ · Điểm',
+    en: 'P · Played · GD · Goal diff · Pts · Points',
+  },
+  'groupBoard.knockoutTitle': { vi: 'Vòng knock-out', en: 'Knockout stage' },
+  'groupBoard.knockoutSubtitle': {
+    vi: 'Hiện sau khi kết thúc vòng bảng — bấm trận để mở phân tích chi tiết.',
+    en: 'Shown after the group stage — tap a match for full analysis.',
+  },
+  'groupBoard.knockoutLocked': {
+    vi: 'Các trận vòng knock-out sẽ hiện khi 12 bảng đã đá xong.',
+    en: 'Knockout fixtures appear once all 12 groups are complete.',
+  },
+  'groupBoard.openAnalysis': { vi: 'Phân tích', en: 'Analysis' },
   'home.newUserHint': { vi: 'Lần đầu? Xem', en: 'New? See the' },
   'home.newUserHintLink': { vi: 'hướng dẫn', en: 'guide' },
   'home.newUserHintTail': { vi: 'hoặc làm theo 4 bước bên dưới.', en: 'or follow the 4 steps below.' },

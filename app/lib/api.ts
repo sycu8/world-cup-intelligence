@@ -89,11 +89,19 @@ export const api = {
         opponents: TeamWcOpponentRecord[];
       };
     }>(`/teams/${id}/wc-h2h`),
+  teamSquad: (id: string) =>
+    get<{
+      data: SquadPlayer[];
+    }>(`/teams/${id}/squad`),
   players: () => get<{ data: PlayerSummary[] }>('/players'),
   player: (id: string) => get<{ data: PlayerSummary }>(`/players/${id}`),
   search: (q: string) => get<{ data: Record<string, unknown[]> }>(`/search?q=${encodeURIComponent(q)}`),
   tournamentStandings: (year = 2026) =>
     get<{ data: GroupStandingsPayload }>(`/tournaments/${year}/standings`),
+  tournamentMatchProbabilities: (year = 2026) =>
+    get<{ data: Record<string, { homeWin: number; draw: number; awayWin: number }> }>(
+      `/tournaments/${year}/match-probabilities`,
+    ),
   tournamentBracket: (year = 2026) =>
     get<{ data: BracketPayload }>(`/tournaments/${year}/bracket`),
   matchAnalysis: (id: string) =>
@@ -184,6 +192,8 @@ export type ScheduleMatch = {
   status: string;
   stage?: string;
   group_code?: string;
+  home_team_id?: string;
+  away_team_id?: string;
   home_score: number;
   away_score: number;
   minute?: number;
@@ -191,13 +201,25 @@ export type ScheduleMatch = {
   away_name: string;
   home_short?: string;
   away_short?: string;
+  home_country_code?: string;
+  away_country_code?: string;
   match_date?: string;
+};
+
+export type SquadPlayer = {
+  player_id: string;
+  name: string;
+  position: string | null;
+  shirt_number: number | null;
+  listed_position: string | null;
+  status: string | null;
 };
 
 export type StandingRow = {
   teamId: string;
   teamName: string;
   shortName: string | null;
+  countryCode?: string | null;
   rank: number;
   played: number;
   points: number;
@@ -256,6 +278,10 @@ export type MatchSummary = {
   away_team_id: string;
   home_name?: string;
   away_name?: string;
+  home_short?: string | null;
+  away_short?: string | null;
+  home_country_code?: string | null;
+  away_country_code?: string | null;
   status: string;
   home_score: number;
   away_score: number;
@@ -268,6 +294,7 @@ export type TeamSummary = {
   id: string;
   name: string;
   short_name?: string;
+  country_code?: string | null;
   fifa_ranking?: number;
   elo_rating?: number;
 };

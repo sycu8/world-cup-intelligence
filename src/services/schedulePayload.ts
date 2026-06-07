@@ -14,9 +14,10 @@ export async function buildSchedulePayload(
   const tournamentId = resolveScheduleTournamentId(tournamentParam ?? undefined);
   const { results } = await env.DB.prepare(
     `SELECT m.id, m.kickoff_utc, m.status, m.stage, m.group_code,
+            m.home_team_id, m.away_team_id,
             m.home_score, m.away_score, m.minute, m.tournament_id,
-            ht.name AS home_name, ht.short_name AS home_short,
-            at.name AS away_name, at.short_name AS away_short,
+            ht.name AS home_name, ht.short_name AS home_short, ht.country_code AS home_country_code,
+            at.name AS away_name, at.short_name AS away_short, at.country_code AS away_country_code,
             date(m.kickoff_utc) AS match_date
      FROM matches m
      JOIN teams ht ON ht.id = m.home_team_id

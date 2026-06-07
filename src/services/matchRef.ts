@@ -7,12 +7,14 @@ export type MatchWithSlug = MatchRow & {
   away_name: string;
   home_short: string | null;
   away_short: string | null;
+  home_country_code: string | null;
+  away_country_code: string | null;
   slug: string;
 };
 
 const MATCH_JOIN_SQL = `SELECT m.*,
-       ht.name AS home_name, ht.short_name AS home_short,
-       at.name AS away_name, at.short_name AS away_short
+       ht.name AS home_name, ht.short_name AS home_short, ht.country_code AS home_country_code,
+       at.name AS away_name, at.short_name AS away_short, at.country_code AS away_country_code
 FROM matches m
 JOIN teams ht ON ht.id = m.home_team_id
 JOIN teams at ON at.id = m.away_team_id

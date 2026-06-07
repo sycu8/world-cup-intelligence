@@ -13,14 +13,11 @@ import { useI18n } from '../lib/i18n/I18nContext';
 const HomeNewsPreview = lazy(() =>
   import('../components/home/HomeNewsPreview').then((m) => ({ default: m.HomeNewsPreview })),
 );
-const MatchScheduleCalendar = lazy(() =>
-  import('../components/home/MatchScheduleCalendar').then((m) => ({
-    default: m.MatchScheduleCalendar,
-  })),
+const GroupStageBoard = lazy(() =>
+  import('../components/tournament/GroupStageBoard').then((m) => ({ default: m.GroupStageBoard })),
 );
 
 const REFRESH_MS = 30_000;
-const WC2026_TOTAL = 104;
 const WC2026_START = '2026-06-11T14:00:00Z';
 
 function SectionFallback({ className = 'min-h-[12rem]' }: { className?: string }) {
@@ -29,14 +26,12 @@ function SectionFallback({ className = 'min-h-[12rem]' }: { className?: string }
 
 export function HomePage() {
   const { t } = useI18n();
-  const [schedule, setSchedule] = useState<Record<string, ScheduleMatch[]>>({});
   const [matches, setMatches] = useState<ScheduleMatch[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [hotNews, setHotNews] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
 
   const applyHome = useCallback((payload: Awaited<ReturnType<typeof api.home>>) => {
-    setSchedule(payload.data.schedule.byDate);
     setMatches(payload.data.schedule.matches);
     setDashboard(payload.data.dashboard);
     setHotNews(payload.data.hotNews.slice(0, 3));
@@ -51,7 +46,6 @@ export function HomePage() {
       }
       applyHome(await api.home());
     } catch {
-      setSchedule({});
       setMatches([]);
       setDashboard(null);
       setHotNews([]);
@@ -97,10 +91,15 @@ export function HomePage() {
         <HomePageSkeleton />
       ) : (
         <>
-          <PlatformSnapshot dashboard={dashboard} />
           <NewUserQuickStart />
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-start">
-            <WorldCupCountdown targetUtc={tournamentStart} />
+          <Suspense fallback={<SectionFallback className="min-h-[24rem]" />}>
+            <GroupStageBoard matches={matches} />
+          </Suspense>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-stretch">
+            <div className="flex flex-col gap-4">
+              <WorldCupCountdown targetUtc={tournamentStart} />
+              <PlatformSnapshot dashboard={dashboard} compact />
+            </div>
             {featured ? (
               <FeaturedMatchHero match={featured} />
             ) : (
@@ -111,13 +110,6 @@ export function HomePage() {
           </div>
           <Suspense fallback={<SectionFallback />}>
             <HomeNewsPreview initialHot={hotNews} />
-          </Suspense>
-          <Suspense fallback={<SectionFallback className="min-h-[24rem]" />}>
-            <MatchScheduleCalendar
-              byDate={schedule}
-              matches={matches}
-              totalExpected={WC2026_TOTAL}
-            />
           </Suspense>
         </>
       )}

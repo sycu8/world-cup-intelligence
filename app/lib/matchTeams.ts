@@ -28,3 +28,23 @@ export function formatMatchVersus(
   if (!away) return home;
   return `${home}${separator}${away}`;
 }
+
+/** Shorter label for tight probability cards on mobile (full name in title/tooltip). */
+const TEAM_COMPACT_LABELS: Record<string, string> = {
+  'United States': 'USA',
+  'South Korea': 'Hàn Quốc',
+  'Saudi Arabia': 'Ả Rập',
+  'Costa Rica': 'Costa Rica',
+  Netherlands: 'Hà Lan',
+  Switzerland: 'Thụy Sĩ',
+};
+
+export function compactTeamLabel(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return trimmed;
+  if (TEAM_COMPACT_LABELS[trimmed]) return TEAM_COMPACT_LABELS[trimmed];
+  if (trimmed.length <= 11) return trimmed;
+  const words = trimmed.split(/\s+/);
+  if (words.length > 1 && words[0].length <= 10) return words[0];
+  return trimmed.slice(0, 10);
+}

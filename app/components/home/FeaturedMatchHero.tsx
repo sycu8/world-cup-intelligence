@@ -7,6 +7,7 @@ import { Bilingual } from '../i18n/Bilingual';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { groupStageLabel, matchStageLabel } from '../../lib/i18n/stageLabels';
 import { MatchKickoffCountdown } from './MatchKickoffCountdown';
+import { TeamNameWithFlag } from '../team/TeamNameWithFlag';
 
 type Props = {
   match: ScheduleMatch & { probability?: ProbabilityData | null };
@@ -15,6 +16,8 @@ type Props = {
 export function FeaturedMatchHero({ match }: Props) {
   const { t } = useI18n();
   const p = match.probability;
+  const isLive = match.status === 'live';
+  const sectionLabel = isLive ? t('featured.sectionLive') : t('featured.sectionUpcoming');
   const stageLabel =
     match.stage === 'Group' && match.group_code
       ? groupStageLabel(match.group_code, t)
@@ -23,7 +26,16 @@ export function FeaturedMatchHero({ match }: Props) {
         : t('common.match');
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
+      <p
+        className={
+          isLive
+            ? 'label-tactical text-live animate-pulse'
+            : 'label-tactical text-cyan'
+        }
+      >
+        {sectionLabel}
+      </p>
       <div className="hero-glow overflow-hidden rounded-panel border border-cyan/25">
         <div className="border-b border-border/60 px-4 py-3 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -54,7 +66,13 @@ export function FeaturedMatchHero({ match }: Props) {
 
           <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-4">
             <h2 className="font-heading text-right text-xl uppercase leading-none tracking-tight text-foreground md:text-3xl lg:text-4xl">
-              {match.home_name}
+              <TeamNameWithFlag
+                name={match.home_short?.trim() || match.home_name}
+                flagName={match.home_name}
+                countryCode={match.home_country_code}
+                className="justify-end font-heading uppercase"
+                flagClassName="h-6 w-9 rounded-sm object-cover ring-1 ring-white/10 md:h-8 md:w-12 lg:h-10 lg:w-[3.75rem]"
+              />
             </h2>
             <div className="score-pulse rounded-card border border-cyan/30 bg-background/80 px-5 py-3 md:px-8 md:py-4">
               <p className="font-heading text-4xl tabular-nums text-foreground md:text-6xl">
@@ -64,7 +82,13 @@ export function FeaturedMatchHero({ match }: Props) {
               </p>
             </div>
             <h2 className="font-heading text-left text-xl uppercase leading-none tracking-tight text-foreground md:text-3xl lg:text-4xl">
-              {match.away_name}
+              <TeamNameWithFlag
+                name={match.away_short?.trim() || match.away_name}
+                flagName={match.away_name}
+                countryCode={match.away_country_code}
+                className="font-heading uppercase"
+                flagClassName="h-6 w-9 rounded-sm object-cover ring-1 ring-white/10 md:h-8 md:w-12 lg:h-10 lg:w-[3.75rem]"
+              />
             </h2>
           </div>
         </div>

@@ -122,6 +122,36 @@
     color: #f1f5f9;
   }
 
+  .editorial-layout .editorial-prose {
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  @media (min-width: 640px) {
+    .editorial-layout .editorial-prose {
+      font-size: 1.125rem;
+      line-height: 1.75;
+    }
+  }
+
+  .editorial-layout .editorial-prose h2 {
+    @apply text-xl sm:text-2xl;
+  }
+
+  .editorial-sidebar > * {
+    @apply overflow-hidden rounded-xl border border-border/45 bg-panel2/25;
+  }
+
+  .editorial-sidebar .panel-dense,
+  .editorial-sidebar .panel-elevated {
+    box-shadow: none;
+    border-radius: 0.75rem;
+  }
+
+  .editorial-context-mobile {
+    @apply px-3 py-3 sm:px-4;
+  }
+
   .scrollbar-thin::-webkit-scrollbar {
     height: 6px;
     width: 6px;

@@ -10,15 +10,23 @@
 
 ### Trang chủ (`/`)
 - Trận nổi bật (featured match) + xác suất real-time
+- **Bảng đấu** (`GroupStageBoard`) — hai tab chính, lazy-load để tránh quá tải:
+  - **Bảng đấu vòng bảng** — 12 bảng A–L, xếp hạng đội thứ 3, xác suất trận vòng bảng
+  - **Knock Out** — tab con theo vòng: *Vòng 1/16*, *Vòng 1/8*, *Tứ kết*, *Bán kết*, *Tranh hạng 3*, *Chung kết* (mỗi lần chỉ hiển thị một vòng)
 - Lịch thi đấu rút gọn, tin nóng, snapshot giải (scheduled / live / completed)
 - Song ngữ **Tiếng Việt / English** — chuyển một lần trên header; toàn site (nav, lịch, bảng, nhánh, trận, tin, hướng dẫn) hiển thị khác nhau theo locale
 - Nhãn vòng đấu VI: *Bảng A*, *Vòng 1/16*, *Chung kết*; đối đầu: *Đội A gặp Đội B* (`app/lib/i18n/stageLabels.ts`)
+- **Cờ quốc gia** — PNG qua `flagcdn.com` (hiển thị đúng trên Windows, không phụ thuộc emoji)
+- **Giờ thi đấu** — múi giờ trình duyệt + tham chiếu giờ Việt Nam (`MatchKickoffDisplay`)
 - Tin nóng tự dịch VI; làm mới mỗi 30 giây
 
-### Trận đấu (`/matches`)
-- Lịch đầy đủ **104 trận** WC 2026 (vòng bảng + knockout)
+### Trung tâm trận đấu (`/matches`)
+- Hub 4 tab: **Lịch thi đấu** · **Bảng xếp hạng** · **Yêu thích** · **Đội**
+- Lịch đầy đủ **104 trận** WC 2026 (72 vòng bảng + 32 knockout) — lịch chính thức FIFA + giờ kickoff VN
 - Tỉ số **LIVE** và **FT** trên lịch, làm mới mỗi 30 giây
-- Lọc: tất cả / vòng bảng / knockout
+- Lọc lịch: tất cả / vòng bảng / knockout; xuất **.ics** (Google Calendar / Apple Calendar)
+- **Yêu thích** — lưu trận/đội trên localStorage, panel riêng
+- Tab **Bảng xếp hạng** dùng cùng `GroupStageBoard` như trang chủ
 - Link trận dùng **slug tiếng Việt** (xem mục URL trận bên dưới)
 
 ### URL trận (slug SEO-friendly)
@@ -204,7 +212,7 @@ npx wrangler dev --remote --port 8787
 |--------|--------|
 | `npm run dev` | Frontend Vite |
 | `npm run build` | Build production |
-| `npm run test` | Vitest (91 tests) |
+| `npm run test` | Vitest (115 tests) |
 | `npm run pull:statsbomb` | Pull StatsBomb open-data → D1 + R2 |
 | `npm run typecheck` | TypeScript |
 | `npm run deploy` | Build + `wrangler deploy` |
@@ -245,7 +253,10 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 |----------|--------|
 | `GET /api/health` | Health + meta refresh |
 | `GET /api/dashboard` | Featured match, counts |
-| `GET /api/schedule` | Lịch 104 trận theo ngày |
+| `GET /api/schedule` | Lịch 104 trận theo ngày (+ `home_country_code` / `away_country_code`) |
+| `GET /api/teams` | Danh sách 48 đội WC 2026 |
+| `GET /api/tournament/2026/standings` | Bảng xếp hạng 12 bảng + xếp hạng đội thứ 3 |
+| `GET /api/tournament/2026/match-probabilities` | Xác suất bulk cho lịch/bảng |
 | `GET /api/matches/:ref` | Chi tiết trận (`ref` = slug hoặc id cũ `m-*`; trả thêm `slug`) |
 | `GET /api/matches/:ref/lineups` | Đội hình hai bên (official only trên UI) |
 | `GET /api/matches/:ref/preview` | Phân tích trước trận (lineup, form, bảng) |
@@ -283,10 +294,10 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 
 ```bash
 npm run typecheck   # ✓ pass
-npm test            # ✓ 91 tests, 27 files
+npm test            # ✓ 115 tests, 35 files
 ```
 
-**Deploy production gần nhất:** [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) · Worker version `1ee886ef-a027-440d-8aab-9d81a093aec7`
+**Deploy production gần nhất:** [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) · Worker version `b7d9811f-0a5d-47a4-bf14-2c21fb67777f`
 
 **Đã kiểm tra:**
 - Xác suất & snapshot engine
@@ -302,6 +313,12 @@ npm test            # ✓ 91 tests, 27 files
 - **Lineup display** (official-only UI, `(số) - tên - vị trí`)
 - **Nation ISO codes** (`nationIsoCodes.mjs`, migration 0019 — sửa mã quốc gia sai từ name-prefix)
 - **Scenario VI labels** (`scenarioPredictionLabels.test.ts`)
+- **FIFA official draw 2026** — 48 đội, 104 trận, 16 sân (`fifaOfficialDraw.test.ts`, migration `0020`)
+- **Giờ kickoff VN** — 104 trận từ lịch Thể Thao 247 (`wc2026VnKickoffs.test.ts`, migration `0021`)
+- **Cờ quốc gia PNG** (`nationFlags.test.ts`, `TeamNameWithFlag`)
+- **Hiển thị giờ thi đấu** (`matchKickoffDisplay.test.ts`)
+- **Yêu thích & xuất lịch** (`favorites.test.ts`, `calendarExport.test.ts`)
+- **Bảng vòng bảng API** (`tournamentStandings.test.ts`)
 
 ---
 
@@ -309,18 +326,36 @@ npm test            # ✓ 91 tests, 27 files
 
 ```
 app/           React UI (pages, components, i18n)
-  lib/         useMatchLiveData, matchPaths, matchTeams, api, scenarioPredictionLabels, stageLabels
+  components/  tournament/ (GroupStageBoard, TournamentSchedulePanel, FavoritesPanel, …)
+  lib/         api, favorites, calendarExport, nationFlags, matchKickoffDisplay, stageLabels
 src/
-  routes/      Hono API
-  services/    recompute, matchScenarioService, matchRef, officialLineupSync, lineupDisplay
+  routes/      Hono API (tournaments, matches, teams, …)
+  services/    recompute, matchRef, tournamentStandings, tournamentProgression, schedulePayload
   utils/       matchSlug (URL slug builder)
   ingestion/   match refresh, news crawler, statsbombIngest, matchDataProvider
   models/      probability engine, scenarios/ (multi-scenario prediction)
   queues/      ingest + model consumers
   scheduled/   cron
-migrations/    D1 SQL (0001–0019)
-scripts/       pull-statsbomb, expand-wc2026-data, nationIsoCodes
+migrations/    D1 SQL (0001–0021)
+scripts/       fifa-wc2026-official-data, wc2026-vn-kickoffs, nationIsoCodes, pull-statsbomb
 tests/         Vitest
+```
+
+---
+
+## Dữ liệu WC 2026
+
+| Migration | Nội dung |
+|-----------|----------|
+| `0020_fifa_official_draw_2026.sql` | Bốc thăm chính thức FIFA — 48 đội, 104 trận, 16 sân, bracket knockout |
+| `0021_vn_kickoff_times.sql` | Cập nhật `kickoff_utc` theo giờ VN (nguồn: Thể Thao 247) |
+
+Script tái tạo dữ liệu:
+
+```bash
+node scripts/fifa-wc2026-official-data.mjs      # payload lịch FIFA
+node scripts/generate-fifa-official-migration.mjs
+node scripts/generate-vn-kickoff-migration.mjs  # từ wc2026-vn-kickoffs.json
 ```
 
 ---
@@ -358,6 +393,12 @@ Migration `0013_wc_historical_h2h.sql` seed các kỳ WC (1930–2022) và trậ
 - [x] Bảng xếp hạng vòng bảng — tab **Bảng xếp hạng** + `GET /api/tournament/2026/standings`
 - [x] Mở rộng seed lịch sử WC cho 48 đội — tên đội thật cho placeholder `team-w26-*`; H2H đầy đủ → StatsBomb ingest
 - [x] **i18n EN/VI toàn site** — `locales.ts` + `stageLabels.ts`; aria-label, vòng đấu, standings/bracket, dịch nội dung kịch bản backend sang VI
+- [x] **Lịch FIFA chính thức WC 2026** — migration `0020_fifa_official_draw_2026.sql` (48 đội, 72 vòng bảng + 32 knockout, 16 venue)
+- [x] **Giờ kickoff theo giờ Việt Nam** — migration `0021_vn_kickoff_times.sql` + `scripts/wc2026-vn-kickoffs.json`
+- [x] **Hub `/matches`** — lịch, bảng, yêu thích, danh mục đội; xuất `.ics`
+- [x] **Bảng đấu tabbed** — vòng bảng / Knock Out (6 tab con vòng), lazy-load trên trang chủ
+- [x] **Cờ quốc gia PNG** — `TeamNameWithFlag` + `flagcdn.com` (Windows-safe)
+- [x] **Hiển thị giờ thi đấu** — múi giờ người xem + tham chiếu VN
 
 Chi tiết thực thi từng hạng mục: [docs/ROADMAP_EXECUTION.md](./docs/ROADMAP_EXECUTION.md)
 

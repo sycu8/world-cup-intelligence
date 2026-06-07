@@ -1,4 +1,5 @@
 import { pct, xg } from '../../lib/format';
+import { compactTeamLabel } from '../../lib/matchTeams';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { SectionLabel } from './SectionLabel';
 
@@ -36,6 +37,7 @@ export function ProbabilityStrip({
     {
       key: 'home',
       label: homeName,
+      compactLabel: compactTeamLabel(homeName),
       value: homeWin,
       bar: 'bg-cyan',
       text: 'text-cyan',
@@ -46,6 +48,7 @@ export function ProbabilityStrip({
     {
       key: 'draw',
       label: drawName,
+      compactLabel: drawName,
       value: draw,
       bar: 'bg-slate',
       text: 'text-muted',
@@ -56,6 +59,7 @@ export function ProbabilityStrip({
     {
       key: 'away',
       label: awayName,
+      compactLabel: compactTeamLabel(awayName),
       value: awayWin,
       bar: 'bg-magenta',
       text: 'text-magenta',
@@ -74,6 +78,7 @@ export function ProbabilityStrip({
           title={simulated ? t('simulator.scenarioOutput') : t('simulator.winProb')}
           subtitle={simulated ? t('probStrip.subtitleSim') : t('probStrip.subtitle')}
           accent={simulated ? 'lime' : 'cyan'}
+          className="mb-0 min-w-0 flex-1"
         />
         <div className="flex flex-wrap items-center gap-2">
           {live && (
@@ -101,32 +106,35 @@ export function ProbabilityStrip({
         ))}
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+      <div className="mt-3 grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-3">
         {segments.map((s) => {
           const isLeader = s.key === leader.key;
           return (
             <div
               key={s.key}
-              className={`flex min-w-0 flex-col rounded-lg border px-2 py-3 text-center sm:px-3 ${
+              className={`flex min-w-0 flex-col overflow-hidden rounded-lg border px-1.5 py-2.5 text-center sm:px-3 sm:py-3 ${
                 isLeader ? `${s.border} ${s.bg}` : 'border-border/50 bg-panel2/30'
               }`}
             >
               <p
-                className="truncate text-xs font-medium leading-snug text-foreground/85 sm:text-sm"
+                className="mx-auto line-clamp-2 min-h-[2rem] max-w-full break-words text-[10px] font-medium leading-snug text-foreground/85 sm:min-h-0 sm:text-xs md:text-sm"
                 title={s.label}
               >
-                {s.label}
+                <span className="sm:hidden">{s.compactLabel}</span>
+                <span className="hidden sm:inline">{s.label}</span>
               </p>
-              <p className={`mt-1 font-mono-data text-xl font-semibold tabular-nums sm:text-2xl ${s.text}`}>
+              <p
+                className={`mt-0.5 font-mono-data text-sm font-semibold tabular-nums leading-none sm:mt-1 sm:text-xl md:text-2xl ${s.text}`}
+              >
                 {pct(s.value)}
               </p>
               {s.xgVal != null ? (
-                <p className="mt-1.5 font-mono-data text-[11px] text-muted sm:text-xs">
+                <p className="mt-1 font-mono-data text-[10px] text-muted sm:mt-1.5 sm:text-xs">
                   xG{' '}
                   <span className={`font-medium ${s.text}`}>{xg(s.xgVal)}</span>
                 </p>
               ) : (
-                <p className="mt-1.5 text-[11px] text-transparent select-none sm:text-xs" aria-hidden>
+                <p className="mt-1 text-[10px] text-transparent select-none sm:mt-1.5 sm:text-xs" aria-hidden>
                   —
                 </p>
               )}

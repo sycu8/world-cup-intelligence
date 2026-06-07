@@ -2,6 +2,40 @@ import type { ProbabilitySnapshotRow } from '../schema';
 import type { ProbabilityResult } from '../../models/probability/types';
 import { newId } from '../../utils/ids';
 
+export async function listLatestSnapshotsForTournament(
+  db: D1Database,
+  tournamentId: string,
+): Promise<
+  Array<{
+    matchId: string;
+    homeWinProb: number;
+    drawProb: number;
+    awayWinProb: number;
+  }>
+> {
+  const { results } = await db
+    .prepare(
+      `SELECT ps.match_id AS matchId, ps.home_win_prob AS homeWinProb,
+              ps.draw_prob AS drawProb, ps.away_win_prob AS awayWinProb
+       FROM probability_snapshots ps
+       INNER JOIN (
+         SELECT match_id, MAX(id) AS latest_id
+         FROM probability_snapshots
+         GROUP BY match_id
+       ) latest ON latest.latest_id = ps.id
+       INNER JOIN matches m ON m.id = ps.match_id
+       WHERE m.tournament_id = ?`,
+    )
+    .bind(tournamentId)
+    .all<{
+      matchId: string;
+      homeWinProb: number;
+      drawProb: number;
+      awayWinProb: number;
+    }>();
+  return results ?? [];
+}
+
 export async function getLatestSnapshot(
   db: D1Database,
   matchId: string,

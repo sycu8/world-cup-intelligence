@@ -90,19 +90,16 @@ export async function computeGroupStandings(
   db: D1Database,
   groupCode: string,
 ): Promise<GroupStanding[]> {
-  const { results } = await db
+  const { results: rosterRows } = await db
     .prepare(
-      `SELECT home_team_id, away_team_id, home_score, away_score
-       FROM matches
-       WHERE tournament_id = ? AND stage = 'Group' AND group_code = ? AND status = 'completed'`,
+      `SELECT home_team_id AS team_id FROM matches
+       WHERE tournament_id = ? AND stage = 'Group' AND group_code = ?
+       UNION
+       SELECT away_team_id FROM matches
+       WHERE tournament_id = ? AND stage = 'Group' AND group_code = ?`,
     )
-    .bind(WC2026_TOURNAMENT_ID, groupCode)
-    .all<{
-      home_team_id: string;
-      away_team_id: string;
-      home_score: number;
-      away_score: number;
-    }>();
+    .bind(WC2026_TOURNAMENT_ID, groupCode, WC2026_TOURNAMENT_ID, groupCode)
+    .all<{ team_id: string }>();
 
   const stats = new Map<string, GroupStanding>();
 
@@ -114,6 +111,25 @@ export async function computeGroupStandings(
     }
     return row;
   };
+
+  for (const { team_id } of rosterRows ?? []) {
+    ensure(team_id);
+  }
+
+  const { results } = await db
+    .prepare(
+      `SELECT home_team_id, away_team_id, home_score, away_score
+       FROM matches
+       WHERE tournament_id = ? AND stage = 'Group' AND group_code = ?
+         AND status IN ('completed', 'finished', 'live')`,
+    )
+    .bind(WC2026_TOURNAMENT_ID, groupCode)
+    .all<{
+      home_team_id: string;
+      away_team_id: string;
+      home_score: number;
+      away_score: number;
+    }>();
 
   for (const m of results ?? []) {
     const home = ensure(m.home_team_id);
@@ -139,19 +155,14 @@ export async function computeGroupStandings(
     row.gd = row.gf - row.ga;
   }
 
-  return [...stats.values()].sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-    if (b.gd !== a.gd) return b.gd - a.gd;
-    if (b.gf !== a.gf) return b.gf - a.gf;
-    return a.teamId.localeCompare(b.teamId);
-  });
+  return [...stats.values()].sort(compareStandings);
 }
 
 async function isGroupComplete(db: D1Database, groupCode: string): Promise<boolean> {
   const row = await db
     .prepare(
       `SELECT COUNT(*) AS total,
-              SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS done
+              SUM(CASE WHEN status IN ('completed', 'finished') THEN 1 ELSE 0 END) AS done
        FROM matches
        WHERE tournament_id = ? AND stage = 'Group' AND group_code = ?`,
     )

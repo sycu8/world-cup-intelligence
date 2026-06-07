@@ -2,10 +2,13 @@ import { Bilingual } from '../i18n/Bilingual';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { matchStageLabel } from '../../lib/i18n/stageLabels';
 import { pct } from '../../lib/format';
+import { TeamNameWithFlag } from '../team/TeamNameWithFlag';
 
 type Props = {
   home: string;
   away: string;
+  homeCountryCode?: string | null;
+  awayCountryCode?: string | null;
   homeScore: number;
   awayScore: number;
   status: string;
@@ -27,6 +30,8 @@ function statusKey(status: string): 'common.live' | 'match.scheduled' | 'common.
 export function MatchHeader({
   home,
   away,
+  homeCountryCode,
+  awayCountryCode,
   homeScore,
   awayScore,
   status,
@@ -82,7 +87,13 @@ export function MatchHeader({
 
       <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 md:mt-4 md:gap-6">
         <h1 className="font-display text-right text-base leading-tight tracking-wide text-foreground sm:text-xl md:text-4xl lg:text-5xl">
-          {home}
+          <TeamNameWithFlag
+            name={home}
+            flagName={home}
+            countryCode={homeCountryCode}
+            className="justify-end font-display uppercase tracking-wide"
+            flagClassName="h-5 w-7 rounded-sm object-cover ring-1 ring-white/10 sm:h-6 sm:w-9 md:h-8 md:w-12"
+          />
         </h1>
         <div className="score-pulse rounded-lg border border-cyan/30 bg-background/80 px-3 py-2 md:rounded-xl md:px-8 md:py-4">
           <p className="font-display text-2xl tabular-nums text-foreground sm:text-3xl md:text-6xl lg:text-7xl">
@@ -92,7 +103,13 @@ export function MatchHeader({
           </p>
         </div>
         <h1 className="font-display text-left text-base leading-tight tracking-wide text-foreground sm:text-xl md:text-4xl lg:text-5xl">
-          {away}
+          <TeamNameWithFlag
+            name={away}
+            flagName={away}
+            countryCode={awayCountryCode}
+            className="font-display uppercase tracking-wide"
+            flagClassName="h-5 w-7 rounded-sm object-cover ring-1 ring-white/10 sm:h-6 sm:w-9 md:h-8 md:w-12"
+          />
         </h1>
       </div>
 

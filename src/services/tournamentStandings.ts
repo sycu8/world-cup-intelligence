@@ -8,6 +8,7 @@ import {
 export type StandingRow = GroupStanding & {
   teamName: string;
   shortName: string | null;
+  countryCode?: string | null;
   rank: number;
   isThirdPlaceCandidate?: boolean;
 };
@@ -30,7 +31,7 @@ async function isGroupComplete(db: D1Database, groupCode: string): Promise<boole
   const row = await db
     .prepare(
       `SELECT COUNT(*) AS total,
-              SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS done
+              SUM(CASE WHEN status IN ('completed', 'finished') THEN 1 ELSE 0 END) AS done
        FROM matches
        WHERE tournament_id = ? AND stage = 'Group' AND group_code = ?`,
     )
@@ -46,6 +47,24 @@ function compareStandings(a: GroupStanding, b: GroupStanding): number {
   return a.teamId.localeCompare(b.teamId);
 }
 
+export function sortStandingRows(rows: StandingRow[]): StandingRow[] {
+  const preTournament = rows.every((r) => r.played === 0);
+  const sorted = [...rows].sort((a, b) => {
+    if (preTournament) {
+      return a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
+    }
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.gd !== a.gd) return b.gd - a.gd;
+    if (b.gf !== a.gf) return b.gf - a.gf;
+    return a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
+  });
+  return sorted.map((row, i) => ({
+    ...row,
+    rank: i + 1,
+    isThirdPlaceCandidate: i === 2,
+  }));
+}
+
 export async function buildGroupStandingsPayload(env: AppEnv): Promise<GroupStandingsPayload> {
   const groups: GroupStandingsPayload['groups'] = {};
   const thirdPlaceCandidates: Array<StandingRow & { group: string }> = [];
@@ -53,37 +72,40 @@ export async function buildGroupStandingsPayload(env: AppEnv): Promise<GroupStan
   for (const code of GROUP_CODES) {
     const raw = await computeGroupStandings(env.DB, code);
     const teamIds = raw.map((r) => r.teamId);
-    const nameMap = new Map<string, { name: string; short: string | null }>();
+    const nameMap = new Map<string, { name: string; short: string | null; countryCode: string | null }>();
 
     if (teamIds.length) {
       const placeholders = teamIds.map(() => '?').join(',');
       const { results } = await env.DB.prepare(
-        `SELECT id, name, short_name FROM teams WHERE id IN (${placeholders})`,
+        `SELECT id, name, short_name, country_code FROM teams WHERE id IN (${placeholders})`,
       )
         .bind(...teamIds)
-        .all<{ id: string; name: string; short_name: string | null }>();
+        .all<{ id: string; name: string; short_name: string | null; country_code: string | null }>();
       for (const t of results ?? []) {
-        nameMap.set(t.id, { name: t.name, short: t.short_name });
+        nameMap.set(t.id, { name: t.name, short: t.short_name, countryCode: t.country_code });
       }
     }
 
     const complete = await isGroupComplete(env.DB, code);
-    const rows: StandingRow[] = raw.map((row, i) => {
+    const rows: StandingRow[] = raw.map((row) => {
       const names = nameMap.get(row.teamId);
       return {
         ...row,
-        rank: i + 1,
+        rank: 0,
         teamName: names?.name ?? row.teamId,
         shortName: names?.short ?? null,
-        isThirdPlaceCandidate: i === 2,
+        countryCode: names?.countryCode ?? null,
+        isThirdPlaceCandidate: false,
       };
     });
 
-    if (rows[2]) {
-      thirdPlaceCandidates.push({ ...rows[2], group: code });
+    const ranked = sortStandingRows(rows);
+
+    if (ranked[2]) {
+      thirdPlaceCandidates.push({ ...ranked[2], group: code });
     }
 
-    groups[code] = { complete, rows };
+    groups[code] = { complete, rows: ranked };
   }
 
   thirdPlaceCandidates.sort((a, b) => compareStandings(a, b));

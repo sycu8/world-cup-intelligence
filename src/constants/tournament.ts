@@ -2,8 +2,8 @@
 export const WC2026_TOURNAMENT_ID = 't-2026';
 export const WC2026_YEAR = 2026;
 export const WC2026_MATCH_COUNT = 104;
-/** Opening match kickoff (USA vs MEX group opener in seed schedule) */
-export const WC2026_TOURNAMENT_START = '2026-06-11T14:00:00Z';
+/** Opening match kickoff — Mexico vs South Africa (FIFA official schedule) */
+export const WC2026_TOURNAMENT_START = '2026-06-11T19:00:00Z';
 export const WC2026_HOST_COUNTRIES = ['United States', 'Mexico', 'Canada'] as const;
 export const WC2026_TEAMS_COUNT = 48;
 
