@@ -1,9 +1,11 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "wc-tactical-probability-platform",
+  // Default environment: UAT (npm run deploy / deploy:uat)
+  "name": "wc-tactical-uat",
   "main": "src/index.ts",
   "compatibility_date": "2026-01-01",
   "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
   "assets": {
     "directory": "./dist/client",
     "binding": "ASSETS",
@@ -19,7 +21,7 @@
     ]
   },
   "vars": {
-    "ENVIRONMENT": "production",
+    "ENVIRONMENT": "uat",
     "MOCK_SOURCES": "true",
     "AI_FALLBACK_MODE": "false",
     "VECTORIZE_FALLBACK_MODE": "true",
@@ -29,51 +31,107 @@
     "CORS_ORIGINS": "*"
   },
   "kv_namespaces": [
-    { "binding": "KV", "id": "fe99c19c60a542ea9771111b5ae050da" }
+    { "binding": "KV", "id": "413d9f3be91046c883fb42fc5c99b0d7" }
   ],
   "r2_buckets": [
-    { "binding": "R2_RAW", "bucket_name": "wc-tactical-raw" },
-    { "binding": "R2_SNAPSHOTS", "bucket_name": "wc-tactical-snapshots" },
-    { "binding": "R2_ARTIFACTS", "bucket_name": "wc-tactical-artifacts" }
+    { "binding": "R2_RAW", "bucket_name": "wc-tactical-raw-uat" },
+    { "binding": "R2_SNAPSHOTS", "bucket_name": "wc-tactical-snapshots-uat" },
+    { "binding": "R2_ARTIFACTS", "bucket_name": "wc-tactical-artifacts-uat" }
   ],
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "wc-tactical-db",
-      "database_id": "9571e8df-797c-4f45-890b-dbb01174dee3",
+      "database_name": "wc-tactical-db-uat",
+      "database_id": "956310d8-5ca1-49db-b188-7d0b435109ce",
       "migrations_dir": "migrations"
     }
   ],
   "ai": { "binding": "AI" },
   "queues": {
     "producers": [
-      { "binding": "INGEST_QUEUE", "queue": "wc-ingest-queue" },
-      { "binding": "MODEL_QUEUE", "queue": "wc-model-queue" }
+      { "binding": "INGEST_QUEUE", "queue": "wc-ingest-queue-uat" },
+      { "binding": "MODEL_QUEUE", "queue": "wc-model-queue-uat" }
     ],
     "consumers": [
       {
-        "queue": "wc-ingest-queue",
+        "queue": "wc-ingest-queue-uat",
         "max_batch_size": 10,
         "max_retries": 3,
-        "dead_letter_queue": "wc-ingest-dlq"
+        "dead_letter_queue": "wc-ingest-dlq-uat"
       },
       {
-        "queue": "wc-model-queue",
+        "queue": "wc-model-queue-uat",
         "max_batch_size": 5,
         "max_retries": 3,
-        "dead_letter_queue": "wc-model-dlq"
+        "dead_letter_queue": "wc-model-dlq-uat"
       }
     ]
   },
   "durable_objects": {
-    "bindings": [
-      { "name": "MATCH_ROOM", "class_name": "MatchRoom" }
-    ]
+    "bindings": [{ "name": "MATCH_ROOM", "class_name": "MatchRoom" }]
   },
-  "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["MatchRoom"] }
-  ],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MatchRoom"] }],
   "triggers": {
     "crons": ["* * * * *", "*/15 * * * *", "0 3 * * 1"]
+  },
+  "env": {
+    "production": {
+      "name": "wc-tactical-probability-platform",
+      "workers_dev": false,
+      "routes": [{ "pattern": "wcstat.orangecloud.vn", "custom_domain": true }],
+      "vars": {
+        "ENVIRONMENT": "production",
+        "MOCK_SOURCES": "true",
+        "AI_FALLBACK_MODE": "false",
+        "VECTORIZE_FALLBACK_MODE": "true",
+        "AI_GATEWAY_ENABLED": "true",
+        "AI_GATEWAY_ACCOUNT_ID": "4c15704ef706b9c8954cd6f9feb678d8",
+        "AI_GATEWAY_ID": "wc-tactical",
+        "CORS_ORIGINS": "*"
+      },
+      "kv_namespaces": [
+        { "binding": "KV", "id": "fe99c19c60a542ea9771111b5ae050da" }
+      ],
+      "r2_buckets": [
+        { "binding": "R2_RAW", "bucket_name": "wc-tactical-raw" },
+        { "binding": "R2_SNAPSHOTS", "bucket_name": "wc-tactical-snapshots" },
+        { "binding": "R2_ARTIFACTS", "bucket_name": "wc-tactical-artifacts" }
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "wc-tactical-db",
+          "database_id": "9571e8df-797c-4f45-890b-dbb01174dee3",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "ai": { "binding": "AI" },
+      "queues": {
+        "producers": [
+          { "binding": "INGEST_QUEUE", "queue": "wc-ingest-queue" },
+          { "binding": "MODEL_QUEUE", "queue": "wc-model-queue" }
+        ],
+        "consumers": [
+          {
+            "queue": "wc-ingest-queue",
+            "max_batch_size": 10,
+            "max_retries": 3,
+            "dead_letter_queue": "wc-ingest-dlq"
+          },
+          {
+            "queue": "wc-model-queue",
+            "max_batch_size": 5,
+            "max_retries": 3,
+            "dead_letter_queue": "wc-model-dlq"
+          }
+        ]
+      },
+      "durable_objects": {
+        "bindings": [{ "name": "MATCH_ROOM", "class_name": "MatchRoom" }]
+      },
+      "triggers": {
+        "crons": ["* * * * *", "*/15 * * * *", "0 3 * * 1"]
+      }
+    }
   }
 }

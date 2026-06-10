@@ -12,7 +12,14 @@ export function CompactMatchProb({ homeWin, draw, awayWin }: Props) {
   const { t } = useI18n();
 
   if (homeWin == null || draw == null || awayWin == null) {
-    return <span className="font-mono-data text-[10px] text-muted">—</span>;
+    return (
+      <span
+        className="shrink-0 font-mono-data text-[9px] italic text-muted-dim sm:text-[10px]"
+        title={t('compactProb.noAnalysisTitle')}
+      >
+        {t('compactProb.noAnalysis')}
+      </span>
+    );
   }
 
   return (

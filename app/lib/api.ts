@@ -78,6 +78,7 @@ export const api = {
     get<{ data: ModelVsMarketData | null; ai?: unknown }>(`/matches/${id}/model-vs-market`),
   matchProbabilityMovement: (id: string) =>
     get<{ data: ProbabilityMovementPayload }>(`/matches/${id}/probability-movement`),
+  matchStats: (id: string) => get<{ data: MatchStatsPayload }>(`/matches/${id}/stats`),
   historicalTournaments: () => get<{ data: HistoricalTournament[] }>('/tournaments'),
   teams: () => get<{ data: TeamSummary[] }>('/teams'),
   team: (id: string) => get<{ data: TeamSummary }>(`/teams/${id}`),
@@ -317,6 +318,47 @@ export type ProbabilityData = {
   intervalDistribution?: Record<string, { homeWinProb: number; drawProb: number; awayWinProb: number }>;
   confidence?: number;
   modelVersion?: string;
+  updatedAt?: string | null;
+  topScorelines?: { score: string; prob: number }[];
+  drivers?: string[];
+};
+
+export type MatchStatsPayload = {
+  matchId: string;
+  slug: string;
+  status: string;
+  minute: number | null;
+  homeScore: number;
+  awayScore: number;
+  updatedAt: string | null;
+  dataSource: 'recorded' | 'unavailable';
+  home: {
+    teamId: string;
+    teamName: string;
+    possession: number | null;
+    shots: number | null;
+    shotsOnTarget: number | null;
+    xg: number | null;
+    passes: number | null;
+    passAccuracy: number | null;
+  };
+  away: {
+    teamId: string;
+    teamName: string;
+    possession: number | null;
+    shots: number | null;
+    shotsOnTarget: number | null;
+    xg: number | null;
+    passes: number | null;
+    passAccuracy: number | null;
+  };
+  events: {
+    goals: number;
+    yellowCards: number;
+    redCards: number;
+    substitutions: number;
+  };
+  xgEstimateNote: string;
 };
 
 export type LineupPlayerRow = {

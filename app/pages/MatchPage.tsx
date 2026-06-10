@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   api,
@@ -48,6 +48,11 @@ import { useLegacyMatchRedirect } from '../lib/useLegacyMatchRedirect';
 import { useMatchScenarioLive } from '../lib/useMatchScenarioLive';
 import { matchAnalysisPath } from '@/utils/matchSlug';
 import { formatLocalizedVersus } from '../lib/i18n/stageLabels';
+import { MatchStickyScoreBar } from '../components/match/MatchStickyScoreBar';
+import { MatchSectionNav, type MatchSectionId } from '../components/match/MatchSectionNav';
+import { MatchLiveStatsPanel } from '../components/match/MatchLiveStatsPanel';
+import { MatchPredictionSummary } from '../components/match/MatchPredictionSummary';
+import { MatchAnalyticsPanel } from '../components/match/MatchAnalyticsPanel';
 
 export function MatchPage() {
   const { matchId } = useParams();
@@ -70,6 +75,17 @@ export function MatchPage() {
   const [scenarioPredictions, setScenarioPredictions] = useState<MatchScenarioSet | null>(null);
   const [marketSignals, setMarketSignals] = useState<MarketSignalsPayload | null>(null);
   const [intelLoading, setIntelLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState<MatchSectionId>('overview');
+  const [stickyVisible, setStickyVisible] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const sectionRefs = {
+    overview: useRef<HTMLElement>(null),
+    stats: useRef<HTMLElement>(null),
+    prediction: useRef<HTMLElement>(null),
+    momentum: useRef<HTMLElement>(null),
+    tactical: useRef<HTMLElement>(null),
+    scenarios: useRef<HTMLElement>(null),
+  };
 
   const { match, prob, loadError } = useMatchLiveData(matchId);
   useLegacyMatchRedirect(matchId, match?.slug, matchPagePath);
@@ -114,6 +130,17 @@ export function MatchPage() {
   useEffect(() => {
     if (loadError && !match) setNotFound(true);
   }, [loadError, match]);
+
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setStickyVisible(!entry.isIntersecting),
+      { threshold: 0, rootMargin: '-48px 0px 0px 0px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [match]);
 
   const home = teamNames.home || match?.home_name || '';
   const away = teamNames.away || match?.away_name || '';
@@ -262,7 +289,7 @@ export function MatchPage() {
 
       <MatchPageGuideStrip />
 
-      <MatchHeader
+      <MatchStickyScoreBar
         home={home}
         away={away}
         homeCountryCode={match.home_country_code}
@@ -270,72 +297,122 @@ export function MatchPage() {
         homeScore={match.home_score}
         awayScore={match.away_score}
         status={match.status}
-        stage={match.stage}
-        homeWin={displayProb?.homeWin}
-        draw={displayProb?.draw}
-        awayWin={displayProb?.awayWin}
-        mostLikelyScore={prob?.mostLikelyScore}
+        minute={match.minute}
+        visible={stickyVisible}
       />
 
-      {displayProb && (
-        <ProbabilityStrip
-          homeWin={displayProb.homeWin}
-          draw={displayProb.draw}
-          awayWin={displayProb.awayWin}
-          xgHome={displayProb.xgHome}
-          xgAway={displayProb.xgAway}
-          confidence={displayProb.confidence}
-          simulated={displayProb.simulated}
-          homeLabel={home}
-          awayLabel={away}
-          live={match.status === 'live'}
-        />
-      )}
-
-      <div className="space-y-2">
-        <Link
-          to={resolveMatchAnalysisHref({ id: match?.id ?? matchId!, slug: match?.slug ?? matchId })}
-          className="inline-block text-sm font-medium text-cyan hover:underline"
-        >
-          {t('match.fullArticle')}
-        </Link>
-        <MatchPreviewAnalysisPanel
-          key={matchId}
-          preview={preview}
-          loading={previewLoading}
-        />
-      </div>
-
-      <TeamSystemPanel
-        home={teamSystem?.home ?? null}
-        away={teamSystem?.away ?? null}
-        loading={intelLoading}
+      <MatchSectionNav
+        active={activeSection}
+        onSelect={setActiveSection}
+        sectionRefs={sectionRefs}
       />
-      <ScenarioPredictionPanel
-        data={scenarioPredictions}
-        loading={intelLoading}
-        homeName={home}
-        awayName={away}
-      />
-      <ScenarioLikelihoodPanel data={scenarios} loading={intelLoading} />
-      <MarketSignalPanel payload={marketSignals} loading={intelLoading} />
 
-      {matchId && (
-        <ProbabilityMovementPanel
-          matchId={matchId}
-          prob={prob}
-          currentMinute={match.minute ?? 0}
+      <section ref={headerRef}>
+        <MatchHeader
+          home={home}
+          away={away}
+          homeCountryCode={match.home_country_code}
+          awayCountryCode={match.away_country_code}
+          homeScore={match.home_score}
+          awayScore={match.away_score}
+          status={match.status}
+          stage={match.stage}
+          homeWin={displayProb?.homeWin}
+          draw={displayProb?.draw}
+          awayWin={displayProb?.awayWin}
+          mostLikelyScore={prob?.mostLikelyScore}
         />
-      )}
+      </section>
+
+      <section ref={sectionRefs.overview} id="match-overview" className="scroll-mt-28 space-y-4 md:scroll-mt-20">
+        <MatchPredictionSummary prob={prob} homeLabel={home} awayLabel={away} hints={hints} />
+        <div className="space-y-2">
+          <Link
+            to={resolveMatchAnalysisHref({ id: match?.id ?? matchId!, slug: match?.slug ?? matchId })}
+            className="inline-block text-sm font-medium text-cyan hover:underline"
+          >
+            {t('match.fullArticle')}
+          </Link>
+          <MatchPreviewAnalysisPanel
+            key={matchId}
+            preview={preview}
+            loading={previewLoading}
+          />
+        </div>
+      </section>
+
+      <section ref={sectionRefs.stats} id="match-stats" className="scroll-mt-28 md:scroll-mt-20">
+        {matchId && (
+          <MatchLiveStatsPanel
+            matchId={matchId}
+            homeLabel={home}
+            awayLabel={away}
+            live={match.status === 'live'}
+          />
+        )}
+      </section>
+
+      <section ref={sectionRefs.prediction} id="match-prediction" className="scroll-mt-28 space-y-4 md:scroll-mt-20">
+        {displayProb && (
+          <ProbabilityStrip
+            homeWin={displayProb.homeWin}
+            draw={displayProb.draw}
+            awayWin={displayProb.awayWin}
+            xgHome={displayProb.xgHome}
+            xgAway={displayProb.xgAway}
+            confidence={displayProb.confidence}
+            simulated={displayProb.simulated}
+            homeLabel={home}
+            awayLabel={away}
+            live={match.status === 'live'}
+          />
+        )}
+        {prob?.scorelineDistribution && Object.keys(prob.scorelineDistribution).length > 0 && (
+          <ScorelineMatrix distribution={prob.scorelineDistribution} highlight={prob.mostLikelyScore} />
+        )}
+        {matchId && (
+          <ProbabilityMovementPanel
+            matchId={matchId}
+            prob={prob}
+            currentMinute={match.minute ?? 0}
+          />
+        )}
+      </section>
+
+      <section ref={sectionRefs.momentum} id="match-momentum" className="scroll-mt-28 md:scroll-mt-20">
+        {matchId && (
+          <MatchAnalyticsPanel
+            matchId={matchId}
+            homeWin={displayProb?.homeWin}
+            awayWin={displayProb?.awayWin}
+          />
+        )}
+      </section>
+
+      <section ref={sectionRefs.tactical} id="match-tactical" className="scroll-mt-28 space-y-4 md:scroll-mt-20">
+        <TeamSystemPanel
+          home={teamSystem?.home ?? null}
+          away={teamSystem?.away ?? null}
+          loading={intelLoading}
+        />
+        <MarketSignalPanel payload={marketSignals} loading={intelLoading} />
+      </section>
+
+      <section ref={sectionRefs.scenarios} id="match-scenarios" className="scroll-mt-28 space-y-4 md:scroll-mt-20">
+        <ScenarioPredictionPanel
+          data={scenarioPredictions}
+          loading={intelLoading}
+          homeName={home}
+          awayName={away}
+        />
+        <ScenarioLikelihoodPanel data={scenarios} loading={intelLoading} />
+      </section>
 
       <ContributionRadialChart segments={defaultContributionSegments()} />
 
       <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
         <div className="space-y-4">
           <PitchMap events={events} homeLabel={home.slice(0, 3).toUpperCase()} awayLabel={away.slice(0, 3).toUpperCase()} />
-          {prob?.scorelineDistribution && Object.keys(prob.scorelineDistribution).length > 0 && (
-            <ScorelineMatrix distribution={prob.scorelineDistribution} highlight={prob.mostLikelyScore} />
-          )}
           {h2hSummary && (
             <MatchHistoryPanel homeName={home} awayName={away} history={history} summary={h2hSummary} />
           )}

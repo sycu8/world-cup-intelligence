@@ -48,37 +48,72 @@ Sitemap: ${origin}/sitemap.xml
 `;
 }
 
+type SitemapEntry = {
+  loc: string;
+  lastmod: string;
+  changefreq: string;
+  priority: string;
+};
+
+const SITEMAP_STATIC_PATHS = ['/', '/matches', '/guide', '/news-intelligence'] as const;
+
+/** Vietnamese SEO landing pages (mirror app/lib/seoPages.ts) */
+const SITEMAP_SEO_PATHS = [
+  '/lich-thi-dau-world-cup-2026',
+  '/ti-so-truc-tiep-world-cup-2026',
+  '/bang-xep-hang-world-cup-2026',
+  '/ket-qua-world-cup-2026',
+  '/du-doan-world-cup-2026',
+  '/phan-tich-world-cup-2026',
+  '/vong-bang-world-cup-2026',
+  '/vong-knockout-world-cup-2026',
+] as const;
+
 export async function buildSitemapXml(env: AppEnv, origin: string): Promise<string> {
-  const staticPaths = ['/', '/matches', '/guide', '/news-intelligence', '/tournaments'];
   const now = new Date().toISOString().slice(0, 10);
 
-  const { results } = await env.DB.prepare(
-    `SELECT m.id, m.kickoff_utc, m.stage, m.group_code, ht.name AS home_name, at.name AS away_name
-     FROM matches m
-     JOIN teams ht ON ht.id = m.home_team_id
-     JOIN teams at ON at.id = m.away_team_id
-     WHERE m.tournament_id = ?
-     ORDER BY m.kickoff_utc`,
-  )
-    .bind(WC2026_TOURNAMENT_ID)
-    .all<{
+  const [matchesResult, teamsResult, newsResult] = await Promise.all([
+    env.DB.prepare(
+      `SELECT m.id, m.kickoff_utc, m.stage, m.group_code, ht.name AS home_name, at.name AS away_name
+       FROM matches m
+       JOIN teams ht ON ht.id = m.home_team_id
+       JOIN teams at ON at.id = m.away_team_id
+       WHERE m.tournament_id = ?
+       ORDER BY m.kickoff_utc`,
+    )
+      .bind(WC2026_TOURNAMENT_ID)
+      .all<{
+        id: string;
+        kickoff_utc: string;
+        stage: string | null;
+        group_code: string | null;
+        home_name: string;
+        away_name: string;
+      }>(),
+    env.DB.prepare(`SELECT id FROM teams WHERE id LIKE 'team-w26-%' ORDER BY name`).all<{
       id: string;
-      kickoff_utc: string;
-      stage: string | null;
-      group_code: string | null;
-      home_name: string;
-      away_name: string;
-    }>();
+    }>(),
+    env.DB.prepare(
+      `SELECT id, published_at FROM source_documents ORDER BY published_at DESC LIMIT 1000`,
+    ).all<{ id: string; published_at: string }>(),
+  ]);
 
-  const urls: { loc: string; lastmod: string; changefreq: string; priority: string }[] =
-    staticPaths.map((path) => ({
+  const urls: SitemapEntry[] = [
+    ...SITEMAP_STATIC_PATHS.map((path) => ({
       loc: `${origin}${path}`,
       lastmod: now,
       changefreq: path === '/' ? 'daily' : 'weekly',
       priority: path === '/' ? '1.0' : '0.8',
-    }));
+    })),
+    ...SITEMAP_SEO_PATHS.map((path) => ({
+      loc: `${origin}${path}`,
+      lastmod: now,
+      changefreq: 'weekly' as const,
+      priority: '0.75',
+    })),
+  ];
 
-  for (const m of results ?? []) {
+  for (const m of matchesResult.results ?? []) {
     const lastmod = m.kickoff_utc?.slice(0, 10) ?? now;
     const slug = buildMatchSlug({
       stage: m.stage,
@@ -97,6 +132,31 @@ export async function buildSitemapXml(env: AppEnv, origin: string): Promise<stri
       lastmod,
       changefreq: 'weekly',
       priority: '0.6',
+    });
+    urls.push({
+      loc: `${origin}/lineups/${slug}`,
+      lastmod,
+      changefreq: 'weekly',
+      priority: '0.5',
+    });
+  }
+
+  for (const team of teamsResult.results ?? []) {
+    urls.push({
+      loc: `${origin}/teams/${team.id}`,
+      lastmod: now,
+      changefreq: 'weekly',
+      priority: '0.6',
+    });
+  }
+
+  for (const article of newsResult.results ?? []) {
+    const lastmod = article.published_at?.slice(0, 10) ?? now;
+    urls.push({
+      loc: `${origin}/news-intelligence/${article.id}`,
+      lastmod,
+      changefreq: 'monthly',
+      priority: '0.5',
     });
   }
 

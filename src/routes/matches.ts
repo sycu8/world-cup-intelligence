@@ -8,6 +8,7 @@ import { buildProbabilityHints } from '../services/matchHints';
 import { getMatchPreviewAnalysis } from '../services/matchPreviewAnalysis';
 import { getLineupDisplayForMatch } from '../services/lineupDisplay';
 import { resolveMatchRef, listMatchesWithSlug } from '../services/matchRef';
+import { getMatchStats } from '../services/matchStats';
 import * as teamsRepo from '../db/repositories/teamsRepo';
 
 export const matchRoutes = new Hono<{ Bindings: AppEnv }>();
@@ -137,6 +138,12 @@ matchRoutes.get('/:matchId/hints', async (c) => {
         : null,
     },
   });
+});
+
+matchRoutes.get('/:matchId/stats', async (c) => {
+  const data = await getMatchStats(c.env, c.req.param('matchId'));
+  if (!data) return c.json({ error: 'Not found' }, 404);
+  return c.json({ data });
 });
 
 matchRoutes.get('/:matchId/live', async (c) => {

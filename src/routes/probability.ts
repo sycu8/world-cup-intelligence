@@ -40,6 +40,48 @@ function snapshotIsComplete(snap: {
   return parseDistributionJson(snap.scoreline_json) !== null && parseIntervalJson(snap.interval_json) !== null;
 }
 
+function topScorelinesFromDistribution(dist: Record<string, number> | null, limit = 5) {
+  if (!dist) return [];
+  return Object.entries(dist)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([score, prob]) => ({ score, prob }));
+}
+
+function parseExplanationDrivers(json: string | null): string[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json) as { factors?: { label?: string }[]; summary?: string };
+    if (Array.isArray(parsed.factors)) {
+      return parsed.factors.map((f) => f.label).filter((x): x is string => !!x);
+    }
+    if (parsed.summary) return [parsed.summary];
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function enrichProbabilityPayload(
+  data: Record<string, unknown> & {
+    scorelineDistribution?: Record<string, number>;
+    topPositiveFactors?: { label: string }[];
+    timestamp?: string;
+    explanation?: string;
+  },
+) {
+  const dist = data.scorelineDistribution ?? null;
+  const drivers =
+    data.topPositiveFactors?.map((f) => f.label).filter(Boolean) ??
+    (data.explanation ? [data.explanation] : []);
+  return {
+    ...data,
+    updatedAt: (data.updatedAt as string | undefined) ?? data.timestamp ?? null,
+    topScorelines: topScorelinesFromDistribution(dist ?? null),
+    drivers,
+  };
+}
+
 async function resolveProbability(c: { env: AppEnv }, ref: string, recompute = false) {
   const resolved = await resolveMatchRef(c.env.DB, ref);
   if (!resolved) return null;
@@ -62,7 +104,10 @@ async function resolveProbability(c: { env: AppEnv }, ref: string, recompute = f
           intervalDistribution: parseIntervalJson(snap.interval_json)!,
           confidence: snap.confidence,
           modelVersion: snap.model_version,
-        },
+          updatedAt: snap.created_at ?? null,
+          topScorelines: topScorelinesFromDistribution(parseDistributionJson(snap.scoreline_json)),
+          drivers: parseExplanationDrivers(snap.explanation_json),
+        } as Record<string, unknown>,
       };
     }
   }
@@ -76,13 +121,13 @@ async function resolveProbability(c: { env: AppEnv }, ref: string, recompute = f
   const features = await buildMatchFeaturesWithForm(c.env, match, home, away, tournament?.year ?? 2026);
   const result = await computeProbability(features);
   await probabilityRepo.saveSnapshot(c.env.DB, result);
-  return { fromSnapshot: false, data: result };
+  return { fromSnapshot: false, data: enrichProbabilityPayload(result) };
 }
 
 probabilityRoutes.get('/:matchId/probability', async (c) => {
   const resolved = await resolveProbability(c, c.req.param('matchId'));
   if (!resolved) return c.json({ error: 'Not found' }, 404);
-  return c.json({ data: resolved.data });
+  return c.json({ data: enrichProbabilityPayload(resolved.data as Record<string, unknown>) });
 });
 
 probabilityRoutes.get('/:matchId/scoreline', async (c) => {

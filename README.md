@@ -2,7 +2,24 @@
 
 **PitchIntel** — nền tảng phân tích chiến thuật & xác suất cho **FIFA World Cup 2026**, chạy trên Cloudflare Workers.
 
-🌐 **Production:** [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) · [Workers URL](https://wc-tactical-probability-platform.sycu-lee.workers.dev)
+🌐 **Production:** [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) · **UAT:** [wc-tactical-uat.sycu-lee.workers.dev](https://wc-tactical-uat.sycu-lee.workers.dev)
+
+---
+
+## Cập nhật mới (06/2026)
+
+Phiên bản đã deploy lên **UAT + Production** (Worker production `d7426c99-…`).
+
+| Hạng mục | Thay đổi |
+|----------|----------|
+| **Bảng đấu — xác suất trận** | Trận đã phân tích hiện **C · H · K** (% mô hình); trận chưa có hiện **«Chưa có»** (không còn dấu `—` mơ hồ). API tự **bổ sung snapshot thiếu** (xem [Thuật toán gap-fill](#gap-fill-xác-suất-bảng-đấu)). |
+| **Mobile UX trang trận** | Thanh tỉ số dính (`MatchStickyScoreBar`), điều hướng section (`MatchSectionNav`: Tổng quan · Thống kê · Dự đoán · Đà trận · Chiến thuật · Kịch bản), panel dự đoán/tóm tắt/analytics riêng. |
+| **Live stats** | `GET /api/matches/:ref/stats` — thống kê trận (sẵn sàng khi có nguồn live; UI `MatchLiveStatsPanel`). |
+| **API xác suất** | `/probability` trả thêm `updatedAt`, `topScorelines`, `drivers`. |
+| **SEO tiếng Việt** | 8 landing page (`/lich-thi-dau-world-cup-2026`, `/bang-xep-hang-world-cup-2026`, …) + mở rộng `sitemap.xml`. |
+| **i18n VI-first** | Đồng bộ nhãn: *Đà trận*, *Vòng loại trực tiếp*, *Tỉ số khả dĩ nhất*; title mặc định *PitchIntel — Tình báo chiến thuật World Cup*. |
+| **UAT tách biệt** | D1/KV/R2/Queues riêng; `npm run deploy` → UAT; production qua `--config wrangler.jsonc --env production`. Chi tiết: [docs/UAT.md](./docs/UAT.md). |
+| **Health** | `/api/health` trả `environment: uat \| production`. |
 
 ---
 
@@ -12,7 +29,8 @@
 - Trận nổi bật (featured match) + xác suất real-time
 - **Bảng đấu** (`GroupStageBoard`) — hai tab chính, lazy-load để tránh quá tải:
   - **Bảng đấu vòng bảng** — 12 bảng A–L, xếp hạng đội thứ 3, xác suất trận vòng bảng
-  - **Knock Out** — tab con theo vòng: *Vòng 1/16*, *Vòng 1/8*, *Tứ kết*, *Bán kết*, *Tranh hạng 3*, *Chung kết* (mỗi lần chỉ hiển thị một vòng)
+  - **Vòng loại trực tiếp** — tab con theo vòng: *Vòng 1/16*, *Vòng 1/8*, *Tứ kết*, *Bán kết*, *Tranh hạng 3*, *Chung kết* (mỗi lần chỉ hiển thị một vòng)
+- **Xác suất trên lịch bảng:** `38 · 26 · 35` = đã có phân tích mô hình (**C**hủ · **H**òa · **K**hách); **«Chưa có»** = engine chưa snapshot — tự cập nhật qua API gap-fill (poll 30s)
 - Lịch thi đấu rút gọn, tin nóng, snapshot giải (scheduled / live / completed)
 - Song ngữ **Tiếng Việt / English** — chuyển một lần trên header; toàn site (nav, lịch, bảng, nhánh, trận, tin, hướng dẫn) hiển thị khác nhau theo locale
 - Nhãn vòng đấu VI: *Bảng A*, *Vòng 1/16*, *Chung kết*; đối đầu: *Đội A gặp Đội B* (`app/lib/i18n/stageLabels.ts`)
@@ -59,7 +77,8 @@ Sau mỗi trận kết thúc (cron mỗi phút):
 > Hiện dùng mock ingest (tỉ số theo thời gian kickoff). Sẵn sàng thay bằng API dữ liệu thật trong `src/ingestion/matchDataRefresh.ts`.
 
 ### Chi tiết trận (`/matches/:slug`)
-- **Xác suất real-time** — poll 30s (15s khi LIVE): tỉ lệ thắng/hòa/thua, xG, độ tin cậy
+- **Mobile-first:** thanh tỉ số dính khi cuộn, tab section (Tổng quan / Thống kê / Dự đoán / Đà trận / Chiến thuật / Kịch bản)
+- **Xác suất real-time** — poll 30s (15s khi LIVE): tỉ lệ thắng/hòa/thua, xG, độ tin cậy, tỉ số khả dĩ nhất, driver
 - Panel xác suất hiển thị **tên đội** (không còn Chủ nhà/Khách), badge LIVE khi trận đang diễn ra
 - **Đội hình** — chỉ hiển thị khi có XI **chính thức** (`is_official = 1`, ≥ 7 cầu thủ); format `(số) - tên - vị trí`; nếu chưa có → *"Chưa có thông tin chính xác, sẽ cập nhật sau"*
 - Trang riêng `/lineups/:slug`
@@ -67,7 +86,25 @@ Sau mỗi trận kết thúc (cron mỗi phút):
 - **Đối đầu World Cup** — các trận giữa hai đội ở các kỳ WC trước 2026, kèm tỉ số & vòng đấu
 - Team system, **dự đoán đa kịch bản** (Scenario Predictions), kịch bản sự kiện (legacy scenarios), mô hình vs thị trường
 - Preview AI, tactical briefing, biến động xác suất theo thời gian
-- **Mobile:** header tỉ số không còn sticky — cuộn xuống đọc được toàn bộ nội dung
+- **Thống kê trận** — `MatchLiveStatsPanel` (poll `/api/matches/:ref/stats` khi có dữ liệu)
+- **Tóm tắt dự đoán** — `MatchPredictionSummary` (W/D/L, xG, top scorelines từ snapshot)
+
+### Trang SEO tiếng Việt (`app/lib/seoPages.ts`)
+
+8 landing page VI-first, link vào hub sản phẩm hiện có (không duplicate logic):
+
+| Path | Nội dung |
+|------|----------|
+| `/lich-thi-dau-world-cup-2026` | Lịch 104 trận |
+| `/ti-so-truc-tiep-world-cup-2026` | Tỉ số trực tiếp |
+| `/bang-xep-hang-world-cup-2026` | Bảng xếp hạng |
+| `/ket-qua-world-cup-2026` | Kết quả |
+| `/du-doan-world-cup-2026` | Dự đoán |
+| `/lich-su-doi-dau-world-cup` | Lịch sử đối đầu |
+| `/tin-tuc-world-cup-2026` | Tin tức |
+| `/huong-dan-doc-xac-suat` | Hướng dẫn đọc xác suất |
+
+Tất cả có trong `/sitemap.xml` (`src/services/siteDiscovery.ts`).
 
 ### Đội hình chính thức → trận đấu (backend)
 Cron mỗi phút (`refresh_minute`) và admin API:
@@ -128,7 +165,7 @@ Mỗi trận có **≥ 2 kịch bản phân tích** (baseline + alternative), do
 | URL | Mô tả |
 |-----|--------|
 | `/robots.txt` | RFC 9309 — AI bot rules, Content-Signal, sitemap |
-| `/sitemap.xml` | Sitemap (trang tĩnh + 104 trận slug + phân tích) |
+| `/sitemap.xml` | Sitemap (trang tĩnh + 104 trận slug + phân tích + đội hình + đội + tin + 8 trang SEO VI) |
 | `/.well-known/api-catalog` | RFC 9727 `application/linkset+json` |
 | `/.well-known/openapi.json` | OpenAPI 3.1 |
 | `/docs/api` | API documentation (Markdown) |
@@ -151,8 +188,70 @@ Homepage trả `Link` headers (RFC 8288) qua Worker + `_headers` — api-catalog
 | Lớp | Vai trò |
 |-----|---------|
 | **Data Truth** | D1, R2 raw, provenance nguồn |
-| **Probability** | Engine Poisson/Dixon-Coles — số liệu do engine, không do AI |
+| **Probability** | Engine Poisson (`wc-prob-v2`) — số liệu do engine, không do AI |
 | **Intelligence** | Cloudflare AI Gateway + OpenAI — chỉ giải thích / tóm tắt |
+
+---
+
+## Thuật toán xác suất
+
+PitchIntel tách rõ **engine thống kê** (tạo số) và **lớp AI** (chỉ diễn giải). Mọi W/D/L, xG, scoreline trên UI đều từ `src/models/probability/`.
+
+### 1. Core engine (`computeProbability`, `MODEL_VERSION = wc-prob-v2`)
+
+**Input** (`MatchFeatureInput`): Elo, FIFA ranking, phong độ gần (`teamFormStats`), xG for/against, chỉ số collective (possession, PPDA, set-piece, …), đội hình (`lineupModifier`), phút/tỉ số hiện tại (`gameStateModifier`).
+
+**Bước tính:**
+
+1. **Lambda Poisson** (tỷ lệ bàn kỳ vọng), clamp `[0.05, 5.5]`:
+
+   ```
+   λ_home = BASE × attack(home) × defense_weakness(away) × collective × lineup × tactical × gameState
+   λ_away = (đối xứng)
+   ```
+
+   `BASE_GOAL_RATE = 1.35`.
+
+2. **Ma trận tỉ số** — `buildScorelineMatrix(λ_home, λ_away)` (Poisson độc lập, ma trận 0–5 bàn).
+
+3. **W/D/L** — `aggregateWdl(matrix)` cộng xác suất các ô thắng/hòa/thua.
+
+4. **Phân phối theo hiệp** — `buildIntervalDistribution` (15'–90') có điều kiện phút + tỉ số live.
+
+5. **Confidence** — `computeModelConfidence`: trọng số độ tin input (lineup có/không, form, tournament prior). **Không** phải độ chính xác dự báo.
+
+6. **Hash** — `inputHash = sha256(input + λ)` để phát hiện stale snapshot.
+
+**Full recompute** (`recomputeMatchProbability`): engine + lưu D1 `probability_snapshots` + team system profiles + scenario likelihoods + market signal + generate scenarios.
+
+### 2. Gap-fill xác suất bảng đấu
+
+**Vấn đề:** Sau migration draw mới hoặc DB UAT mới, một phần 104 trận chưa có snapshot → UI hiện «Chưa có».
+
+**Service:** `src/services/tournamentMatchProbabilities.ts`  
+**Endpoint:** `GET /api/tournaments/2026/match-probabilities`
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Đọc snapshot mới nhất / trận từ D1                      │
+│ 2. Với mỗi trận THIẾU (trong budget 3s/request):           │
+│    buildMatchFeaturesWithForm → computeFullMatchProbability │
+│    → saveSnapshot (preview đủ W/D/L + scoreline JSON)       │
+│ 3. Trả { data: { matchId: { homeWin, draw, awayWin } },     │
+│         meta: { total, withProbability, pending } }         │
+│ 4. waitUntil: persistMissingTournamentProbabilities         │
+│    → recomputeMatchProbability đầy đủ (scenarios, market)  │
+│    KV lock `tournament-prob-gap-fill` tránh chạy trùng     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+UI (`GroupStageBoard`, `CompactMatchProb`) poll 30s — coverage tăng dần đến 104/104.
+
+**Ép toàn bộ ngay:** `POST /api/admin/recompute-all` (admin token).
+
+### 3. Multi-scenario engine (tóm tắt)
+
+Trên nền snapshot baseline, `scenarioEngine` chọn feature subset theo loại kịch bản (pressing breakthrough, set-piece, …), tính **scenario likelihood** và W/D/L có điều kiện. Chi tiết: mục *Dự đoán đa kịch bản* phía trên.
 
 ---
 
@@ -211,13 +310,17 @@ npx wrangler dev --remote --port 8787
 | Script | Mô tả |
 |--------|--------|
 | `npm run dev` | Frontend Vite |
-| `npm run build` | Build production |
-| `npm run test` | Vitest (115 tests) |
+| `npm run dev:uat` | Wrangler dev (UAT bindings) |
+| `npm run build` | Build client + Worker |
+| `npm run test` | Vitest |
 | `npm run pull:statsbomb` | Pull StatsBomb open-data → D1 + R2 |
 | `npm run typecheck` | TypeScript |
-| `npm run deploy` | Build + `wrangler deploy` |
+| `npm run deploy` | **UAT** — `npm run deploy:uat` (default) |
+| `npm run deploy:uat` | Build + deploy Worker UAT |
+| `npm run deploy:production` | Build + deploy production: `wrangler deploy --config wrangler.jsonc --env production` |
 | `npm run db:migrate:local` | Migration D1 local |
-| `npm run db:migrate:remote` | Migration D1 production |
+| `npm run db:migrate:uat` | Migration D1 UAT remote |
+| `npm run db:migrate:production` | Migration D1 production remote |
 
 ---
 
@@ -241,7 +344,8 @@ curl -X POST https://wcstat.orangecloud.vn/api/admin/lineups/sync-squads \
 
 Local dev: đặt `ADMIN_TOKEN` trong `.dev.vars` (xem `.env.example`). Nếu không set token trong `development`, POST admin vẫn mở.
 
-4. Deploy: `npm run deploy`
+4. Deploy UAT trước: `npm run deploy:uat` — xem [docs/UAT.md](./docs/UAT.md)
+5. Sau khi UAT pass: `npm run deploy:production` (không chạy mặc định)
 
 Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [auth.md](https://wcstat.orangecloud.vn/auth.md).
 
@@ -251,16 +355,17 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 
 | Endpoint | Mô tả |
 |----------|--------|
-| `GET /api/health` | Health + meta refresh |
+| `GET /api/health` | Health + `environment` (uat/production) + meta refresh |
 | `GET /api/dashboard` | Featured match, counts |
 | `GET /api/schedule` | Lịch 104 trận theo ngày (+ `home_country_code` / `away_country_code`) |
 | `GET /api/teams` | Danh sách 48 đội WC 2026 |
-| `GET /api/tournament/2026/standings` | Bảng xếp hạng 12 bảng + xếp hạng đội thứ 3 |
-| `GET /api/tournament/2026/match-probabilities` | Xác suất bulk cho lịch/bảng |
+| `GET /api/tournaments/2026/standings` | Bảng xếp hạng 12 bảng + xếp hạng đội thứ 3 |
+| `GET /api/tournaments/2026/match-probabilities` | Xác suất bulk cho lịch/bảng + **gap-fill** tự động; meta `{ total, withProbability, pending }` |
+| `GET /api/matches/:ref/stats` | Thống kê trận (live/FT khi có nguồn) |
 | `GET /api/matches/:ref` | Chi tiết trận (`ref` = slug hoặc id cũ `m-*`; trả thêm `slug`) |
 | `GET /api/matches/:ref/lineups` | Đội hình hai bên (official only trên UI) |
 | `GET /api/matches/:ref/preview` | Phân tích trước trận (lineup, form, bảng) |
-| `GET /api/matches/:ref/probability` | Snapshot xác suất |
+| `GET /api/matches/:ref/probability` | Snapshot xác suất (+ `updatedAt`, `topScorelines`, `drivers`) |
 | `GET /api/matches/:ref/history` | Đối đầu WC (`worldCupHistory`, `worldCupSummary`) |
 | `GET /api/matches/:ref/tactical-briefing` | Briefing AI |
 | `GET /api/matches/:ref/scenarios` | Kịch bản sự kiện (legacy 10 loại) |
@@ -294,10 +399,15 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 
 ```bash
 npm run typecheck   # ✓ pass
-npm test            # ✓ 115 tests, 35 files
+npm test            # ✓ 116 tests, 35 files
 ```
 
-**Deploy production gần nhất:** [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) · Worker version `b7d9811f-0a5d-47a4-bf14-2c21fb67777f`
+**Deploy gần nhất (06/2026):**
+
+| Môi trường | URL | Worker version |
+|------------|-----|----------------|
+| Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) | `d7426c99-2687-43e0-9c67-e09a5a35b95a` |
+| UAT | [wc-tactical-uat.sycu-lee.workers.dev](https://wc-tactical-uat.sycu-lee.workers.dev) | `77f6984f-9e2f-4036-bc4e-ffc859c33399` |
 
 **Đã kiểm tra:**
 - Xác suất & snapshot engine
@@ -319,6 +429,8 @@ npm test            # ✓ 115 tests, 35 files
 - **Hiển thị giờ thi đấu** (`matchKickoffDisplay.test.ts`)
 - **Yêu thích & xuất lịch** (`favorites.test.ts`, `calendarExport.test.ts`)
 - **Bảng vòng bảng API** (`tournamentStandings.test.ts`)
+- **Sitemap discovery** — trang SEO VI + slug trận (`siteDiscovery.test.ts`)
+- **Tournament probability gap-fill** (`tournamentMatchProbabilities.ts`)
 
 ---
 
@@ -326,18 +438,20 @@ npm test            # ✓ 115 tests, 35 files
 
 ```
 app/           React UI (pages, components, i18n)
-  components/  tournament/ (GroupStageBoard, TournamentSchedulePanel, FavoritesPanel, …)
-  lib/         api, favorites, calendarExport, nationFlags, matchKickoffDisplay, stageLabels
+  components/  match/ (MatchStickyScoreBar, MatchSectionNav, MatchLiveStatsPanel, …)
+               tournament/ (GroupStageBoard, CompactMatchProb, …)
+  lib/         api, seoPages, favorites, calendarExport, nationFlags, …
+  pages/       SeoLandingPage, MatchPage (mobile sections), …
 src/
-  routes/      Hono API (tournaments, matches, teams, …)
-  services/    recompute, matchRef, tournamentStandings, tournamentProgression, schedulePayload
+  routes/      Hono API (tournaments, matches, probability, health, …)
+  services/    recompute, tournamentMatchProbabilities, matchStats, siteDiscovery, …
   utils/       matchSlug (URL slug builder)
-  ingestion/   match refresh, news crawler, statsbombIngest, matchDataProvider
-  models/      probability engine, scenarios/ (multi-scenario prediction)
+  models/      probability engine (wc-prob-v2), scenarios/
   queues/      ingest + model consumers
   scheduled/   cron
+docs/          UAT.md, ROADMAP_EXECUTION.md
 migrations/    D1 SQL (0001–0021)
-scripts/       fifa-wc2026-official-data, wc2026-vn-kickoffs, nationIsoCodes, pull-statsbomb
+scripts/       smoke-uat.ps1, fifa-wc2026-official-data, …
 tests/         Vitest
 ```
 
@@ -390,7 +504,7 @@ Migration `0013_wc_historical_h2h.sql` seed các kỳ WC (1930–2022) và trậ
 - [x] API dữ liệu trận — `MatchDataProvider` interface; mock mặc định, `FootballDataProvider` stub khi `MOCK_SOURCES=false`
 - [x] 8 suất hạng 3 tốt nhất → R32 trận 13–16 (`applyBestThirdQualifiers`)
 - [x] Bracket visualization UI — tab **Nhánh đấu** trên `/matches`
-- [x] Bảng xếp hạng vòng bảng — tab **Bảng xếp hạng** + `GET /api/tournament/2026/standings`
+- [x] Bảng xếp hạng vòng bảng — tab **Bảng xếp hạng** + `GET /api/tournaments/2026/standings`
 - [x] Mở rộng seed lịch sử WC cho 48 đội — tên đội thật cho placeholder `team-w26-*`; H2H đầy đủ → StatsBomb ingest
 - [x] **i18n EN/VI toàn site** — `locales.ts` + `stageLabels.ts`; aria-label, vòng đấu, standings/bracket, dịch nội dung kịch bản backend sang VI
 - [x] **Lịch FIFA chính thức WC 2026** — migration `0020_fifa_official_draw_2026.sql` (48 đội, 72 vòng bảng + 32 knockout, 16 venue)
@@ -399,6 +513,11 @@ Migration `0013_wc_historical_h2h.sql` seed các kỳ WC (1930–2022) và trậ
 - [x] **Bảng đấu tabbed** — vòng bảng / Knock Out (6 tab con vòng), lazy-load trên trang chủ
 - [x] **Cờ quốc gia PNG** — `TeamNameWithFlag` + `flagcdn.com` (Windows-safe)
 - [x] **Hiển thị giờ thi đấu** — múi giờ người xem + tham chiếu VN
+- [x] **UAT tách biệt production** — bindings riêng, `docs/UAT.md`, deploy UAT-first
+- [x] **Mobile UX trang trận** — sticky score bar, section nav, prediction/live/analytics panels
+- [x] **Gap-fill xác suất bảng đấu** — `tournamentMatchProbabilities` + nhãn «Chưa có» / C·H·K
+- [x] **SEO landing VI** — 8 trang + sitemap; API stats + probability enrichment
+- [x] **i18n VI-first sync** — Đà trận, Vòng loại trực tiếp, Tỉ số khả dĩ nhất
 
 Chi tiết thực thi từng hạng mục: [docs/ROADMAP_EXECUTION.md](./docs/ROADMAP_EXECUTION.md)
 

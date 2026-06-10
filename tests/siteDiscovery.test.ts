@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildRobotsTxt,
+  buildSitemapXml,
   buildApiCatalog,
   buildLinkHeaderValue,
   buildOAuthProtectedResource,
@@ -10,6 +11,7 @@ import {
   AUTH_MD,
   API_DOC_MD,
 } from '../src/services/siteDiscovery';
+import { WC2026_TOURNAMENT_ID } from '../src/constants/tournament';
 
 const ORIGIN = 'https://wc.example.com';
 
@@ -72,5 +74,67 @@ describe('siteDiscovery', () => {
     expect(AUTH_MD).toMatch(/# .*auth\.md/i);
     expect(AUTH_MD).toContain('agent-registration');
     expect(API_DOC_MD).toContain('| GET | /health |');
+  });
+
+  it('sitemap.xml lists static pages, match slugs, lineups, teams, and news', async () => {
+    const queryResults = async (sql: string, args: unknown[]) => {
+      if (sql.includes('FROM matches') && args[0] === WC2026_TOURNAMENT_ID) {
+        return {
+          results: [
+            {
+              id: 'm-w26-ga-1v2',
+              kickoff_utc: '2026-06-11T19:00:00Z',
+              stage: 'Group',
+              group_code: 'A',
+              home_name: 'United States',
+              away_name: 'Mexico',
+            },
+          ],
+        };
+      }
+      if (sql.includes("LIKE 'team-w26-%'")) {
+        return { results: [{ id: 'team-w26-a1' }] };
+      }
+      if (sql.includes('FROM source_documents')) {
+        return {
+          results: [{ id: 'doc-1', published_at: '2026-06-01T12:00:00Z' }],
+        };
+      }
+      return { results: [] };
+    };
+
+    const env = {
+      DB: {
+        prepare: (sql: string) => {
+          const stmt = {
+            bind: (...args: unknown[]) => ({
+              all: async () => queryResults(sql, args),
+            }),
+            all: async () => queryResults(sql, []),
+          };
+          return stmt;
+        },
+      } as unknown as D1Database,
+    } as import('../src/env').AppEnv;
+
+    const xml = await buildSitemapXml(env, ORIGIN);
+
+    expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(xml).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+    expect(xml).toContain(`<loc>${ORIGIN}/matches</loc>`);
+    expect(xml).toContain(`<loc>${ORIGIN}/guide</loc>`);
+    expect(xml).toContain(`<loc>${ORIGIN}/news-intelligence</loc>`);
+    expect(xml).not.toContain('/tournaments');
+    expect(xml).toContain(
+      `<loc>${ORIGIN}/matches/vong-bang-a-united-states-vs-mexico</loc>`,
+    );
+    expect(xml).toContain(
+      `<loc>${ORIGIN}/matches/vong-bang-a-united-states-vs-mexico/analysis</loc>`,
+    );
+    expect(xml).toContain(`<loc>${ORIGIN}/lineups/vong-bang-a-united-states-vs-mexico</loc>`);
+    expect(xml).toContain(`<loc>${ORIGIN}/teams/team-w26-a1</loc>`);
+    expect(xml).toContain(`<loc>${ORIGIN}/news-intelligence/doc-1</loc>`);
+    expect(xml).toContain('<lastmod>2026-06-11</lastmod>');
+    expect(xml).toContain('<lastmod>2026-06-01</lastmod>');
   });
 });

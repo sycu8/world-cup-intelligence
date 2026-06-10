@@ -62,4 +62,5 @@ export type ProbabilitySnapshotRow = {
   model_version: string;
   input_hash: string | null;
   explanation_json: string | null;
+  created_at?: string | null;
 };

@@ -311,6 +311,8 @@ export type LocaleKey =
   | 'groupBoard.knockoutSubtitle'
   | 'groupBoard.knockoutLocked'
   | 'groupBoard.openAnalysis'
+  | 'compactProb.noAnalysis'
+  | 'compactProb.noAnalysisTitle'
   | 'home.newUserHint'
   | 'home.newUserHintLink'
   | 'home.newUserHintTail'
@@ -370,7 +372,58 @@ export type LocaleKey =
   | 'history.stageSf'
   | 'history.stageThird'
   | 'history.stageFinal'
-  | 'history.matchStage';
+  | 'history.matchStage'
+  | 'match.tabOverview'
+  | 'match.tabStats'
+  | 'match.tabPrediction'
+  | 'match.tabMomentum'
+  | 'match.tabTactical'
+  | 'match.tabScenarios'
+  | 'match.sectionNav'
+  | 'common.lastUpdated'
+  | 'stats.title'
+  | 'stats.subtitle'
+  | 'stats.subtitleLive'
+  | 'stats.loading'
+  | 'stats.unavailable'
+  | 'stats.possession'
+  | 'stats.shots'
+  | 'stats.shotsOnTarget'
+  | 'stats.xg'
+  | 'stats.passes'
+  | 'stats.passAccuracy'
+  | 'stats.cards'
+  | 'stats.subs'
+  | 'prediction.summaryTitle'
+  | 'prediction.summarySubtitle'
+  | 'prediction.loading'
+  | 'prediction.predictedScore'
+  | 'prediction.homeWin'
+  | 'prediction.draw'
+  | 'prediction.awayWin'
+  | 'prediction.modelConfidence'
+  | 'prediction.modelVersion'
+  | 'prediction.drivers'
+  | 'prediction.xgNote'
+  | 'analytics.title'
+  | 'analytics.subtitle'
+  | 'analytics.loading'
+  | 'analytics.unavailable'
+  | 'analytics.momentum'
+  | 'analytics.pressure'
+  | 'analytics.turningPoint'
+  | 'analytics.turningYes'
+  | 'analytics.turningNo'
+  | 'analytics.turningHint'
+  | 'analytics.pressureHint'
+  | 'analytics.momentumHome'
+  | 'analytics.momentumAway'
+  | 'analytics.momentumBalanced'
+  | 'analytics.movementNote'
+  | 'analytics.updates'
+  | 'analytics.estimateNote'
+  | 'seo.brandLine'
+  | 'seo.footerNote';
 
 export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'nav.command': { vi: 'Trung tâm', en: 'Command' },
@@ -391,7 +444,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: '12 groups · standings and fixtures per group. Numbers are H·D·A model % — tap a match for analysis.',
   },
   'matches.hubSubtitle': {
-    vi: 'Lịch trực quan · đồng bộ calendar · yêu thích trận/đội · bảng A–L · tra cứu đội tuyển.',
+    vi: 'Lịch trực quan · đồng bộ lịch · yêu thích trận/đội · bảng A–L · tra cứu đội tuyển.',
     en: 'Visual schedule · calendar sync · favorite matches & teams · groups A–L · team lookup.',
   },
   'matches.hubNav': { vi: 'Mục lịch World Cup', en: 'World Cup hub sections' },
@@ -419,13 +472,13 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: '({group}) · {pts} pts · GD {gd}',
   },
   'standings.qualifiesR32': { vi: '→ Vòng 1/16', en: '→ R32' },
-  'bracket.title': { vi: 'Nhánh knockout', en: 'Knockout bracket' },
+  'bracket.title': { vi: 'Nhánh loại trực tiếp', en: 'Knockout bracket' },
   'bracket.subtitle': {
     vi: 'Vòng 1/16 → Chung kết — bấm trận để mở phân tích',
     en: 'Round of 32 → Final — tap a match for analysis',
   },
   'bracket.loading': { vi: 'Đang tải nhánh…', en: 'Loading bracket…' },
-  'bracket.empty': { vi: 'Chưa có trận knockout.', en: 'No knockout matches yet.' },
+  'bracket.empty': { vi: 'Chưa có trận vòng loại trực tiếp.', en: 'No knockout matches yet.' },
   'nav.articles': { vi: 'Bài viết', en: 'Articles' },
   'nav.more': { vi: 'Thêm', en: 'More' },
   'news.pageTitle': { vi: 'Tin World Cup', en: 'World Cup News' },
@@ -464,10 +517,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'news.articleLangLabel': { vi: 'Ngôn ngữ bài viết', en: 'Article language' },
   'home.title': { vi: 'Trung tâm Chiến thuật World Cup', en: 'World Cup Tactical Command' },
   'home.subtitle': {
-    vi: 'Dữ liệu cập nhật mỗi phút. Xác suất tính trên backend. Tin tức crawl mỗi 15 phút.',
+    vi: 'Dữ liệu cập nhật mỗi phút. Xác suất tính trên máy chủ. Tin tức thu thập mỗi 15 phút.',
     en: 'Data refreshes every minute. Probabilities on the backend. News every 15 minutes.',
   },
-  'home.badge': { vi: 'Chỉ xem · tự động backend', en: 'View only · backend automated' },
+  'home.badge': { vi: 'Chỉ xem · tự động trên máy chủ', en: 'View only · backend automated' },
   'home.calendar': { vi: 'Lịch thi đấu', en: 'Match calendar' },
   'home.calendarTitle': {
     vi: 'Lịch thi đấu World Cup 2026',
@@ -486,7 +539,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'Upcoming match',
   },
   'home.calendarLoading': { vi: 'Đang tải lịch thi đấu…', en: 'Loading match schedule…' },
-  'home.pipeline': { vi: 'Trạng thái pipeline', en: 'Pipeline status' },
+  'home.pipeline': { vi: 'Trạng thái đồng bộ dữ liệu', en: 'Pipeline status' },
   'home.loading': { vi: 'Đang tải trận gần nhất…', en: 'Loading nearest match…' },
   'match.loading': { vi: 'Đang tải trận đấu…', en: 'Loading match…' },
   'match.history': {
@@ -729,7 +782,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'Pre-match model snapshot',
   },
   'probMovement.reasonLive': {
-    vi: 'Tính lại theo diễn biến trận (live)',
+    vi: 'Tính lại theo diễn biến trận (trực tiếp)',
     en: 'Live game-state recalculation',
   },
   'probMovement.reasonRecalc': {
@@ -767,7 +820,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'guide.quickStart': { vi: 'Bắt đầu nhanh', en: 'Quick start' },
   'guide.newUsers': { vi: 'Người dùng mới thường cần gì?', en: 'What new users often need' },
   'guide.newUsersBody': {
-    vi: 'Lịch 104 trận, xác suất mô hình, đối đầu, tin RSS và (khi có) tín hiệu thị trường so với mô hình.',
+    vi: 'Lịch 104 trận, xác suất mô hình, đối đầu, tin tức và (khi có) tín hiệu thị trường so với mô hình.',
     en: '104-match schedule, model probabilities, H2H, RSS news, and (when available) model vs market signals.',
   },
   'guide.newUsersBrainstorm': {
@@ -789,7 +842,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'Probabilities (H/D/A) and xG come from our model — not bookmaker odds. Pre-match analysis is unique to this fixture.',
   },
   'common.liveLabel': { vi: 'Trực tiếp', en: 'Live' },
-  'match.topScores': { vi: 'Tỉ số ML', en: 'Top scores' },
+  'match.topScores': { vi: 'Tỉ số khả dĩ nhất', en: 'Top scores' },
   'matchAnalysis.back': { vi: 'Bảng chiến thuật', en: 'Tactical dashboard' },
   'matchAnalysis.groupTitle': { vi: 'Bảng {group}: {versus}', en: 'Group {group}: {versus}' },
   'matchAnalysis.stageTitle': { vi: '{stage}: {versus}', en: '{stage}: {versus}' },
@@ -814,7 +867,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   },
   'simulator.reset': { vi: 'Đặt lại kịch bản', en: 'Reset scenario' },
   'simulator.scenarioOutput': { vi: 'Kết quả kịch bản', en: 'Scenario output' },
-  'simulator.winProb': { vi: 'Xác suất thắng', en: 'Win probability' },
+  'simulator.winProb': { vi: 'Xác suất thắng/hòa/thua', en: 'Win probability' },
   'editorial.mode': { vi: 'Chế độ đọc', en: 'Editorial mode' },
   'editorial.takeaways': { vi: 'Điểm chính', en: 'Key takeaways' },
   'editorial.context': { vi: 'Ngữ cảnh trận', en: 'Match context' },
@@ -832,7 +885,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   },
   'calendar.filterAll': { vi: 'Tất cả', en: 'All' },
   'calendar.filterGroup': { vi: 'Vòng bảng', en: 'Group' },
-  'calendar.filterKnockout': { vi: 'Knock-out', en: 'Knockout' },
+  'calendar.filterKnockout': { vi: 'Vòng loại trực tiếp', en: 'Knockout' },
   'calendar.filterLive': { vi: 'Đang diễn ra', en: 'Live' },
   'calendar.filterScheduled': { vi: 'Sắp đá', en: 'Scheduled' },
   'calendar.filterCompleted': { vi: 'Đã xong', en: 'Completed' },
@@ -846,7 +899,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'Schedule seed: {n}/{total} matches loaded',
   },
   'calendar.groupLabel': { vi: 'Bảng', en: 'Group' },
-  'calendar.addGoogle': { vi: 'Google Calendar', en: 'Google Calendar' },
+  'calendar.addGoogle': { vi: 'Lịch Google', en: 'Google Calendar' },
   'calendar.downloadAll': { vi: 'Tải lịch .ics', en: 'Download .ics' },
   'calendar.downloadOne': { vi: 'Tải trận .ics', en: 'Download match .ics' },
   'calendar.syncHint': {
@@ -894,7 +947,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'teams.searchPlaceholder': { vi: 'Tìm đội…', en: 'Search teams…' },
   'groupBoard.title': { vi: 'Bảng đấu', en: 'Tournament board' },
   'groupBoard.tabGroup': { vi: 'Bảng đấu vòng bảng', en: 'Group stage' },
-  'groupBoard.tabKnockout': { vi: 'Knock Out', en: 'Knock Out' },
+  'groupBoard.tabKnockout': { vi: 'Vòng loại trực tiếp', en: 'Knock Out' },
   'groupBoard.knockoutEmpty': { vi: 'Chưa có trận ở vòng này.', en: 'No matches in this round yet.' },
   'groupBoard.subtitle': {
     vi: 'Bảng xếp hạng và lịch thi đấu theo từng bảng — gọn như bảng đấu World Cup.',
@@ -902,20 +955,25 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   },
   'groupBoard.loading': { vi: 'Đang tải bảng đấu…', en: 'Loading groups…' },
   'groupBoard.probHint': {
-    vi: 'C · H · K = % mô hình (chủ · hòa · khách)',
-    en: 'H · D · A = model % (home · draw · away)',
+    vi: 'C · H · K = đã phân tích · «Chưa có» = đang chờ engine',
+    en: 'H · D · A = analyzed · «Pending» = awaiting engine',
+  },
+  'compactProb.noAnalysis': { vi: 'Chưa có', en: 'Pending' },
+  'compactProb.noAnalysisTitle': {
+    vi: 'Chưa có xác suất mô hình — sẽ cập nhật khi engine tính xong',
+    en: 'No model probability yet — updates when the engine finishes',
   },
   'groupBoard.standingsHint': {
     vi: 'Tr · Trận · HS · Hiệu số · Đ · Điểm',
     en: 'P · Played · GD · Goal diff · Pts · Points',
   },
-  'groupBoard.knockoutTitle': { vi: 'Vòng knock-out', en: 'Knockout stage' },
+  'groupBoard.knockoutTitle': { vi: 'Vòng loại trực tiếp', en: 'Knockout stage' },
   'groupBoard.knockoutSubtitle': {
     vi: 'Hiện sau khi kết thúc vòng bảng — bấm trận để mở phân tích chi tiết.',
     en: 'Shown after the group stage — tap a match for full analysis.',
   },
   'groupBoard.knockoutLocked': {
-    vi: 'Các trận vòng knock-out sẽ hiện khi 12 bảng đã đá xong.',
+    vi: 'Các trận vòng loại trực tiếp sẽ hiện khi 12 bảng đã đá xong.',
     en: 'Knockout fixtures appear once all 12 groups are complete.',
   },
   'groupBoard.openAnalysis': { vi: 'Phân tích', en: 'Analysis' },
@@ -930,13 +988,13 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'Long-form analysis — model probability, team systems, scenarios, and market comparison when available.',
   },
   'matchAnalysis.scoreline': {
-    vi: 'Tỉ số ML {score} — {h} {hp} / {d} {dp} / {a} {ap}.',
+    vi: 'Tỉ số khả dĩ nhất {score} — {h} {hp} / {d} {dp} / {a} {ap}.',
     en: 'Most likely scoreline {score} — {h} {hp} / {d} {dp} / {a} {ap}.',
   },
   'matchAnalysis.notFound': { vi: 'Không tìm thấy trận.', en: 'Match not found.' },
   'matchAnalysis.notFoundBack': { vi: 'Quay lại', en: 'Back' },
   'match.briefingAiSubtitle': {
-    vi: 'Lớp AI — số liệu mô hình là chuẩn',
+    vi: 'Lớp phân tích AI — số liệu mô hình là chuẩn',
     en: 'AI layer — stats lead',
   },
   'matchHeader.matchLabel': { vi: 'TRẬN ĐẤU', en: 'MATCH' },
@@ -948,7 +1006,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'matrix.title': { vi: 'Ma trận tỉ số', en: 'Scoreline matrix' },
   'matrix.subtitle': { vi: 'Khối lượng tỉ số chính xác hàng đầu', en: 'Top exact-score masses' },
   'multiVar.title': { vi: 'Phân tích đa biến', en: 'Multi-variable' },
-  'multiVar.subtitle': { vi: 'Lớp suy luận AI', en: 'AI reasoning layer' },
+  'multiVar.subtitle': { vi: 'Lớp phân tích AI', en: 'AI reasoning layer' },
   'multiVar.analysisHeading': { vi: 'Phân tích', en: 'Analysis' },
   'player.title': { vi: 'Ảnh hưởng cầu thủ', en: 'Player impact' },
   'player.subtitle': { vi: 'Cầu thủ then chốt trận này', en: 'Key contributors this match' },
@@ -1003,4 +1061,88 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'history.stageThird': { vi: 'Tranh hạng 3', en: 'Third place' },
   'history.stageFinal': { vi: 'Chung kết', en: 'Final' },
   'history.matchStage': { vi: 'Trận', en: 'Match' },
+  'match.tabOverview': { vi: 'Tổng quan', en: 'Overview' },
+  'match.tabStats': { vi: 'Thống kê', en: 'Stats' },
+  'match.tabPrediction': { vi: 'Dự đoán', en: 'Prediction' },
+  'match.tabMomentum': { vi: 'Đà trận', en: 'Momentum' },
+  'match.tabTactical': { vi: 'Chiến thuật', en: 'Tactical' },
+  'match.tabScenarios': { vi: 'Kịch bản', en: 'Scenarios' },
+  'match.sectionNav': { vi: 'Mục trận đấu', en: 'Match sections' },
+  'common.lastUpdated': { vi: 'Cập nhật lần cuối', en: 'Last updated' },
+  'stats.title': { vi: 'Thống kê trận đấu', en: 'Match statistics' },
+  'stats.subtitle': {
+    vi: 'Số liệu ghi nhận khi có — không hiển thị số liệu giả lập.',
+    en: 'Recorded stats when available — no fabricated official numbers.',
+  },
+  'stats.subtitleLive': {
+    vi: 'Cập nhật theo trận đang diễn ra (khi có dữ liệu).',
+    en: 'Updates during live play when data is available.',
+  },
+  'stats.loading': { vi: 'Đang tải thống kê…', en: 'Loading statistics…' },
+  'stats.unavailable': {
+    vi: 'Chưa có thống kê chính thức cho trận này. PitchIntel sẽ cập nhật khi có dữ liệu.',
+    en: 'No official stats for this match yet. PitchIntel will update when data is available.',
+  },
+  'stats.possession': { vi: 'Kiểm soát bóng', en: 'Possession' },
+  'stats.shots': { vi: 'Cú sút', en: 'Shots' },
+  'stats.shotsOnTarget': { vi: 'Sút trúng đích', en: 'Shots on target' },
+  'stats.xg': { vi: 'Bàn thắng kỳ vọng / xG', en: 'Expected goals / xG' },
+  'stats.passes': { vi: 'Đường chuyền', en: 'Passes' },
+  'stats.passAccuracy': { vi: 'Độ chính xác chuyền', en: 'Pass accuracy' },
+  'stats.cards': { vi: 'Thẻ', en: 'Cards' },
+  'stats.subs': { vi: 'Thay người', en: 'Subs' },
+  'prediction.summaryTitle': { vi: 'Tóm tắt dự đoán', en: 'Prediction summary' },
+  'prediction.summarySubtitle': {
+    vi: 'Xác suất thắng/hòa/thua và tỉ số dự đoán từ mô hình PitchIntel.',
+    en: 'Win/draw/loss probability and predicted scorelines from the PitchIntel model.',
+  },
+  'prediction.loading': { vi: 'Đang tải dự đoán…', en: 'Loading prediction…' },
+  'prediction.predictedScore': { vi: 'Tỉ số dự đoán', en: 'Predicted score' },
+  'prediction.homeWin': { vi: 'Xác suất đội nhà thắng', en: 'Home win probability' },
+  'prediction.draw': { vi: 'Xác suất hòa', en: 'Draw probability' },
+  'prediction.awayWin': { vi: 'Xác suất đội khách thắng', en: 'Away win probability' },
+  'prediction.modelConfidence': { vi: 'Độ tin cậy mô hình', en: 'Model confidence' },
+  'prediction.modelVersion': { vi: 'Phiên bản mô hình', en: 'Model version' },
+  'prediction.drivers': { vi: 'Lý do chính ảnh hưởng dự đoán', en: 'Key prediction drivers' },
+  'prediction.xgNote': {
+    vi: 'xG ước tính bởi PitchIntel — không phải số liệu Opta/FIFA chính thức.',
+    en: 'xG estimated by PitchIntel — not official Opta/FIFA data.',
+  },
+  'analytics.title': { vi: 'Phân tích đà trận', en: 'Match momentum analytics' },
+  'analytics.subtitle': {
+    vi: 'Đà trận đấu, chỉ số gây áp lực và bước ngoặt từ biến động xác suất mô hình.',
+    en: 'Momentum, pressure index, and turning points from model probability shifts.',
+  },
+  'analytics.loading': { vi: 'Đang tính phân tích…', en: 'Computing analytics…' },
+  'analytics.unavailable': {
+    vi: 'Chưa đủ dữ liệu để tính đà trận — sẽ có sau khi mô hình cập nhật.',
+    en: 'Not enough data for momentum yet — available after model updates.',
+  },
+  'analytics.momentum': { vi: 'Đà trận đấu', en: 'Momentum' },
+  'analytics.pressure': { vi: 'Chỉ số gây áp lực', en: 'Pressure index' },
+  'analytics.turningPoint': { vi: 'Bước ngoặt trận đấu', en: 'Turning point' },
+  'analytics.turningYes': { vi: 'Có dấu hiệu', en: 'Detected' },
+  'analytics.turningNo': { vi: 'Chưa rõ', en: 'Not yet' },
+  'analytics.turningHint': {
+    vi: 'Phát hiện khi xác suất thắng dịch chuyển mạnh giữa các lần cập nhật.',
+    en: 'Detected when win probability shifts significantly between updates.',
+  },
+  'analytics.pressureHint': {
+    vi: 'Mức biến động xác suất — cao hơn nghĩa là trận đấu đang mở.',
+    en: 'Probability volatility — higher means a more open contest.',
+  },
+  'analytics.momentumHome': { vi: 'Đà nghiêng về đội nhà', en: 'Momentum toward home' },
+  'analytics.momentumAway': { vi: 'Đà nghiêng về đội khách', en: 'Momentum toward away' },
+  'analytics.momentumBalanced': { vi: 'Cân bằng', en: 'Balanced' },
+  'analytics.movementNote': { vi: 'Lịch sử cập nhật mô hình', en: 'Model update history' },
+  'analytics.updates': { vi: 'lần', en: 'updates' },
+  'analytics.estimateNote': {
+    vi: 'Chỉ số phân tích từ mô hình PitchIntel — ước tính, không phải chỉ số phát sóng chính thức.',
+    en: 'Analytics indices from the PitchIntel model — estimates, not official broadcast metrics.',
+  },
+  'seo.brandLine': { vi: 'PitchIntel · World Cup 2026', en: 'PitchIntel · World Cup 2026' },
+  'seo.footerNote': {
+    vi: 'Nền tảng tình báo World Cup miễn phí — xác suất, kịch bản và tin phân tích.',
+    en: 'Free analyst-grade World Cup intelligence — probabilities, scenarios, and news.',
+  },
 };

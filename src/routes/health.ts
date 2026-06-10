@@ -17,6 +17,7 @@ healthRoutes.get('/', async (c) => {
   const lastNewsCrawl = await c.env.KV.get('meta:last_news_crawl');
   return c.json({
     status: dbOk ? 'healthy' : 'degraded',
+    environment: parseEnv(c.env).environment,
     dependencies: {
       d1: dbOk ? 'up' : 'down',
       r2: 'bound',

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { I18nProvider, useI18n } from './lib/i18n/I18nContext';
 import { AppShell } from './components/layout/AppShell';
 import { HomePage } from './pages/HomePage';
+import { SEO_PAGES } from './lib/seoPages';
 
 const MatchPage = lazy(() => import('./pages/MatchPage').then((m) => ({ default: m.MatchPage })));
 const TeamPage = lazy(() => import('./pages/TeamPage').then((m) => ({ default: m.TeamPage })));
@@ -19,6 +20,9 @@ const MatchAnalysisPage = lazy(() =>
   import('./pages/MatchAnalysisPage').then((m) => ({ default: m.MatchAnalysisPage })),
 );
 const MatchesPage = lazy(() => import('./pages/MatchesPage').then((m) => ({ default: m.MatchesPage })));
+const SeoLandingPage = lazy(() =>
+  import('./pages/SeoLandingPage').then((m) => ({ default: m.SeoLandingPage })),
+);
 
 function RouteFallback() {
   const { t } = useI18n();
@@ -49,6 +53,9 @@ export default function App() {
               <Route path="/news-intelligence" element={<NewsIntelligencePage />} />
               <Route path="/news-intelligence/:articleId" element={<NewsArticlePage />} />
               <Route path="/guide" element={<GuidePage />} />
+              {SEO_PAGES.map((page) => (
+                <Route key={page.path} path={page.path} element={<SeoLandingPage />} />
+              ))}
               <Route path="/analyst/simulator" element={<Navigate to="/" replace />} />
               <Route path="/admin" element={<Navigate to="/" replace />} />
             </Route>
