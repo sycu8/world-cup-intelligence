@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@hono/zod-validator": "^0.4.3",
+    "@resvg/resvg-wasm": "^2.6.2",
     "hono": "^4.7.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

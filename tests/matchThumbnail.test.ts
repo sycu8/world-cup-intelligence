@@ -58,6 +58,10 @@ describe('matchThumbnail', () => {
     expect(svg).toContain('2 – 0');
     expect(svg.startsWith('<?xml')).toBe(true);
   });
+
+  it('defines png og image path for social preview', () => {
+    expect(matchOgImagePublicPath('vong-bang-a-mexico-vs-south-africa')).toContain('.png');
+  });
 });
 
 describe('spaMatchMeta', () => {
