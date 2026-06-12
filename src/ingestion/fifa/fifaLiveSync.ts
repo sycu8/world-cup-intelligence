@@ -4,6 +4,7 @@ import { logInfo, logError } from '../../utils/logger';
 import {
   fetchFifaCalendarMatches,
   fetchFifaMatchInfo,
+  fetchFifaWc2026FixturesCalendar,
   type FifaCalendarMatch,
   type FifaMatchInfo,
   type FifaBooking,
@@ -44,10 +45,6 @@ function utcDay(iso: string): string {
   return iso.slice(0, 10);
 }
 
-function windowIso(offsetHours: number): string {
-  return new Date(Date.now() + offsetHours * 3600_000).toISOString();
-}
-
 async function loadTeamIndex(db: D1Database): Promise<Map<string, string>> {
   const { results } = await db
     .prepare(`SELECT id, name FROM teams WHERE id LIKE 'team-w26-%'`)
@@ -61,51 +58,49 @@ async function loadTeamIndex(db: D1Database): Promise<Map<string, string>> {
 
 function resolveTeamId(
   teamIndex: Map<string, string>,
-  side: FifaCalendarMatch['Home'],
+  side: FifaCalendarMatch['Home'] | null | undefined,
 ): string | null {
+  if (!side) return null;
   const label = fifaCountryToTeamName(side.IdCountry, fifaLocalizedName(side.TeamName));
   return teamIndex.get(normalizeTeamName(label)) ?? null;
 }
 
-async function findInternalMatch(
-  db: D1Database,
-  fifa: FifaCalendarMatch,
-  teamIndex: Map<string, string>,
-): Promise<MatchRow | null> {
-  const byFifa = await db
+async function loadInternalMatchIndex(db: D1Database): Promise<{
+  byFifaId: Map<string, MatchRow>;
+  byTeamsDay: Map<string, MatchRow>;
+}> {
+  const { results } = await db
     .prepare(
       `SELECT id, home_team_id, away_team_id, kickoff_utc, status, fifa_match_id, minute, home_score, away_score
-       FROM matches WHERE fifa_match_id = ? LIMIT 1`,
+       FROM matches WHERE tournament_id = ?`,
     )
-    .bind(fifa.IdMatch)
-    .first<MatchRow>();
+    .bind(WC2026_TOURNAMENT_ID)
+    .all<MatchRow>();
+
+  const byFifaId = new Map<string, MatchRow>();
+  const byTeamsDay = new Map<string, MatchRow>();
+  for (const row of results ?? []) {
+    if (row.fifa_match_id) byFifaId.set(row.fifa_match_id, row);
+    if (row.kickoff_utc) {
+      byTeamsDay.set(`${row.home_team_id}:${row.away_team_id}:${utcDay(row.kickoff_utc)}`, row);
+    }
+  }
+  return { byFifaId, byTeamsDay };
+}
+
+function resolveInternalMatch(
+  fifa: FifaCalendarMatch,
+  teamIndex: Map<string, string>,
+  index: { byFifaId: Map<string, MatchRow>; byTeamsDay: Map<string, MatchRow> },
+): MatchRow | null {
+  const byFifa = index.byFifaId.get(fifa.IdMatch);
   if (byFifa) return byFifa;
 
   const homeId = resolveTeamId(teamIndex, fifa.Home);
   const awayId = resolveTeamId(teamIndex, fifa.Away);
   if (!homeId || !awayId) return null;
 
-  const day = utcDay(fifa.Date);
-  const row = await db
-    .prepare(
-      `SELECT id, home_team_id, away_team_id, kickoff_utc, status, fifa_match_id, minute, home_score, away_score
-       FROM matches
-       WHERE tournament_id = ?
-         AND home_team_id = ?
-         AND away_team_id = ?
-         AND substr(kickoff_utc, 1, 10) = ?
-       LIMIT 1`,
-    )
-    .bind(WC2026_TOURNAMENT_ID, homeId, awayId, day)
-    .first<MatchRow>();
-
-  if (row && !row.fifa_match_id) {
-    await db
-      .prepare(`UPDATE matches SET fifa_match_id = ?, updated_at = ? WHERE id = ?`)
-      .bind(fifa.IdMatch, nowIso(), row.id)
-      .run();
-  }
-  return row;
+  return index.byTeamsDay.get(`${homeId}:${awayId}:${utcDay(fifa.Date)}`) ?? null;
 }
 
 function playerIdFromFifa(
@@ -267,61 +262,126 @@ async function applyFifaPayload(
   return changed ? 'updated' : 'unchanged';
 }
 
-function shouldSyncCalendarRow(fifa: FifaCalendarMatch, nowMs: number): boolean {
-  const kickoff = new Date(fifa.Date).getTime();
-  const hoursFromKick = (nowMs - kickoff) / 3600_000;
-  if (hoursFromKick >= -2 && hoursFromKick <= 3) return true;
-  const st = resolveFifaPlatformStatus(fifa);
-  return st === 'live' || (st === 'completed' && hoursFromKick <= 12);
+async function applyFifaCalendarRow(
+  db: D1Database,
+  internal: MatchRow,
+  row: FifaCalendarMatch,
+): Promise<'updated' | 'unchanged'> {
+  const homeScore = row.HomeTeamScore ?? row.Home?.Score ?? 0;
+  const awayScore = row.AwayTeamScore ?? row.Away?.Score ?? 0;
+  const minute = parseFifaMinute(row.MatchTime);
+  const status = resolveFifaPlatformStatus(row);
+  const now = nowIso();
+
+  const changed =
+    internal.status !== status ||
+    minute !== (internal.minute ?? 0) ||
+    (homeScore ?? 0) !== (internal.home_score ?? 0) ||
+    (awayScore ?? 0) !== (internal.away_score ?? 0);
+
+  if (!changed) return 'unchanged';
+
+  await db
+    .prepare(
+      `UPDATE matches SET
+         status = ?, minute = ?, home_score = ?, away_score = ?,
+         fifa_match_id = COALESCE(fifa_match_id, ?),
+         updated_at = ?
+       WHERE id = ?`,
+    )
+    .bind(status, minute, homeScore ?? 0, awayScore ?? 0, row.IdMatch, now, internal.id)
+    .run();
+
+  return 'updated';
 }
 
-/** Pull FIFA Match Centre data for WC2026 fixtures in the active window. */
+function needsFullFifaMatchInfo(row: FifaCalendarMatch, platformStatus: string, nowMs: number): boolean {
+  if (platformStatus === 'live') return true;
+  const kickoff = new Date(row.Date).getTime();
+  const hoursFromKick = (nowMs - kickoff) / 3600_000;
+  return hoursFromKick >= -3 && hoursFromKick <= 5;
+}
+
+/** @internal exported for unit tests */
+export { needsFullFifaMatchInfo };
+
+/** Pull FIFA scores-fixtures / Match Centre data for all WC2026 matches. */
 export async function syncFifaWc2026Matches(env: AppEnv): Promise<FifaSyncResult> {
   const updatedIds: string[] = [];
   const completedIds: string[] = [];
   let synced = 0;
   let skipped = 0;
 
-  const from = windowIso(-30);
-  const to = windowIso(36);
-  const calendar = await fetchFifaCalendarMatches(from, to);
+  const calendar = await fetchFifaWc2026FixturesCalendar();
   const teamIndex = await loadTeamIndex(env.DB);
+  const matchIndex = await loadInternalMatchIndex(env.DB);
   const nowMs = Date.now();
+  const fifaIdLinks: { id: string; fifaId: string }[] = [];
 
   for (const row of calendar) {
-    if (!shouldSyncCalendarRow(row, nowMs)) {
+    if (!row.Home || !row.Away) {
       skipped += 1;
       continue;
     }
 
-    const internal = await findInternalMatch(env.DB, row, teamIndex);
+    const internal = resolveInternalMatch(row, teamIndex, matchIndex);
     if (!internal) {
       skipped += 1;
       continue;
     }
 
-    try {
-      const info = (await fetchFifaMatchInfo(row.IdMatch)) ?? row;
-      const outcome = await applyFifaPayload(env.DB, internal, info as FifaMatchInfo);
-      synced += 1;
-      if (outcome === 'completed') completedIds.push(internal.id);
-      else if (outcome === 'updated') updatedIds.push(internal.id);
+    if (!internal.fifa_match_id) {
+      fifaIdLinks.push({ id: internal.id, fifaId: row.IdMatch });
+      internal.fifa_match_id = row.IdMatch;
+      matchIndex.byFifaId.set(row.IdMatch, internal);
+    }
 
-      await env.R2_RAW.put(
-        `fifa/live/${row.IdMatch}/${nowIso()}.json`,
-        JSON.stringify(info),
-        { httpMetadata: { contentType: 'application/json' } },
-      );
+    const platformStatus = resolveFifaPlatformStatus(row);
+
+    try {
+      if (needsFullFifaMatchInfo(row, platformStatus, nowMs)) {
+        const info = (await fetchFifaMatchInfo(row.IdMatch)) ?? row;
+        const outcome = await applyFifaPayload(env.DB, internal, info as FifaMatchInfo);
+        synced += 1;
+        if (outcome === 'completed') completedIds.push(internal.id);
+        else if (outcome === 'updated') updatedIds.push(internal.id);
+
+        await env.R2_RAW.put(
+          `fifa/live/${row.IdMatch}/${nowIso()}.json`,
+          JSON.stringify(info),
+          { httpMetadata: { contentType: 'application/json' } },
+        );
+      } else {
+        const outcome = await applyFifaCalendarRow(env.DB, internal, row);
+        synced += 1;
+        if (platformStatus === 'completed') completedIds.push(internal.id);
+        else if (outcome === 'updated') updatedIds.push(internal.id);
+      }
     } catch (e) {
       logError('fifa match sync failed', { match_id: internal.id, error: String(e) });
     }
+  }
+
+  if (fifaIdLinks.length) {
+    const now = nowIso();
+    await env.DB.batch(
+      fifaIdLinks.map(({ id, fifaId }) =>
+        env.DB.prepare(`UPDATE matches SET fifa_match_id = ?, updated_at = ? WHERE id = ?`).bind(fifaId, now, id),
+      ),
+    );
   }
 
   if (synced > 0) {
     await env.KV.put('meta:last_fifa_sync', nowIso(), { expirationTtl: 86400 });
   }
 
-  logInfo('fifa wc2026 sync complete', { synced, skipped, updated: updatedIds.length, completed: completedIds.length });
+  logInfo('fifa wc2026 sync complete', {
+    calendar: calendar.length,
+    synced,
+    skipped,
+    updated: updatedIds.length,
+    completed: completedIds.length,
+  });
   return { updatedIds, completedIds, synced, skipped };
 }
 

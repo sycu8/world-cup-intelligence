@@ -15,6 +15,7 @@ healthRoutes.get('/', async (c) => {
     dbOk = false;
   }
   const lastRefresh = await c.env.KV.get('meta:last_data_refresh');
+  const lastFifaSync = await c.env.KV.get('meta:last_fifa_sync');
   const lastNewsCrawl = await c.env.KV.get(NEWS_CRAWL_KV_KEY);
   return c.json({
     status: dbOk ? 'healthy' : 'degraded',
@@ -30,6 +31,7 @@ healthRoutes.get('/', async (c) => {
       dataRefreshIntervalSec: 60,
       newsCrawlIntervalSec: NEWS_CRAWL_INTERVAL_SEC,
       lastDataRefresh: lastRefresh,
+      lastFifaSync,
       lastNewsCrawl,
     },
     viewOnly: true,

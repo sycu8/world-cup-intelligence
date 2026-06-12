@@ -28,16 +28,13 @@ export async function handleIngestBatch(
     try {
       switch (msg.body.type) {
         case 'refresh_minute': {
-          if (await runBulkRecomputeIfPending(env)) break;
-
-          await syncOfficialLineupsToMatches(env, { recompute: true });
-
           const { updatedIds, completedIds } = await refreshMatchData(env);
 
           if (completedIds.length) {
             await handleCompletedMatches(env, completedIds);
-            if (await runBulkRecomputeIfPending(env)) break;
           }
+
+          if (await runBulkRecomputeIfPending(env)) break;
 
           const recomputeIds =
             updatedIds.length > 0
@@ -66,6 +63,7 @@ export async function handleIngestBatch(
         }
         case 'crawl_news': {
           await crawlWorldCupNews(env);
+          await syncOfficialLineupsToMatches(env, { recompute: true });
           break;
         }
         case 'source_ingest': {

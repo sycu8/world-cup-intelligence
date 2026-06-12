@@ -10,8 +10,6 @@ export async function handleScheduledCron(
   ctx?: ExecutionContext,
 ): Promise<void> {
   if (cron === '* * * * *' || cron === 'every-minute') {
-    if (await runBulkRecomputeIfPending(env)) return;
-
     const job: IngestJob = { type: 'refresh_minute', idempotencyKey: crypto.randomUUID() };
     await env.INGEST_QUEUE?.send(job);
     logInfo('scheduled minute refresh enqueued');

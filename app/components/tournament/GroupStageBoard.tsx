@@ -139,12 +139,12 @@ function GroupCard({
             <li key={m.id}>
               <Link
                 to={resolveMatchHref(m)}
-                className="group flex items-center gap-1.5 rounded-md px-1 py-1 text-[10px] transition hover:bg-pressing/10 sm:gap-2 sm:text-[11px]"
+                className="group grid grid-cols-[2.25rem_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 rounded-md px-1 py-1 text-[10px] transition hover:bg-pressing/10 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto_auto] sm:gap-x-2 sm:text-[11px]"
               >
-                <time className="w-9 shrink-0 font-mono-data text-[9px] text-muted sm:w-10 sm:text-[10px]">
+                <time className="font-mono-data text-[9px] text-muted sm:text-[10px]">
                   <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showVnReference={false} />
                 </time>
-                <span className="min-w-0 flex-1 truncate leading-tight text-foreground/90">
+                <span className="min-w-0 truncate text-foreground/90">
                   <MatchTeamsWithFlags
                     homeName={m.home_name}
                     awayName={m.away_name}
@@ -155,7 +155,9 @@ function GroupCard({
                     separator="–"
                     flagClassName="h-2 w-3 rounded-sm object-cover ring-1 ring-white/10 sm:h-2.5 sm:w-4"
                   />
-                  {showScore && (
+                </span>
+                <span className="flex shrink-0 items-center justify-end gap-1">
+                  {showScore ? (
                     <MatchResultScore
                       homeScore={m.home_score}
                       awayScore={m.away_score}
@@ -163,17 +165,15 @@ function GroupCard({
                       variant={
                         m.status === 'completed' || m.status === 'finished' ? 'badge' : 'compact'
                       }
-                      className="ml-1"
                     />
+                  ) : (
+                    <span className="font-mono-data text-[10px] text-muted/35">–</span>
                   )}
                   {m.status === 'live' && (
-                    <span className="ml-1 text-[9px] font-bold text-live">{t('common.live')}</span>
+                    <span className="text-[9px] font-bold uppercase text-live">{t('common.live')}</span>
                   )}
                 </span>
                 <CompactMatchProb homeWin={prob?.homeWin} draw={prob?.draw} awayWin={prob?.awayWin} />
-                <span className="shrink-0 text-muted opacity-0 transition group-hover:opacity-100" aria-hidden>
-                  →
-                </span>
               </Link>
             </li>
           );
@@ -216,12 +216,12 @@ function KnockoutRoundPanel({
           <li key={m.id}>
             <Link
               to={resolveMatchHref(m)}
-              className="group flex flex-wrap items-center gap-x-2 gap-y-1 px-2 py-2 text-xs transition hover:bg-pressing/5 sm:px-3"
+              className="group grid grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] items-center gap-x-2 px-2 py-2 text-xs transition hover:bg-pressing/5 sm:px-3"
             >
-              <time className="w-28 shrink-0 font-mono-data text-[10px] text-muted">
+              <time className="font-mono-data text-[10px] text-muted">
                 <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showVnReference={false} />
               </time>
-              <span className="min-w-0 flex-1 font-medium">
+              <span className="min-w-0 truncate font-medium">
                 <MatchTeamsWithFlags
                   homeName={m.home_name}
                   awayName={m.away_name}
@@ -231,7 +231,9 @@ function KnockoutRoundPanel({
                   awayCountryCode={m.away_country_code}
                   separator="–"
                 />
-                {showScore && (
+              </span>
+              <span className="flex shrink-0 items-center justify-end">
+                {showScore ? (
                   <MatchResultScore
                     homeScore={m.home_score}
                     awayScore={m.away_score}
@@ -239,14 +241,12 @@ function KnockoutRoundPanel({
                     variant={
                       m.status === 'completed' || m.status === 'finished' ? 'badge' : 'compact'
                     }
-                    className="ml-2"
                   />
+                ) : (
+                  <span className="font-mono-data text-[11px] text-muted/35">–</span>
                 )}
               </span>
               <CompactMatchProb homeWin={prob?.homeWin} draw={prob?.draw} awayWin={prob?.awayWin} />
-              <span className="text-[10px] text-cyan opacity-70 group-hover:opacity-100">
-                {t('groupBoard.openAnalysis')} →
-              </span>
             </Link>
           </li>
         );

@@ -1,4 +1,10 @@
-import { FIFA_API_BASE, WC2026_COMPETITION_ID } from './constants';
+import {
+  FIFA_API_BASE,
+  WC2026_COMPETITION_ID,
+  WC2026_FIXTURES_FROM_ISO,
+  WC2026_FIXTURES_TO_ISO,
+  WC2026_SEASON_ID,
+} from './constants';
 
 export type FifaCalendarMatch = {
   IdMatch: string;
@@ -10,8 +16,8 @@ export type FifaCalendarMatch = {
   Period?: number | null;
   HomeTeamScore: number | null;
   AwayTeamScore: number | null;
-  Home: { TeamName?: { Locale?: string; Description?: string }[]; IdCountry?: string };
-  Away: { TeamName?: { Locale?: string; Description?: string }[]; IdCountry?: string };
+  Home: { TeamName?: { Locale?: string; Description?: string }[]; IdCountry?: string } | null;
+  Away: { TeamName?: { Locale?: string; Description?: string }[]; IdCountry?: string } | null;
   BallPossession?: { OverallHome?: number; OverallAway?: number } | null;
 };
 
@@ -101,6 +107,20 @@ export async function fetchFifaCalendarMatches(fromIso: string, toIso: string): 
     to: toIso,
     count: '500',
     language: 'en',
+    IdSeason: WC2026_SEASON_ID,
+  });
+  const data = await fifaFetch<CalendarResponse>(`calendar/matches?${params}`);
+  return (data?.Results ?? []).filter((m) => m.IdCompetition === WC2026_COMPETITION_ID);
+}
+
+/** Full WC2026 scores & fixtures window (same feed as FIFA scores-fixtures page). */
+export async function fetchFifaWc2026FixturesCalendar(): Promise<FifaCalendarMatch[]> {
+  const params = new URLSearchParams({
+    from: WC2026_FIXTURES_FROM_ISO,
+    to: WC2026_FIXTURES_TO_ISO,
+    count: '500',
+    language: 'en',
+    IdSeason: WC2026_SEASON_ID,
   });
   const data = await fifaFetch<CalendarResponse>(`calendar/matches?${params}`);
   return (data?.Results ?? []).filter((m) => m.IdCompetition === WC2026_COMPETITION_ID);
