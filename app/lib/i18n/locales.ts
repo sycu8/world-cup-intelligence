@@ -85,6 +85,8 @@ export type LocaleKey =
   | 'match.fullAnalysis'
   | 'match.notFound'
   | 'match.backSchedule'
+  | 'match.thumbAlt'
+  | 'match.metaDescription'
   | 'match.previewTitle'
   | 'match.previewSubtitle'
   | 'match.previewStrength'
@@ -648,6 +650,11 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'This match could not be found.',
   },
   'match.backSchedule': { vi: 'Lịch thi đấu', en: 'Match schedule' },
+  'match.thumbAlt': { vi: '{home} vs {away}', en: '{home} vs {away}' },
+  'match.metaDescription': {
+    vi: 'Phân tích {home} gặp {away} — xác suất mô hình, thống kê và chiến thuật World Cup 2026.',
+    en: '{home} vs {away} — model probabilities, match stats, and tactical analysis for World Cup 2026.',
+  },
   'match.previewTitle': { vi: 'Phân tích trận', en: 'Match preview' },
   'match.previewSubtitle': {
     vi: 'Lực lượng · đội hình dự kiến · phong độ (từ dữ liệu đã thu thập)',

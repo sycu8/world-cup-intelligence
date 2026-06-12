@@ -58,6 +58,9 @@ import { MatchPredictionSummary } from '../components/match/MatchPredictionSumma
 import { MatchRecapPanel } from '../components/match/MatchRecapPanel';
 import { MatchStaffPanel } from '../components/match/MatchStaffPanel';
 import { usePitchMapLive } from '../lib/usePitchMapLive';
+import { MatchVersusThumbnail } from '../components/match/MatchVersusThumbnail';
+import { matchThumbnailUrl } from '../lib/matchThumbnail';
+import { usePageMeta } from '../lib/usePageMeta';
 
 export function MatchPage() {
   const { matchId } = useParams();
@@ -97,6 +100,7 @@ export function MatchPage() {
   const { match, prob, loadError } = useMatchLiveData(matchId);
   const { data: pitchMap, loading: pitchLoading } = usePitchMapLive(matchId, match?.status === 'live');
   useLegacyMatchRedirect(matchId, match?.slug, matchPagePath);
+
   useMatchScenarioLive(matchId, setScenarioPredictions, !!matchId);
 
   useEffect(() => {
@@ -154,6 +158,20 @@ export function MatchPage() {
 
   const home = teamNames.home || match?.home_name || '';
   const away = teamNames.away || match?.away_name || '';
+  const matchRef = match?.slug ?? matchId ?? '';
+
+  usePageMeta(
+    match && matchRef && home && away
+      ? {
+          title: `${home} vs ${away} | PitchIntel`,
+          description: t('match.metaDescription')
+            .replace('{home}', home)
+            .replace('{away}', away),
+          image: matchThumbnailUrl(matchRef),
+          url: `${window.location.origin}/matches/${matchRef}`,
+        }
+      : null,
+  );
 
   const displayProb = useMemo(() => {
     if (!prob) return null;
@@ -316,6 +334,17 @@ export function MatchPage() {
         onSelect={setActiveSection}
         sectionRefs={sectionRefs}
       />
+
+      {matchRef && home && away && (
+        <MatchVersusThumbnail
+          matchRef={matchRef}
+          homeName={home}
+          awayName={away}
+          homeCountryCode={match?.home_country_code}
+          awayCountryCode={match?.away_country_code}
+          variant="hero"
+        />
+      )}
 
       <section ref={headerRef}>
         <MatchHeader

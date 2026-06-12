@@ -26,6 +26,9 @@ import { handleScheduledCron } from './scheduled/cron';
 import { discoveryRoutes } from './routes/discovery';
 import { buildLinkHeaderValue, siteOrigin } from './services/siteDiscovery';
 import { withStaticAssetCacheHeaders } from './services/staticAssetCache';
+import { parseMatchPageSlug } from './utils/matchPath';
+import { resolveMatchRef } from './services/matchRef';
+import { injectMatchPageHtml } from './services/spaMatchMeta';
 
 const app = new Hono<{ Bindings: AppEnv }>();
 
@@ -80,7 +83,19 @@ app.all('*', async (c) => {
   );
   const cached = withStaticAssetCacheHeaders(c.req.raw, fallback, true);
   const headers = new Headers(cached.headers);
-  headers.set('Link', buildLinkHeaderValue(siteOrigin(c.req.url)));
+  const origin = siteOrigin(c.req.url);
+  headers.set('Link', buildLinkHeaderValue(origin));
+
+  const slug = parseMatchPageSlug(new URL(c.req.url).pathname);
+  if (slug) {
+    const match = await resolveMatchRef(c.env.DB, slug);
+    if (match) {
+      const html = injectMatchPageHtml(await cached.text(), match, origin);
+      headers.set('Content-Type', 'text/html; charset=utf-8');
+      return new Response(html, { status: cached.status, headers });
+    }
+  }
+
   return new Response(cached.body, { status: cached.status, headers });
 });
 

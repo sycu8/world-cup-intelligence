@@ -10,6 +10,7 @@ import { MatchKickoffCountdown } from './MatchKickoffCountdown';
 import { TeamNameWithFlag } from '../team/TeamNameWithFlag';
 import { PredictedActualScores } from '../match/PredictedActualScores';
 import { DataKindBadge, DataKindMark } from '../ui/DataKindBadge';
+import { MatchVersusThumbnail } from '../match/MatchVersusThumbnail';
 
 type Props = {
   match: ScheduleMatch & { probability?: ProbabilityData | null };
@@ -39,6 +40,15 @@ export function FeaturedMatchHero({ match }: Props) {
         {sectionLabel}
       </p>
       <div className="hero-glow overflow-hidden rounded-panel border border-cyan/25">
+        <MatchVersusThumbnail
+          matchRef={match.slug ?? match.id}
+          homeName={match.home_name}
+          awayName={match.away_name}
+          homeCountryCode={match.home_country_code}
+          awayCountryCode={match.away_country_code}
+          variant="card"
+          className="rounded-none border-0"
+        />
         <div className="border-b border-border/60 px-4 py-3 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="label-tactical text-muted-dim">{stageLabel}</p>
