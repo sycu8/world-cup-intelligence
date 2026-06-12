@@ -38,8 +38,8 @@ describe('matchThumbnail', () => {
     expect(input.stageLabel).toBe('Bảng A');
   });
 
-  it('generates svg with team labels', async () => {
-    const svg = await buildMatchThumbnailSvg({
+  it('generates svg with team labels', () => {
+    const svg = buildMatchThumbnailSvg({
       homeName: 'Mexico',
       awayName: 'South Africa',
       homeCountryCode: 'MX',

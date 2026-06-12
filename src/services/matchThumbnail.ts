@@ -31,25 +31,6 @@ function truncateLabel(name: string, max = 22): string {
   return `${trimmed.slice(0, max - 1)}…`;
 }
 
-async function fetchFlagDataUri(slug: string, width: number): Promise<string | null> {
-  if (!slug) return null;
-  const url = flagCdnUrl(slug, width);
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'wc-tactical-platform/1.0 (match-thumb)' },
-      signal: AbortSignal.timeout(10_000),
-      cf: { cacheTtl: 86400 },
-    } as RequestInit);
-    if (!res.ok) return null;
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    return `data:image/png;base64,${btoa(binary)}`;
-  } catch {
-    return null;
-  }
-}
-
 function scoreLine(input: MatchThumbnailInput): string | null {
   const done = input.status === 'completed' || input.status === 'finished' || input.status === 'live';
   if (!done || input.homeScore == null || input.awayScore == null) return null;
@@ -64,7 +45,7 @@ export function matchThumbnailPublicPath(ref: string): string {
   return `/api/matches/${ref}/thumbnail`;
 }
 
-export async function buildMatchThumbnailSvg(input: MatchThumbnailInput): Promise<string> {
+export function buildMatchThumbnailSvg(input: MatchThumbnailInput): string {
   const homeSlug = resolveTeamFlagSlug({
     countryCode: input.homeCountryCode,
     teamName: input.homeName,
@@ -74,10 +55,8 @@ export async function buildMatchThumbnailSvg(input: MatchThumbnailInput): Promis
     teamName: input.awayName,
   });
 
-  const [homeFlag, awayFlag] = await Promise.all([
-    fetchFlagDataUri(homeSlug, 320),
-    fetchFlagDataUri(awaySlug, 320),
-  ]);
+  const homeFlag = homeSlug ? flagCdnUrl(homeSlug, 160) : '';
+  const awayFlag = awaySlug ? flagCdnUrl(awaySlug, 160) : '';
 
   const homeLabel = escapeXml(truncateLabel(input.homeName));
   const awayLabel = escapeXml(truncateLabel(input.awayName));
@@ -92,10 +71,10 @@ export async function buildMatchThumbnailSvg(input: MatchThumbnailInput): Promis
   const flagY = 170;
 
   const homeFlagSvg = homeFlag
-    ? `<image href="${homeFlag}" x="${homeX}" y="${flagY}" width="${flagW}" height="${flagH}" preserveAspectRatio="xMidYMid meet" clip-path="url(#flagClip)"/>`
+    ? `<image href="${escapeXml(homeFlag)}" x="${homeX}" y="${flagY}" width="${flagW}" height="${flagH}" preserveAspectRatio="xMidYMid meet" clip-path="url(#flagClip)"/>`
     : `<rect x="${homeX}" y="${flagY}" width="${flagW}" height="${flagH}" rx="12" fill="#172033"/><text x="${homeX + flagW / 2}" y="${flagY + flagH / 2 + 8}" text-anchor="middle" fill="#94a3b8" font-size="48" font-family="system-ui,sans-serif">?</text>`;
   const awayFlagSvg = awayFlag
-    ? `<image href="${awayFlag}" x="${awayX}" y="${flagY}" width="${flagW}" height="${flagH}" preserveAspectRatio="xMidYMid meet" clip-path="url(#flagClip)"/>`
+    ? `<image href="${escapeXml(awayFlag)}" x="${awayX}" y="${flagY}" width="${flagW}" height="${flagH}" preserveAspectRatio="xMidYMid meet" clip-path="url(#flagClip)"/>`
     : `<rect x="${awayX}" y="${flagY}" width="${flagW}" height="${flagH}" rx="12" fill="#172033"/><text x="${awayX + flagW / 2}" y="${flagY + flagH / 2 + 8}" text-anchor="middle" fill="#94a3b8" font-size="48" font-family="system-ui,sans-serif">?</text>`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -161,7 +140,7 @@ export async function getMatchThumbnailSvg(
     }
   }
 
-  const svg = await buildMatchThumbnailSvg(matchToThumbnailInput(match));
+  const svg = buildMatchThumbnailSvg(matchToThumbnailInput(match));
   await env.R2_ARTIFACTS.put(r2Key, svg, {
     httpMetadata: { contentType: 'image/svg+xml' },
   });
