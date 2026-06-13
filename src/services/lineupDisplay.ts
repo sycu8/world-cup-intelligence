@@ -1,6 +1,7 @@
 import type { AppEnv } from '../env';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import { syncOfficialSquadToMatch } from './officialLineupSync';
+import { syncFifaMatchLineupsByRef } from '../ingestion/fifa/fifaLineupSync';
 import * as lineupsRepo from '../db/repositories/lineupsRepo';
 
 export type LineupPositionGroup = 'GK' | 'DEF' | 'MID' | 'FWD';
@@ -371,8 +372,10 @@ const empty: LineupDisplay = {
   confidence: null,
 };
 
-/** Ensure both teams have persisted squad lineups when official squads exist. */
+/** Ensure both teams have persisted lineups — FIFA match sheet first, then official squads. */
 export async function ensureMatchLineups(env: AppEnv, matchId: string): Promise<void> {
+  await syncFifaMatchLineupsByRef(env, matchId).catch(() => undefined);
+
   const match = await env.DB.prepare(
     `SELECT home_team_id, away_team_id FROM matches WHERE id = ?`,
   )
@@ -383,7 +386,7 @@ export async function ensureMatchLineups(env: AppEnv, matchId: string): Promise<
 
   for (const teamId of [match.home_team_id, match.away_team_id]) {
     const row = await lineupsRepo.getMatchLineupRow(env.DB, matchId, teamId);
-    if (!row) {
+    if (!row || row.source_type !== 'match_official') {
       await syncOfficialSquadToMatch(env, matchId, teamId);
     }
   }

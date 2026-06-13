@@ -6,6 +6,7 @@ import {
   syncFifaMatchByRef,
 } from '../ingestion/fifa/fifaLiveSync';
 import { shouldSyncFifaBlogAndStats, ensureFifaBlogAndStats } from '../ingestion/fifa/fifaLiveBlogSync';
+import { loadTeamMatchStatsCompleteness } from '../ingestion/fifa/teamMatchStatsComplete';
 
 export type TeamMatchStatsRow = {
   teamId: string;
@@ -48,9 +49,24 @@ export async function getMatchStats(env: AppEnv, ref: string): Promise<MatchStat
   if (parseEnv(env).fifaLiveEnabled || !parseEnv(env).mockSources) {
     const needsScoreSync =
       resolved.status === 'live' && (await shouldSyncFifaMatch(env, matchId, resolved.status));
+    const statsIncomplete =
+      (resolved.status === 'live' || resolved.status === 'completed') &&
+      !(await loadTeamMatchStatsCompleteness(
+        env.DB,
+        matchId,
+        resolved.home_team_id,
+        resolved.away_team_id,
+      )).complete;
     const needsBlogStatsSync =
       (resolved.status === 'live' || resolved.status === 'completed') &&
-      (await shouldSyncFifaBlogAndStats(env, matchId, resolved.status));
+      (statsIncomplete ||
+        (await shouldSyncFifaBlogAndStats(
+          env,
+          matchId,
+          resolved.status,
+          resolved.home_team_id,
+          resolved.away_team_id,
+        )));
     if (needsScoreSync || needsBlogStatsSync) {
       await syncFifaMatchByRef(env, matchId).catch(() => undefined);
     }
@@ -121,7 +137,13 @@ export async function getMatchStats(env: AppEnv, ref: string): Promise<MatchStat
     .first();
 
   const dataSourceLabel =
-    hasRecap && hasStats ? 'FIFA Match Centre / Opta' : hasStats ? 'FIFA Match Centre' : undefined;
+    hasRecap && hasStats
+      ? 'FIFA Match Centre / Opta'
+      : hasStats && (homeStats?.passes ?? 0) > 0 && (homeStats?.possession ?? 0) > 0
+        ? 'FIFA Match Centre / ESPN'
+        : hasStats
+          ? 'FIFA Match Centre'
+          : undefined;
 
   const mapSide = (
     team: { id: string; name: string } | null,

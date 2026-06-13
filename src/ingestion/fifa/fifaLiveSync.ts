@@ -22,7 +22,9 @@ import {
 import {
   syncFifaMatchBlogAndStats,
   shouldSyncFifaBlogAndStats,
+  backfillIncompleteFifaMatchStats,
 } from './fifaLiveBlogSync';
+import { syncFifaMatchLineupsFromInfo, shouldSyncFifaLineupForKickoff } from './fifaLineupSync';
 import { FIFA_SOURCE_ID, WC2026_TOURNAMENT_ID } from './constants';
 import {
   emitMatchCompleted,
@@ -267,10 +269,29 @@ async function applyFifaPayload(
   await syncMatchEvents(env.DB, internal.id, internal.home_team_id, internal.away_team_id, payload);
   await syncTeamStats(env.DB, internal.id, internal.home_team_id, internal.away_team_id, payload);
 
-  const platformStatus = resolveFifaPlatformStatus(payload);
+  if (shouldSyncFifaLineupForKickoff(internal.kickoff_utc ?? null, status)) {
+    try {
+      await syncFifaMatchLineupsFromInfo(
+        env,
+        internal.id,
+        internal.home_team_id,
+        internal.away_team_id,
+        payload,
+      );
+    } catch (e) {
+      logError('fifa lineup sync failed', { match_id: internal.id, error: String(e) });
+    }
+  }
+
   if (
-    (platformStatus === 'live' || platformStatus === 'completed') &&
-    (await shouldSyncFifaBlogAndStats(env, internal.id, platformStatus))
+    (status === 'live' || status === 'completed') &&
+    (await shouldSyncFifaBlogAndStats(
+      env,
+      internal.id,
+      status,
+      internal.home_team_id,
+      internal.away_team_id,
+    ))
   ) {
     try {
       await syncFifaMatchBlogAndStats(
@@ -431,6 +452,10 @@ export async function syncFifaWc2026Matches(env: AppEnv): Promise<FifaSyncResult
   if (synced > 0) {
     await env.KV.put('meta:last_fifa_sync', nowIso(), { expirationTtl: 86400 });
   }
+
+  await backfillIncompleteFifaMatchStats(env, 4).catch((e) => {
+    logError('fifa stats backfill batch failed', { error: String(e) });
+  });
 
   logInfo('fifa wc2026 sync complete', {
     calendar: calendar.length,

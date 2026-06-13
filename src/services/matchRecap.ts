@@ -3,6 +3,7 @@ import { parseEnv } from '../env';
 import { resolveMatchRef } from './matchRef';
 import { syncFifaMatchByRef } from '../ingestion/fifa/fifaLiveSync';
 import { shouldSyncFifaBlogAndStats, ensureFifaBlogAndStats } from '../ingestion/fifa/fifaLiveBlogSync';
+import { loadTeamMatchStatsCompleteness } from '../ingestion/fifa/teamMatchStatsComplete';
 
 export type CommentaryLine = {
   id: string;
@@ -46,9 +47,24 @@ export async function getMatchRecap(env: AppEnv, ref: string): Promise<MatchReca
   const matchId = resolved.id;
 
   if (parseEnv(env).fifaLiveEnabled || !parseEnv(env).mockSources) {
+    const statsIncomplete =
+      (resolved.status === 'live' || resolved.status === 'completed') &&
+      !(await loadTeamMatchStatsCompleteness(
+        env.DB,
+        matchId,
+        resolved.home_team_id,
+        resolved.away_team_id,
+      )).complete;
     const needsBlogStatsSync =
       (resolved.status === 'live' || resolved.status === 'completed') &&
-      (await shouldSyncFifaBlogAndStats(env, matchId, resolved.status));
+      (statsIncomplete ||
+        (await shouldSyncFifaBlogAndStats(
+          env,
+          matchId,
+          resolved.status,
+          resolved.home_team_id,
+          resolved.away_team_id,
+        )));
     if (needsBlogStatsSync) {
       await syncFifaMatchByRef(env, matchId).catch(() => undefined);
     }

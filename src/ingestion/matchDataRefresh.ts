@@ -6,6 +6,7 @@ import { mockScoreAtMinute } from '../services/matchLifecycle';
 import { processMatchCompletion } from '../services/tournamentProgression';
 import { resolveMatchDataProvider } from './matchDataProvider';
 import { syncFifaWc2026Matches } from './fifa/fifaLiveSync';
+import { syncFifaLineupsForUpcomingMatches } from './fifa/fifaLineupSync';
 
 export type RefreshMatchDataResult = {
   updatedIds: string[];
@@ -21,6 +22,7 @@ function fifaLiveEnabled(env: AppEnv): boolean {
 export async function refreshMatchData(env: AppEnv): Promise<RefreshMatchDataResult> {
   if (fifaLiveEnabled(env)) {
     const fifa = await syncFifaWc2026Matches(env);
+    await syncFifaLineupsForUpcomingMatches(env).catch(() => undefined);
     await env.KV.put('meta:last_data_refresh', nowIso(), { expirationTtl: 86400 });
     return { updatedIds: fifa.updatedIds, completedIds: fifa.completedIds };
   }
