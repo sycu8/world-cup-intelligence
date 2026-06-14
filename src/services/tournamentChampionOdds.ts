@@ -14,7 +14,7 @@ import {
 
 const CACHE_KEY = 'meta:mc_champion_odds:v1';
 const CACHE_TTL_SECONDS = 60 * 60;
-const DEFAULT_SIMULATIONS = 8_000;
+const DEFAULT_SIMULATIONS = 4_000;
 const CHAMPION_REFRESH_KV_KEY = 'meta:champion_odds_refresh_pending';
 
 export interface ChampionOddsEntry {

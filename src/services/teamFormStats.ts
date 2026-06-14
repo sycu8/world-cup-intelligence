@@ -69,9 +69,10 @@ export async function loadHistoricalFormForTeams(
        WHERE status = 'completed'
          AND tournament_id != ?
          AND (home_team_id IN (${placeholders}) OR away_team_id IN (${placeholders}))
-       ORDER BY kickoff_utc DESC`,
+       ORDER BY kickoff_utc DESC
+       LIMIT ?`,
     )
-    .bind(excludeTournamentId, ...teamIds, ...teamIds)
+    .bind(excludeTournamentId, ...teamIds, ...teamIds, limitPerTeam * teamIds.length)
     .all<MatchRow & { kickoff_utc: string }>();
 
   const rowsByTeam = new Map<string, MatchRow[]>();
