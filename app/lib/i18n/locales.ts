@@ -1007,7 +1007,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'featured.sectionLive': { vi: 'Trận đang diễn ra', en: 'Live match' },
   'featured.sectionUpcoming': { vi: 'Trận đấu gần nhất', en: 'Next up' },
   'wc.title': { vi: 'World Cup 2026', en: 'FIFA World Cup 2026' },
-  'wc.underway': { vi: 'Giải đấu đã bắt đầu', en: 'Tournament underway' },
+  'wc.underway': { vi: 'Đang diễn ra', en: 'Ongoing' },
   'wc.countdownTo': { vi: 'Đếm ngược tới World Cup 2026', en: 'Countdown to FIFA World Cup 2026' },
   'multiVar.loading': { vi: 'Đang phân tích đa biến…', en: 'Running multi-variable analysis…' },
   'history.moreMeetings': {
