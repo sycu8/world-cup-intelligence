@@ -305,10 +305,9 @@ export type LocaleKey =
   | 'schedule.hubTitle'
   | 'schedule.viewGrid'
   | 'schedule.viewList'
-  | 'schedule.timezoneBannerVn'
-  | 'schedule.timezoneBannerLocal'
-  | 'schedule.vnReference'
-  | 'schedule.vnTimeShort'
+  | 'schedule.timezoneBannerGmt7'
+  | 'schedule.localReference'
+  | 'schedule.localTimeShort'
   | 'favorites.tab'
   | 'favorites.title'
   | 'favorites.subtitle'
@@ -1021,21 +1020,17 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'schedule.hubTitle': { vi: 'Lịch thi đấu trực quan', en: 'Visual match schedule' },
   'schedule.viewGrid': { vi: 'Lưới', en: 'Grid' },
   'schedule.viewList': { vi: 'Danh sách', en: 'List' },
-  'schedule.timezoneBannerVn': {
-    vi: 'Giờ thi đấu theo giờ Việt Nam (GMT+7) — khớp lịch Thể Thao 247 / VTV.',
-    en: 'Kickoffs shown in Vietnam time (GMT+7) — aligned with Thể Thao 247 / VTV schedule.',
+  'schedule.timezoneBannerGmt7': {
+    vi: 'Giờ thi đấu theo giờ Việt Nam ({tz}, GMT+7) — khớp lịch FIFA / VTV.',
+    en: 'Kickoffs in Vietnam time ({tz}, GMT+7) — aligned with FIFA / VTV schedule.',
   },
-  'schedule.timezoneBannerLocal': {
-    vi: 'Giờ thi đấu theo múi giờ của bạn ({tz}).',
-    en: 'Kickoffs in your local timezone ({tz}).',
+  'schedule.localReference': {
+    vi: 'giờ địa phương của bạn: {tz}',
+    en: 'your local time: {tz}',
   },
-  'schedule.vnReference': {
-    vi: 'tham chiếu VN',
-    en: 'VN reference',
-  },
-  'schedule.vnTimeShort': {
-    vi: 'VN',
-    en: 'VN',
+  'schedule.localTimeShort': {
+    vi: '{tz}',
+    en: '{tz}',
   },
   'favorites.tab': { vi: 'Yêu thích', en: 'Favorites' },
   'favorites.title': { vi: 'Trận & đội yêu thích', en: 'Saved matches & teams' },

@@ -11,7 +11,7 @@ import { MatchTeamsWithFlags } from '../team/TeamNameWithFlag';
 import { CompactMatchProb } from './CompactMatchProb';
 import { MatchKickoffDisplay, ScheduleTimezoneBanner } from '../match/MatchKickoffDisplay';
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
-import { formatKickoffDateLong, getViewerTimezone, localDateKey } from '../../lib/matchKickoffDisplay';
+import { formatKickoffDateLong, getViewerLocale, localDateKey, SCHEDULE_TZ } from '../../lib/matchKickoffDisplay';
 
 type Props = {
   byDate: Record<string, ScheduleMatch[]>;
@@ -32,8 +32,9 @@ export function TournamentSchedulePanel({
 }: Props) {
   const { mode, t } = useI18n();
   const { toggleMatch, isMatchFavorite } = useFavorites();
-  const locale = mode === 'en' ? 'en' : 'vi-VN';
-  const viewerTz = useMemo(() => getViewerTimezone(), []);
+  const appLocale = mode === 'en' ? 'en' : 'vi-VN';
+  const locale = useMemo(() => getViewerLocale(appLocale), [appLocale]);
+  const scheduleTz = SCHEDULE_TZ;
 
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -45,10 +46,10 @@ export function TournamentSchedulePanel({
   const allDates = useMemo(() => {
     const set = new Set<string>();
     for (const m of matches) {
-      if (m.kickoff_utc) set.add(localDateKey(m.kickoff_utc, viewerTz));
+      if (m.kickoff_utc) set.add(localDateKey(m.kickoff_utc, scheduleTz));
     }
     return [...set].sort();
-  }, [matches, viewerTz]);
+  }, [matches, scheduleTz]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -61,7 +62,7 @@ export function TournamentSchedulePanel({
         return false;
       }
       if (dayFilter !== 'all') {
-        if (!m.kickoff_utc || localDateKey(m.kickoff_utc, viewerTz) !== dayFilter) return false;
+        if (!m.kickoff_utc || localDateKey(m.kickoff_utc, scheduleTz) !== dayFilter) return false;
       }
       if (favoritesOnly && !isMatchFavorite(m.id)) return false;
       if (!q) return true;
@@ -74,7 +75,7 @@ export function TournamentSchedulePanel({
   const filteredByDate = useMemo(() => {
     const out: Record<string, ScheduleMatch[]> = {};
     for (const m of filtered) {
-      const d = m.kickoff_utc ? localDateKey(m.kickoff_utc, viewerTz) : 'unknown';
+      const d = m.kickoff_utc ? localDateKey(m.kickoff_utc, scheduleTz) : 'unknown';
       if (!out[d]) out[d] = [];
       out[d].push(m);
     }
@@ -82,7 +83,7 @@ export function TournamentSchedulePanel({
       out[d].sort((a, b) => a.kickoff_utc.localeCompare(b.kickoff_utc));
     }
     return out;
-  }, [filtered, viewerTz]);
+  }, [filtered, scheduleTz]);
 
   const dates = Object.keys(filteredByDate).sort();
   const countLabel = t('calendar.countLabel')
@@ -104,9 +105,9 @@ export function TournamentSchedulePanel({
     ];
 
   function formatDayChip(date: string): string {
-    const sample = filteredByDate[date]?.[0] ?? matches.find((m) => m.kickoff_utc && localDateKey(m.kickoff_utc, viewerTz) === date);
+    const sample = filteredByDate[date]?.[0] ?? matches.find((m) => m.kickoff_utc && localDateKey(m.kickoff_utc, scheduleTz) === date);
     if (sample?.kickoff_utc) {
-      return formatKickoffDateLong(sample.kickoff_utc, viewerTz, locale);
+      return formatKickoffDateLong(sample.kickoff_utc, scheduleTz, locale);
     }
     return date;
   }
@@ -150,7 +151,7 @@ export function TournamentSchedulePanel({
   function renderMatchMeta(m: ScheduleMatch) {
     return (
       <p className="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-muted">
-        <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showVnReference />
+        <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showLocalReference />
         {m.stage === 'Group' && m.group_code ? ` · ${t('calendar.groupLabel')} ${m.group_code}` : ''}
         {m.stage && m.stage !== 'Group' ? ` · ${matchStageLabel(m.stage, t)}` : ''}
         {hasMatchResult(m.status) && (
@@ -337,7 +338,7 @@ export function TournamentSchedulePanel({
                           className="flex flex-wrap items-center gap-2 px-2 py-2 text-sm transition hover:bg-pressing/5 sm:px-3"
                         >
                           <time className="w-14 shrink-0 font-mono-data text-[10px] text-muted sm:w-16">
-                            <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showVnReference={false} />
+                            <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showLocalReference={false} showGmt7Label />
                           </time>
                           <span className="min-w-0 flex-1 font-medium">
                             <MatchTeamsWithFlags

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Bilingual } from '../i18n/Bilingual';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { matchStageLabel } from '../../lib/i18n/stageLabels';
+import { formatKickoffDate, getViewerLocale, SCHEDULE_TZ } from '../../lib/matchKickoffDisplay';
 import { DataKindBadge, DataKindLegend } from '../ui/DataKindBadge';
 
 export type HistoryMatch = {
@@ -67,7 +68,7 @@ function MeetingRow({ m, mode, t }: { m: HistoryMatch; mode: string; t: ReturnTy
           <p className="text-xs text-muted">
             {stageLabel(m.stage, t)}
             {m.tournament_year ? ` · WC ${m.tournament_year}` : ''} ·{' '}
-            {new Date(m.kickoff_utc).toLocaleDateString(mode === 'en' ? 'en' : 'vi-VN')}
+            {formatKickoffDate(m.kickoff_utc, SCHEDULE_TZ, getViewerLocale(mode === 'en' ? 'en' : 'vi-VN'))}
           </p>
         </div>
       </div>
@@ -113,7 +114,7 @@ function RecentWcMatchRow({
           <p className="mt-0.5 text-xs text-muted">
             {stageLabel(m.stage, t)}
             {m.tournament_year ? ` · WC ${m.tournament_year}` : ''} ·{' '}
-            {new Date(m.kickoff_utc).toLocaleDateString(mode === 'en' ? 'en' : 'vi-VN')}
+            {formatKickoffDate(m.kickoff_utc, SCHEDULE_TZ, getViewerLocale(mode === 'en' ? 'en' : 'vi-VN'))}
           </p>
         </div>
       </div>

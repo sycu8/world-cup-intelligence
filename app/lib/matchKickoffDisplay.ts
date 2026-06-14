@@ -1,14 +1,26 @@
-/** Vietnam reference timezone for WC 2026 schedule (Thể Thao 247). */
+/** Canonical WC 2026 schedule timezone (Vietnam, GMT+7). */
 export const VIETNAM_TZ = 'Asia/Ho_Chi_Minh';
 
+/** Primary timezone for kickoff display and schedule grouping. */
+export const SCHEDULE_TZ = VIETNAM_TZ;
+
 export const VN_SCHEDULE_SOURCE =
-  'https://thethao247.vn/world-cup/426-lich-thi-dau-world-cup-2026-d399919.html';
+  'https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures';
 
 export function getViewerTimezone(): string {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || VIETNAM_TZ;
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || SCHEDULE_TZ;
   } catch {
-    return VIETNAM_TZ;
+    return SCHEDULE_TZ;
+  }
+}
+
+/** Device locale for date/time formatting; falls back to app language. */
+export function getViewerLocale(fallbackLocale: string): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().locale || fallbackLocale;
+  } catch {
+    return fallbackLocale;
   }
 }
 
@@ -66,6 +78,17 @@ export function formatKickoffDateLong(
   });
 }
 
+export function formatKickoffDateTime(
+  kickoffUtc: string,
+  locale: string,
+  opts?: Intl.DateTimeFormatOptions,
+): string {
+  return new Date(kickoffUtc).toLocaleString(locale, {
+    timeZone: SCHEDULE_TZ,
+    ...opts,
+  });
+}
+
 /** Short label like "GMT+7" or "EST" for the active timezone. */
 export function timezoneShortLabel(timeZone: string, locale: string): string {
   const parts = new Intl.DateTimeFormat(locale, {
@@ -84,20 +107,25 @@ export function timezoneShortLabel(timeZone: string, locale: string): string {
 export type KickoffDisplayParts = {
   date: string;
   time: string;
-  vnTime?: string;
-  showVnReference: boolean;
+  gmt7Label: string;
+  localTime?: string;
+  localTzLabel?: string;
+  showLocalReference: boolean;
 };
 
+/** GMT+7 primary kickoff; device local time when viewer TZ differs. */
 export function kickoffDisplayParts(
   kickoffUtc: string,
   viewerTz: string,
   locale: string,
 ): KickoffDisplayParts {
-  const inVn = isVietnamTimezone(viewerTz);
+  const inScheduleTz = isVietnamTimezone(viewerTz);
   return {
-    date: formatKickoffDate(kickoffUtc, viewerTz, locale),
-    time: formatKickoffTime(kickoffUtc, viewerTz, locale),
-    vnTime: inVn ? undefined : formatKickoffTime(kickoffUtc, VIETNAM_TZ, locale),
-    showVnReference: !inVn,
+    date: formatKickoffDate(kickoffUtc, SCHEDULE_TZ, locale),
+    time: formatKickoffTime(kickoffUtc, SCHEDULE_TZ, locale),
+    gmt7Label: timezoneShortLabel(SCHEDULE_TZ, locale),
+    localTime: inScheduleTz ? undefined : formatKickoffTime(kickoffUtc, viewerTz, locale),
+    localTzLabel: inScheduleTz ? undefined : timezoneShortLabel(viewerTz, locale),
+    showLocalReference: !inScheduleTz,
   };
 }
