@@ -51,8 +51,9 @@ describe('generateFifaRecapSummary', () => {
     expect(summary).toContain('Korea Republic beat Czechia 2-1');
     expect(summary).toContain('Group A');
     expect(summary).toContain('Mexico City Stadium');
-    expect(summary).toContain("45': GOAL!");
-    expect(summary).toContain('Possession 58–42');
+    expect(summary).toContain('Key goals:');
+    expect(summary).toContain('GOAL! Korea Republic 1-0');
+    expect(summary).toContain('Full time. Korea Republic 2-1 Czechia.');
   });
 
   it('handles draws without group suffix when stage is not Group', () => {

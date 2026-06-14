@@ -15,41 +15,68 @@ export type RecapSummaryInput = {
   awayPossession?: number | null;
 };
 
-function resultPhrase(homeScore: number, awayScore: number, homeName: string, awayName: string): string {
-  if (homeScore > awayScore) return `${homeName} beat ${awayName} ${homeScore}-${awayScore}`;
-  if (awayScore > homeScore) return `${awayName} beat ${homeName} ${awayScore}-${homeScore}`;
-  return `${homeName} and ${awayName} drew ${homeScore}-${awayScore}`;
+function scoreLine(homeScore: number, awayScore: number): string {
+  return `${homeScore}-${awayScore}`;
 }
 
-function keyMoments(commentary: ParsedCommentaryLine[]): string[] {
+function resultLead(input: RecapSummaryInput): string {
+  const score = scoreLine(input.homeScore, input.awayScore);
+  const stageBit = input.stage === 'Group' && input.groupCode ? ` in Group ${input.groupCode}` : '';
+  const venueBit = input.venue ? ` at ${input.venue}` : '';
+
+  if (input.homeScore > input.awayScore) {
+    return `${input.homeName} beat ${input.awayName} ${score}${stageBit}${venueBit}.`;
+  }
+  if (input.awayScore > input.homeScore) {
+    return `${input.awayName} beat ${input.homeName} ${score}${stageBit}${venueBit}.`;
+  }
+  return `${input.homeName} and ${input.awayName} drew ${score}${stageBit}${venueBit}.`;
+}
+
+function goalMoments(commentary: ParsedCommentaryLine[]): string[] {
   const picks: string[] = [];
   for (const line of commentary) {
     if (!line.textEn.trim()) continue;
-    if (line.eventType === 'goal' || line.eventType === 'red_card' || line.eventType === 'full_time') {
-      const minute = line.minute != null ? `${line.minute}'` : '';
-      picks.push(minute ? `${minute}: ${line.textEn}` : line.textEn);
+    if (line.eventType !== 'goal' && line.eventType !== 'penalty_goal' && line.eventType !== 'own_goal') {
+      continue;
     }
-    if (picks.length >= 4) break;
+    const minute = line.minute != null ? `in the ${line.minute}th minute` : '';
+    picks.push(minute ? `${line.textEn} (${minute})` : line.textEn);
+    if (picks.length >= 3) break;
   }
   return picks;
 }
 
-/** Build an English match summary from FIFA Match Centre data (source for Vietnamese translation). */
-export function buildFifaRecapSummaryEn(input: RecapSummaryInput): string {
-  const parts: string[] = [];
-  const stageBit = input.stage === 'Group' && input.groupCode ? ` (Group ${input.groupCode})` : '';
-  const venueBit = input.venue ? ` at ${input.venue}` : '';
-
-  parts.push(`${resultPhrase(input.homeScore, input.awayScore, input.homeName, input.awayName)}${stageBit}${venueBit}.`);
-
-  const moments = keyMoments(input.commentary);
-  if (moments.length) {
-    parts.push(moments.join(' '));
-  }
+function closingBeat(commentary: ParsedCommentaryLine[], input: RecapSummaryInput): string | null {
+  const fullTime = commentary.find((line) => line.eventType === 'full_time');
+  if (fullTime?.textEn.trim()) return fullTime.textEn.trim();
 
   if (input.homePossession != null && input.awayPossession != null) {
-    parts.push(`Possession ${input.homePossession}–${input.awayPossession}.`);
+    const leader =
+      input.homePossession > input.awayPossession
+        ? input.homeName
+        : input.awayPossession > input.homePossession
+          ? input.awayName
+          : null;
+    if (leader) {
+      return `${leader} had more of the ball (${Math.max(input.homePossession, input.awayPossession)}% possession).`;
+    }
+    return `Possession was even at ${input.homePossession}-${input.awayPossession}.`;
   }
+  return null;
+}
+
+/** Build an English match summary from FIFA Match Centre data (source for Vietnamese translation). */
+export function buildFifaRecapSummaryEn(input: RecapSummaryInput): string {
+  const parts: string[] = [resultLead(input)];
+
+  const goals = goalMoments(input.commentary);
+  if (goals.length) {
+    parts.push(`Key goals: ${goals.join('; ')}.`);
+  }
+
+  const close = closingBeat(input.commentary, input);
+  if (close) parts.push(close);
 
   return parts.join(' ').slice(0, 900);
 }

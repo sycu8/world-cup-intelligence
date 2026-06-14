@@ -1,18 +1,70 @@
 import type { AppEnv } from '../env';
 import { gatewayChatJson, isGatewayConfigured } from './gatewayClient';
+import {
+  COMMENTATOR_SYSTEM,
+  commentaryUserPrompt,
+  needsBroadcastStyleRefresh,
+  SUMMARY_USER_PROMPT,
+} from './matchRecapStyle';
 import { isLikelyVietnamese } from '../services/newsTranslationUtils';
 import { logError, logInfo } from '../utils/logger';
 
-const SYSTEM =
-  'You translate FIFA World Cup match commentary and summaries into natural Vietnamese. Output JSON only. Use proper Vietnamese diacritics. Keep team and player names recognizable. Do not invent facts beyond the source text.';
+export type CommentaryTranslateInput = {
+  textEn: string;
+  eventType: string | null;
+  minute: number | null;
+};
 
 function isAcceptableTranslation(vi: string, en: string): boolean {
   const value = vi.trim();
   const source = en.trim();
   if (!value || value.length < 2) return false;
   if (value.toLowerCase() === source.toLowerCase()) return false;
+  if (needsBroadcastStyleRefresh(value, source)) return false;
   if (isLikelyVietnamese(value, source)) return true;
-  return value.length >= 6 && value.toLowerCase() !== source.toLowerCase();
+  return value.length >= 8 && value.toLowerCase() !== source.toLowerCase();
+}
+
+function parseTextViJson(raw: string): string | null {
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) return null;
+  try {
+    const parsed = JSON.parse(raw.slice(start, end + 1)) as { textVi?: string };
+    return parsed.textVi?.trim() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function workersAiTranslate(
+  env: AppEnv,
+  userPrompt: string,
+  textEn: string,
+  maxLen: number,
+): Promise<string | null> {
+  if (!env.AI || !textEn.trim()) return null;
+  const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3-8b-instruct'] as const;
+
+  for (const model of models) {
+    try {
+      const response = await env.AI.run(model, {
+        messages: [
+          { role: 'system', content: COMMENTATOR_SYSTEM },
+          { role: 'user', content: userPrompt },
+        ],
+      });
+      const raw =
+        typeof response === 'object' && response && 'response' in response
+          ? String((response as { response: string }).response)
+          : JSON.stringify(response);
+      const textVi = parseTextViJson(raw)?.slice(0, maxLen);
+      if (textVi && isAcceptableTranslation(textVi, textEn)) return textVi;
+    } catch {
+      /* try next model */
+    }
+  }
+  return null;
 }
 
 async function m2m100Translate(env: AppEnv, text: string, maxLen: number): Promise<string | null> {
@@ -35,72 +87,71 @@ async function m2m100Translate(env: AppEnv, text: string, maxLen: number): Promi
   }
 }
 
-async function workersAiTranslateLine(env: AppEnv, textEn: string, maxLen: number): Promise<string | null> {
-  if (!env.AI || !textEn.trim()) return null;
-  const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3-8b-instruct'] as const;
-  const prompt = `Dịch câu tường thuật bóng đá sau sang tiếng Việt tự nhiên (giữ tên đội/cầu thủ):\n${textEn.slice(0, 600)}\n\nJSON: { "textVi": "..." }`;
-
-  for (const model of models) {
-    try {
-      const response = await env.AI.run(model, {
-        messages: [
-          { role: 'system', content: SYSTEM },
-          { role: 'user', content: prompt },
-        ],
-      });
-      const raw =
-        typeof response === 'object' && response && 'response' in response
-          ? String((response as { response: string }).response)
-          : JSON.stringify(response);
-      const start = raw.indexOf('{');
-      const end = raw.lastIndexOf('}');
-      if (start === -1 || end === -1) continue;
-      const parsed = JSON.parse(raw.slice(start, end + 1)) as { textVi?: string };
-      const textVi = parsed.textVi?.trim().slice(0, maxLen);
-      if (textVi && isAcceptableTranslation(textVi, textEn)) return textVi;
-    } catch {
-      /* try next model */
-    }
+async function gatewayTranslate(env: AppEnv, userPrompt: string, textEn: string, maxLen: number): Promise<string | null> {
+  if (!isGatewayConfigured(env)) return null;
+  try {
+    const parsed = await gatewayChatJson<{ textVi: string }>(env, 'news_summary', [
+      { role: 'system', content: COMMENTATOR_SYSTEM },
+      { role: 'user', content: userPrompt },
+    ]);
+    const textVi = parsed?.textVi?.trim().slice(0, maxLen);
+    if (textVi && isAcceptableTranslation(textVi, textEn)) return textVi;
+  } catch {
+    /* fall through */
   }
   return null;
 }
 
-/** Translate a single FIFA commentary line or recap sentence to Vietnamese. */
-export async function translateMatchRecapText(
+/** Translate match recap summary into broadcast-style Vietnamese. */
+export async function translateMatchRecapSummary(
   env: AppEnv,
-  textEn: string,
-  maxLen = 520,
+  summaryEn: string,
+  maxLen = 900,
 ): Promise<string | null> {
-  const source = textEn.trim();
+  const source = summaryEn.trim();
   if (!source) return null;
-  if (isLikelyVietnamese(source)) return source.slice(0, maxLen);
+  if (isLikelyVietnamese(source) && !needsBroadcastStyleRefresh(source)) return source.slice(0, maxLen);
+
+  const prompt = SUMMARY_USER_PROMPT(source);
+  const viaWorkers = await workersAiTranslate(env, prompt, source, maxLen);
+  if (viaWorkers) return viaWorkers;
+
+  const viaGateway = await gatewayTranslate(env, prompt, source, maxLen);
+  if (viaGateway) return viaGateway;
 
   const viaM2m = await m2m100Translate(env, source, maxLen);
   if (viaM2m) return viaM2m;
 
-  const viaWorkers = await workersAiTranslateLine(env, source, maxLen);
+  return null;
+}
+
+/** Translate a single FIFA commentary line into broadcast Vietnamese. */
+export async function translateMatchRecapText(
+  env: AppEnv,
+  textEn: string,
+  maxLen = 520,
+  eventType: string | null = null,
+  minute: number | null = null,
+): Promise<string | null> {
+  const source = textEn.trim();
+  if (!source) return null;
+  if (isLikelyVietnamese(source) && !needsBroadcastStyleRefresh(source)) return source.slice(0, maxLen);
+
+  const prompt = commentaryUserPrompt(source, eventType, minute);
+
+  const viaWorkers = await workersAiTranslate(env, prompt, source, maxLen);
   if (viaWorkers) return viaWorkers;
 
-  if (isGatewayConfigured(env)) {
-    try {
-      const parsed = await gatewayChatJson<{ textVi: string }>(env, 'news_summary', [
-        { role: 'system', content: SYSTEM },
-        {
-          role: 'user',
-          content: `Dịch sang tiếng Việt:\n${source.slice(0, 600)}\n\nJSON: { "textVi": "..." }`,
-        },
-      ]);
-      const textVi = parsed?.textVi?.trim().slice(0, maxLen);
-      if (textVi && isAcceptableTranslation(textVi, source)) return textVi;
-    } catch {
-      /* fall through */
-    }
-  }
+  const viaGateway = await gatewayTranslate(env, prompt, source, maxLen);
+  if (viaGateway) return viaGateway;
+
+  const viaM2m = await m2m100Translate(env, source, maxLen);
+  if (viaM2m) return viaM2m;
 
   return null;
 }
 
-const COMMENTARY_TRANSLATE_CONCURRENCY = 8;
+const COMMENTARY_TRANSLATE_CONCURRENCY = 6;
 
 async function mapConcurrent<T, R>(
   items: T[],
@@ -120,18 +171,22 @@ async function mapConcurrent<T, R>(
   return results;
 }
 
-/** Translate commentary lines in parallel; reuse cached Vietnamese when provided. */
+/** Translate commentary lines in parallel; reuse cached broadcast Vietnamese when good enough. */
 export async function translateCommentaryLines(
   env: AppEnv,
-  linesEn: string[],
+  lines: CommentaryTranslateInput[],
   existingVi?: (string | null | undefined)[],
 ): Promise<string[]> {
-  const out = await mapConcurrent(linesEn, COMMENTARY_TRANSLATE_CONCURRENCY, async (line, i) => {
+  const out = await mapConcurrent(lines, COMMENTARY_TRANSLATE_CONCURRENCY, async (line, i) => {
     const cached = existingVi?.[i]?.trim();
-    if (cached && isLikelyVietnamese(cached, line)) return cached;
-    return (await translateMatchRecapText(env, line, 480)) ?? line;
+    if (cached && isLikelyVietnamese(cached, line.textEn) && !needsBroadcastStyleRefresh(cached, line.textEn)) {
+      return cached;
+    }
+    return (
+      (await translateMatchRecapText(env, line.textEn, 480, line.eventType, line.minute)) ?? line.textEn
+    );
   });
-  if (out.some((vi, i) => vi !== linesEn[i] && isLikelyVietnamese(vi, linesEn[i]))) {
+  if (out.some((vi, i) => vi !== lines[i].textEn && isLikelyVietnamese(vi, lines[i].textEn))) {
     logInfo('fifa commentary translated to Vietnamese', { lines: out.length });
   }
   return out;

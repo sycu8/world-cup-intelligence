@@ -1,5 +1,6 @@
 import type { AppEnv } from '../../env';
-import { translateCommentaryLines, translateMatchRecapText } from '../../ai/translateMatchRecap';
+import { translateCommentaryLines, translateMatchRecapSummary } from '../../ai/translateMatchRecap';
+import { needsBroadcastStyleRefresh } from '../../ai/matchRecapStyle';
 import { isLikelyVietnamese } from '../../services/newsTranslationUtils';
 import { nowIso } from '../../utils/time';
 import { logInfo } from '../../utils/logger';
@@ -27,7 +28,7 @@ export async function loadFifaRecapTranslationState(
   db: D1Database,
   matchId: string,
 ): Promise<FifaRecapTranslationState> {
-  const [commentaryStats, recapRow] = await Promise.all([
+  const [commentaryStats, stiffCommentary, recapRow] = await Promise.all([
     db
       .prepare(
         `SELECT COUNT(*) AS total,
@@ -38,6 +39,20 @@ export async function loadFifaRecapTranslationState(
       .bind(matchId, FIFA_SOURCE_ID)
       .first<{ total: number; untranslated: number | null }>(),
     db
+      .prepare(
+        `SELECT COUNT(*) AS stiff FROM match_commentary
+         WHERE match_id = ? AND source_id = ?
+           AND (
+             text_vi LIKE '%attempt%'
+             OR text_vi LIKE '%effort on goal%'
+             OR text_vi LIKE '%committed foul%'
+             OR text_vi LIKE '%Start Time%'
+             OR text_vi LIKE '%beat %'
+           )`,
+      )
+      .bind(matchId, FIFA_SOURCE_ID)
+      .first<{ stiff: number }>(),
+    db
       .prepare(`SELECT summary_vi, summary_en FROM match_recaps WHERE match_id = ?`)
       .bind(matchId)
       .first<{ summary_vi: string; summary_en: string }>(),
@@ -45,9 +60,13 @@ export async function loadFifaRecapTranslationState(
 
   const commentaryTotal = commentaryStats?.total ?? 0;
   const commentaryUntranslated = commentaryStats?.untranslated ?? 0;
-  const needsCommentary = commentaryNeedsFullRetranslate(commentaryTotal, commentaryUntranslated);
+  const stiffLines = stiffCommentary?.stiff ?? 0;
+  const needsCommentary =
+    commentaryNeedsFullRetranslate(commentaryTotal, commentaryUntranslated) || stiffLines > 0;
   const needsRecap =
-    !recapRow || !isLikelyVietnamese(recapRow.summary_vi, recapRow.summary_en);
+    !recapRow ||
+    !isLikelyVietnamese(recapRow.summary_vi, recapRow.summary_en) ||
+    needsBroadcastStyleRefresh(recapRow.summary_vi, recapRow.summary_en);
 
   return { needsCommentary, needsRecap, commentaryTotal, commentaryUntranslated };
 }
@@ -84,7 +103,7 @@ export async function upsertTranslatedMatchRecap(
   const summaryEn = buildFifaRecapSummaryEn(recapInput);
   if (!summaryEn.trim()) return false;
 
-  const summaryVi = (await translateMatchRecapText(env, summaryEn, 900)) ?? summaryEn;
+  const summaryVi = (await translateMatchRecapSummary(env, summaryEn, 900)) ?? summaryEn;
   const now = nowIso();
 
   await env.DB.prepare(
@@ -120,9 +139,13 @@ export async function translateAndStoreCommentary(
     .all<{ id: string; text_vi: string }>();
   const existingViById = new Map((existing.results ?? []).map((row) => [row.id, row.text_vi]));
 
-  const textsEn = lines.map((l) => l.textEn);
+  const translateInputs = lines.map((line) => ({
+    textEn: line.textEn,
+    eventType: line.eventType,
+    minute: line.minute,
+  }));
   const cachedVi = lines.map((line) => existingViById.get(line.id));
-  const textsVi = await translateCommentaryLines(env, textsEn, cachedVi);
+  const textsVi = await translateCommentaryLines(env, translateInputs, cachedVi);
 
   await env.DB.prepare(`DELETE FROM match_commentary WHERE match_id = ? AND source_id = ?`)
     .bind(matchId, FIFA_SOURCE_ID)
