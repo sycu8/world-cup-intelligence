@@ -20,6 +20,7 @@
     "deploy": "npm run deploy:uat",
     "deploy:uat": "npm run build && node scripts/wrangler-with-env.mjs deploy --config dist/wc_tactical_uat/wrangler.json",
     "deploy:production": "npm run build && node scripts/wrangler-with-env.mjs deploy --config wrangler.jsonc --env production",
+    "deploy:both": "npm run db:migrate:uat && npm run deploy:uat && npm run db:migrate:production && npm run deploy:production",
     "db:migrate:local": "node scripts/wrangler-with-env.mjs d1 migrations apply wc-tactical-db --local",
     "db:migrate:remote": "node scripts/wrangler-with-env.mjs d1 migrations apply wc-tactical-db --remote",
     "db:migrate:uat": "node scripts/wrangler-with-env.mjs d1 migrations apply wc-tactical-db-uat --remote",

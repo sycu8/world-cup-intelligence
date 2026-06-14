@@ -8,11 +8,14 @@ on:
       target:
         description: Deploy target
         required: true
-        default: uat
+        default: both
         type: choice
         options:
           - uat
           - production
+          - both
+  push:
+    branches: [main]
 
 jobs:
   deploy:
@@ -25,29 +28,38 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Resolve deploy target
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "value=both" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ inputs.target }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install
         run: npm ci
 
       - name: Apply D1 migrations (UAT)
-        if: inputs.target == 'uat'
+        if: steps.target.outputs.value == 'uat' || steps.target.outputs.value == 'both'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npm run db:migrate:uat
 
       - name: Deploy UAT
-        if: inputs.target == 'uat'
+        if: steps.target.outputs.value == 'uat' || steps.target.outputs.value == 'both'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npm run deploy:uat
 
       - name: Apply D1 migrations (Production)
-        if: inputs.target == 'production'
+        if: steps.target.outputs.value == 'production' || steps.target.outputs.value == 'both'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npm run db:migrate:production
 
       - name: Deploy Production
-        if: inputs.target == 'production'
+        if: steps.target.outputs.value == 'production' || steps.target.outputs.value == 'both'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npm run deploy:production
