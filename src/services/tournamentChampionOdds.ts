@@ -2,11 +2,10 @@ import type { AppEnv } from '../env';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import { getDb } from '../db/client';
 import type { TeamRow } from '../db/schema';
-import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import { applyEffectiveTeamProfile } from './teamProfile';
+import { loadTeamStrengthProfiles } from './tournamentTeamStrength';
 import {
   runTournamentMonteCarlo,
-  type MatchProbabilityTriple,
   type McBracketLink,
   type McGroupMatch,
   type McKnockoutMatch,
@@ -14,8 +13,9 @@ import {
 } from '../models/tournament/tournamentMonteCarlo';
 
 const CACHE_KEY = 'meta:mc_champion_odds:v1';
-const CACHE_TTL_SECONDS = 6 * 60 * 60;
+const CACHE_TTL_SECONDS = 60 * 60;
 const DEFAULT_SIMULATIONS = 12_000;
+const CHAMPION_REFRESH_KV_KEY = 'meta:champion_odds_refresh_pending';
 
 export interface ChampionOddsEntry {
   teamId: string;
@@ -28,6 +28,7 @@ export interface ChampionOddsEntry {
 export interface ChampionOddsPayload {
   generatedAt: string;
   simulations: number;
+  modelVersion: string;
   top: ChampionOddsEntry[];
   all: ChampionOddsEntry[];
 }
@@ -51,13 +52,15 @@ type MatchRow = {
   status: string;
 };
 
+const MODEL_VERSION = 'mc-strength-v2';
+
 async function loadMonteCarloInput(
   env: AppEnv,
   simulations: number,
 ): Promise<{ input: TournamentMonteCarloInput; teamMeta: Map<string, { name: string; countryCode: string | null }> }> {
   const db = getDb(env);
 
-  const [teamsRes, matchesRes, linksRes, snapshots] = await Promise.all([
+  const [teamsRes, matchesRes, linksRes] = await Promise.all([
     db
       .prepare(`SELECT * FROM teams WHERE id LIKE 'team-w26-%' ORDER BY id ASC`)
       .all<TeamRow>(),
@@ -77,24 +80,14 @@ async function loadMonteCarloInput(
       )
       .bind(WC2026_TOURNAMENT_ID)
       .all<BracketLinkRow>(),
-    probabilityRepo.listLatestSnapshotsForTournament(db, WC2026_TOURNAMENT_ID),
   ]);
 
-  const teamMeta = new Map<string, { name: string; countryCode: string | null }>();
-  const teamRatings: Record<string, number> = {};
-  for (const row of teamsRes.results ?? []) {
-    const team = applyEffectiveTeamProfile(row);
-    teamRatings[team.id] = team.elo_rating ?? 1500;
-    teamMeta.set(team.id, { name: team.name, countryCode: team.country_code ?? null });
-  }
+  const teams = (teamsRes.results ?? []).map((row) => applyEffectiveTeamProfile(row));
+  const teamStrength = await loadTeamStrengthProfiles(env, teams);
 
-  const matchProbs: Record<string, MatchProbabilityTriple> = {};
-  for (const row of snapshots) {
-    matchProbs[row.matchId] = {
-      homeWin: row.homeWinProb,
-      draw: row.drawProb,
-      awayWin: row.awayWinProb,
-    };
+  const teamMeta = new Map<string, { name: string; countryCode: string | null }>();
+  for (const team of teams) {
+    teamMeta.set(team.id, { name: team.name, countryCode: team.country_code ?? null });
   }
 
   const groupRankLinks: McBracketLink[] = [];
@@ -145,8 +138,7 @@ async function loadMonteCarloInput(
     input: {
       groupMatches,
       knockoutMatches,
-      matchProbs,
-      teamRatings,
+      teamStrength,
       groupRankLinks,
       winnerLinks,
       simulations,
@@ -177,6 +169,7 @@ function toPayload(
   return {
     generatedAt,
     simulations: result.simulations,
+    modelVersion: MODEL_VERSION,
     top: all.slice(0, 3),
     all,
   };
@@ -195,7 +188,19 @@ export async function computeChampionOdds(
 export async function refreshChampionOdds(env: AppEnv): Promise<ChampionOddsPayload> {
   const payload = await computeChampionOdds(env);
   await env.KV.put(CACHE_KEY, JSON.stringify(payload), { expirationTtl: CACHE_TTL_SECONDS });
+  await env.KV.delete(CHAMPION_REFRESH_KV_KEY);
   return payload;
+}
+
+export async function scheduleChampionOddsRefresh(env: AppEnv, reason: string): Promise<void> {
+  await env.KV.put(CHAMPION_REFRESH_KV_KEY, reason, { expirationTtl: 3600 });
+}
+
+export async function runChampionOddsRefreshIfPending(env: AppEnv): Promise<boolean> {
+  const pending = await env.KV.get(CHAMPION_REFRESH_KV_KEY);
+  if (!pending) return false;
+  await refreshChampionOdds(env);
+  return true;
 }
 
 async function readCachedChampionOdds(env: AppEnv): Promise<ChampionOddsPayload | null> {
@@ -209,19 +214,20 @@ async function readCachedChampionOdds(env: AppEnv): Promise<ChampionOddsPayload 
 }
 
 function isCacheStale(payload: ChampionOddsPayload): boolean {
+  if (payload.modelVersion !== MODEL_VERSION) return true;
   const ageMs = Date.now() - new Date(payload.generatedAt).getTime();
   return ageMs > CACHE_TTL_SECONDS * 1000;
 }
 
 export async function getChampionOddsForDisplay(env: AppEnv): Promise<ChampionOddsPayload | null> {
   const cached = await readCachedChampionOdds(env);
-  if (cached) return cached;
+  if (cached && !isCacheStale(cached)) return cached;
 
   try {
     return await refreshChampionOdds(env);
   } catch (err) {
     console.error('[champion-odds] refresh failed', err);
-    return null;
+    return cached;
   }
 }
 

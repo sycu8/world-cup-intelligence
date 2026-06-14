@@ -5,6 +5,8 @@ import {
   type GroupStanding,
 } from '../../services/tournamentProgression';
 import { resolveLoserTeamId, resolveWinnerTeamId, type MatchOutcome } from '../../services/matchLifecycle';
+import type { TeamStrengthProfile } from '../../services/tournamentTeamStrength';
+import { estimateTripleFromTeamStrength } from '../../services/tournamentTeamStrength';
 
 const GROUP_CODES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as const;
 
@@ -46,8 +48,7 @@ export type McKnockoutMatch = {
 export type TournamentMonteCarloInput = {
   groupMatches: McGroupMatch[];
   knockoutMatches: McKnockoutMatch[];
-  matchProbs: Record<string, MatchProbabilityTriple>;
-  teamRatings: Record<string, number>;
+  teamStrength: Record<string, TeamStrengthProfile>;
   groupRankLinks: McBracketLink[];
   winnerLinks: McBracketLink[];
   simulations: number;
@@ -69,43 +70,29 @@ function defaultRng(): () => number {
   return Math.random;
 }
 
-function normalizeTriple(t: MatchProbabilityTriple): MatchProbabilityTriple {
-  const sum = t.homeWin + t.draw + t.awayWin;
-  if (sum <= 0) return { homeWin: 0.33, draw: 0.34, awayWin: 0.33 };
-  return { homeWin: t.homeWin / sum, draw: t.draw / sum, awayWin: t.awayWin / sum };
-}
-
-/** Elo-based W/D/L when no snapshot exists for this pairing. */
-export function estimateTripleFromElo(
-  homeTeamId: string,
-  awayTeamId: string,
-  ratings: Record<string, number>,
-  knockout: boolean,
-): MatchProbabilityTriple {
-  const homeElo = ratings[homeTeamId] ?? 1500;
-  const awayElo = ratings[awayTeamId] ?? 1500;
-  const homeAdv = 65;
-  const expHome = 1 / (1 + 10 ** ((awayElo - (homeElo + homeAdv)) / 400));
-  const draw = knockout ? 0.2 : 0.26;
-  const scale = 1 - draw;
-  return normalizeTriple({
-    homeWin: expHome * scale,
-    draw,
-    awayWin: (1 - expHome) * scale,
-  });
+function defaultStrength(teamId: string): TeamStrengthProfile {
+  return {
+    teamId,
+    elo: 1500,
+    collectiveStrength: 0.75,
+    recentForm: 0.5,
+    fifaRanking: 40,
+    lineupModifier: 0.97,
+    countryCode: null,
+    isHost: false,
+    effectiveRating: 1500,
+  };
 }
 
 function resolveTriple(
-  matchId: string,
   homeTeamId: string,
   awayTeamId: string,
   knockout: boolean,
-  matchProbs: Record<string, MatchProbabilityTriple>,
-  ratings: Record<string, number>,
+  teamStrength: Record<string, TeamStrengthProfile>,
 ): MatchProbabilityTriple {
-  const fromSnapshot = matchProbs[matchId];
-  if (fromSnapshot) return normalizeTriple(fromSnapshot);
-  return estimateTripleFromElo(homeTeamId, awayTeamId, ratings, knockout);
+  const home = teamStrength[homeTeamId] ?? defaultStrength(homeTeamId);
+  const away = teamStrength[awayTeamId] ?? defaultStrength(awayTeamId);
+  return estimateTripleFromTeamStrength(home, away, knockout);
 }
 
 function sampleGroupScore(triple: MatchProbabilityTriple, rng: () => number): { home: number; away: number } {
@@ -156,7 +143,7 @@ export function simulateTournamentOnce(input: TournamentMonteCarloInput, rng: ()
       continue;
     }
 
-    const triple = resolveTriple(m.id, m.homeTeamId, m.awayTeamId, false, input.matchProbs, input.teamRatings);
+    const triple = resolveTriple(m.homeTeamId, m.awayTeamId, false, input.teamStrength);
     const score = sampleGroupScore(triple, rng);
     groupRows.push({
       group_code: m.groupCode,
@@ -208,14 +195,7 @@ export function simulateTournamentOnce(input: TournamentMonteCarloInput, rng: ()
       const awayTeamId = pairing?.away;
       if (!homeTeamId || !awayTeamId) continue;
 
-      const triple = resolveTriple(
-        match.id,
-        homeTeamId,
-        awayTeamId,
-        true,
-        input.matchProbs,
-        input.teamRatings,
-      );
+      const triple = resolveTriple(homeTeamId, awayTeamId, true, input.teamStrength);
       const score = sampleKnockoutScores(triple, rng);
       const outcome: MatchOutcome = {
         home_team_id: homeTeamId,
@@ -263,4 +243,25 @@ export function runTournamentMonteCarlo(input: TournamentMonteCarloInput): Tourn
     .sort((a, b) => b.prob - a.prob);
 
   return { simulations: n, championCounts };
+}
+
+/** @deprecated Use estimateTripleFromTeamStrength */
+export function estimateTripleFromElo(
+  homeTeamId: string,
+  awayTeamId: string,
+  ratings: Record<string, number>,
+  knockout: boolean,
+): MatchProbabilityTriple {
+  const homeElo = ratings[homeTeamId] ?? 1500;
+  const awayElo = ratings[awayTeamId] ?? 1500;
+  const homeAdv = 65;
+  const expHome = 1 / (1 + 10 ** ((awayElo - (homeElo + homeAdv)) / 400));
+  const draw = knockout ? 0.2 : 0.26;
+  const scale = 1 - draw;
+  const sum = expHome * scale + draw + (1 - expHome) * scale;
+  return {
+    homeWin: (expHome * scale) / sum,
+    draw: draw / sum,
+    awayWin: ((1 - expHome) * scale) / sum,
+  };
 }

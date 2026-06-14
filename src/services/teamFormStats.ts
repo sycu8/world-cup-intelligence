@@ -47,7 +47,37 @@ export async function getTeamFormSnapshot(
     return getTeamFormSnapshot(db, teamId, limit);
   }
 
-  if (!results?.length) return null;
+  return buildFormSnapshotFromRows(results ?? [], teamId);
+}
+
+/** Form from completed matches before the live tournament (historical + pre-WC). */
+export async function getTeamHistoricalFormSnapshot(
+  db: D1Database,
+  teamId: string,
+  limit = 8,
+  excludeTournamentId = 't-2026',
+): Promise<TeamFormSnapshot | null> {
+  const { results } = await db
+    .prepare(
+      `SELECT home_team_id, away_team_id, home_score, away_score, home_xg, away_xg
+       FROM matches
+       WHERE status = 'completed'
+         AND (home_team_id = ? OR away_team_id = ?)
+         AND tournament_id != ?
+       ORDER BY kickoff_utc DESC
+       LIMIT ?`,
+    )
+    .bind(teamId, teamId, excludeTournamentId, limit)
+    .all<MatchRow>();
+
+  const snapshot = buildFormSnapshotFromRows(results ?? [], teamId);
+  if (snapshot) return snapshot;
+
+  return getTeamFormSnapshot(db, teamId, limit);
+}
+
+function buildFormSnapshotFromRows(results: MatchRow[], teamId: string): TeamFormSnapshot | null {
+  if (!results.length) return null;
 
   let points = 0;
   let gf = 0;

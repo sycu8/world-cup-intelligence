@@ -264,6 +264,7 @@ export type ChampionOddsEntry = {
 export type ChampionOddsPayload = {
   generatedAt: string;
   simulations: number;
+  modelVersion?: string;
   top: ChampionOddsEntry[];
   all: ChampionOddsEntry[];
 };

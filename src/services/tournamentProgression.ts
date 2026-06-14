@@ -10,6 +10,7 @@ import {
 import { logInfo } from '../utils/logger';
 import { nowIso } from '../utils/time';
 import { refreshTeamRatingsFromForm } from './teamRatingRefresh';
+import { scheduleChampionOddsRefresh } from './tournamentChampionOdds';
 
 const GROUP_CODES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as const;
 
@@ -277,6 +278,7 @@ export async function processMatchCompletion(env: AppEnv, matchId: string): Prom
 
   await refreshTeamRatingsFromForm(env);
   await scheduleRecomputeAfterDataChange(env, `match-complete:${matchId}`, { queue: true });
+  await scheduleChampionOddsRefresh(env, `match-complete:${matchId}`);
   logInfo('match completion processed', {
     match_id: matchId,
     bracket_updates: affected.size,

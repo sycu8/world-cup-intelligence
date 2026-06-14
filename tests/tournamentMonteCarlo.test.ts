@@ -5,13 +5,43 @@ import {
   simulateTournamentOnce,
   type TournamentMonteCarloInput,
 } from '../src/models/tournament/tournamentMonteCarlo';
+import {
+  estimateTripleFromTeamStrength,
+  type TeamStrengthProfile,
+} from '../src/services/tournamentTeamStrength';
+
+function profile(
+  teamId: string,
+  overrides: Partial<TeamStrengthProfile> = {},
+): TeamStrengthProfile {
+  return {
+    teamId,
+    elo: 1700,
+    collectiveStrength: 0.78,
+    recentForm: 0.62,
+    fifaRanking: 12,
+    lineupModifier: 0.98,
+    countryCode: null,
+    isHost: false,
+    effectiveRating: 1750,
+    ...overrides,
+  };
+}
 
 describe('tournamentMonteCarlo', () => {
-  it('estimateTripleFromElo favors stronger home team', () => {
-    const ratings = { home: 1900, away: 1600 };
-    const triple = estimateTripleFromElo('home', 'away', ratings, false);
+  it('estimateTripleFromTeamStrength favors stronger team with full squad', () => {
+    const triple = estimateTripleFromTeamStrength(
+      profile('home', { effectiveRating: 1900, isHost: true }),
+      profile('away', { effectiveRating: 1600, lineupModifier: 0.76 }),
+      false,
+    );
     expect(triple.homeWin).toBeGreaterThan(triple.awayWin);
     expect(triple.homeWin + triple.draw + triple.awayWin).toBeCloseTo(1, 5);
+  });
+
+  it('estimateTripleFromElo remains available for legacy callers', () => {
+    const triple = estimateTripleFromElo('home', 'away', { home: 1900, away: 1600 }, false);
+    expect(triple.homeWin).toBeGreaterThan(triple.awayWin);
   });
 
   it('runTournamentMonteCarlo returns normalized probabilities', () => {
@@ -38,13 +68,16 @@ describe('tournamentMonteCarlo', () => {
 });
 
 function finalOnlyInput(): TournamentMonteCarloInput {
-  const teams = ['t-a1', 't-a2', 't-b1', 't-b2'];
-  const ratings = Object.fromEntries(teams.map((id, index) => [id, 1700 - index * 40]));
+  const teamStrength = {
+    't-a1': profile('t-a1', { effectiveRating: 1820 }),
+    't-a2': profile('t-a2', { effectiveRating: 1680 }),
+    't-b1': profile('t-b1', { effectiveRating: 1760 }),
+    't-b2': profile('t-b2', { effectiveRating: 1640 }),
+  };
 
   return {
     simulations: 1,
-    teamRatings: ratings,
-    matchProbs: {},
+    teamStrength,
     groupMatches: [
       {
         id: 'g1',
@@ -85,87 +118,5 @@ function finalOnlyInput(): TournamentMonteCarloInput {
       },
     ],
     winnerLinks: [],
-  };
-}
-
-function minimalInput(): TournamentMonteCarloInput {
-  const teams = ['t-a1', 't-a2', 't-b1', 't-b2'];
-  const ratings = Object.fromEntries(teams.map((id, index) => [id, 1700 - index * 40]));
-
-  return {
-    simulations: 1,
-    teamRatings: ratings,
-    matchProbs: {},
-    groupMatches: [
-      {
-        id: 'g1',
-        groupCode: 'A',
-        homeTeamId: 't-a1',
-        awayTeamId: 't-a2',
-        homeScore: 0,
-        awayScore: 0,
-        status: 'scheduled',
-      },
-      {
-        id: 'g2',
-        groupCode: 'B',
-        homeTeamId: 't-b1',
-        awayTeamId: 't-b2',
-        homeScore: 0,
-        awayScore: 0,
-        status: 'scheduled',
-      },
-    ],
-    knockoutMatches: [
-      { id: 'm-w26-r32-01', stage: 'Round of 32' },
-      { id: 'm-w26-r16-01', stage: 'Round of 16' },
-      { id: 'm-w26-qf-01', stage: 'Quarter-final' },
-      { id: 'm-w26-sf-01', stage: 'Semi-final' },
-      { id: 'm-w26-final-01', stage: 'Final' },
-    ],
-    groupRankLinks: [
-      {
-        sourceMatchId: null,
-        targetMatchId: 'm-w26-r32-01',
-        targetSlot: 'home',
-        ruleType: 'group_rank',
-        group: 'A',
-        rank: 1,
-      },
-      {
-        sourceMatchId: null,
-        targetMatchId: 'm-w26-r32-01',
-        targetSlot: 'away',
-        ruleType: 'group_rank',
-        group: 'B',
-        rank: 1,
-      },
-    ],
-    winnerLinks: [
-      {
-        sourceMatchId: 'm-w26-r32-01',
-        targetMatchId: 'm-w26-r16-01',
-        targetSlot: 'home',
-        ruleType: 'winner',
-      },
-      {
-        sourceMatchId: 'm-w26-r16-01',
-        targetMatchId: 'm-w26-qf-01',
-        targetSlot: 'home',
-        ruleType: 'winner',
-      },
-      {
-        sourceMatchId: 'm-w26-qf-01',
-        targetMatchId: 'm-w26-sf-01',
-        targetSlot: 'home',
-        ruleType: 'winner',
-      },
-      {
-        sourceMatchId: 'm-w26-sf-01',
-        targetMatchId: 'm-w26-final-01',
-        targetSlot: 'home',
-        ruleType: 'winner',
-      },
-    ],
   };
 }

@@ -918,12 +918,12 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'Championship odds (Monte Carlo)',
   },
   'home.championOdds.subtitle': {
-    vi: 'Top 3 đội có khả năng vô địch cao nhất — mô phỏng cả giải từ kết quả hiện tại',
-    en: 'Top 3 teams most likely to win — full-tournament simulation from current results',
+    vi: 'Top 3 đội — mô phỏng từ phong độ lịch sử, thể lực & đội hình (cập nhật sau mỗi trận)',
+    en: 'Top 3 teams — simulated from historical form, fitness & squad status (updates after each match)',
   },
   'home.championOdds.simulations': {
-    vi: 'Dựa trên {n} lần mô phỏng · cập nhật định kỳ',
-    en: 'Based on {n} simulations · refreshed periodically',
+    vi: '{n} lần mô phỏng · tự cập nhật khi có trận kết thúc',
+    en: '{n} simulations · auto-refreshes when a match finishes',
   },
   'home.championOdds.disclaimer': {
     vi: 'Chỉ mang tính tham khảo — không phải dự đoán chính thức.',
