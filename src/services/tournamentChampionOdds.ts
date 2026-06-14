@@ -2,6 +2,7 @@ import type { AppEnv } from '../env';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import { getDb } from '../db/client';
 import type { TeamRow } from '../db/schema';
+import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import { applyEffectiveTeamProfile } from './teamProfile';
 import {
   runTournamentMonteCarlo,
@@ -56,7 +57,7 @@ async function loadMonteCarloInput(
 ): Promise<{ input: TournamentMonteCarloInput; teamMeta: Map<string, { name: string; countryCode: string | null }> }> {
   const db = getDb(env);
 
-  const [teamsRes, matchesRes, linksRes, snapshotsRes] = await Promise.all([
+  const [teamsRes, matchesRes, linksRes, snapshots] = await Promise.all([
     db
       .prepare(`SELECT * FROM teams WHERE id LIKE 'team-w26-%' ORDER BY id ASC`)
       .all<TeamRow>(),
@@ -76,17 +77,7 @@ async function loadMonteCarloInput(
       )
       .bind(WC2026_TOURNAMENT_ID)
       .all<BracketLinkRow>(),
-    db
-      .prepare(
-        `SELECT ps.match_id, ps.home_win, ps.draw, ps.away_win
-         FROM probability_snapshots ps
-         INNER JOIN (
-           SELECT match_id, MAX(created_at) AS max_created
-           FROM probability_snapshots
-           GROUP BY match_id
-         ) latest ON latest.match_id = ps.match_id AND latest.max_created = ps.created_at`,
-      )
-      .all<{ match_id: string; home_win: number; draw: number; away_win: number }>(),
+    probabilityRepo.listLatestSnapshotsForTournament(db, WC2026_TOURNAMENT_ID),
   ]);
 
   const teamMeta = new Map<string, { name: string; countryCode: string | null }>();
@@ -98,11 +89,11 @@ async function loadMonteCarloInput(
   }
 
   const matchProbs: Record<string, MatchProbabilityTriple> = {};
-  for (const row of snapshotsRes.results ?? []) {
-    matchProbs[row.match_id] = {
-      homeWin: row.home_win,
-      draw: row.draw,
-      awayWin: row.away_win,
+  for (const row of snapshots) {
+    matchProbs[row.matchId] = {
+      homeWin: row.homeWinProb,
+      draw: row.drawProb,
+      awayWin: row.awayWinProb,
     };
   }
 
