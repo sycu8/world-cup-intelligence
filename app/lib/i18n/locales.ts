@@ -228,6 +228,10 @@ export type LocaleKey =
   | 'home.teams'
   | 'home.scheduled'
   | 'home.played'
+  | 'home.championOdds.title'
+  | 'home.championOdds.subtitle'
+  | 'home.championOdds.simulations'
+  | 'home.championOdds.disclaimer'
   | 'home.quickStart'
   | 'home.headlines'
   | 'home.loadingHeadlines'
@@ -909,6 +913,22 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'home.teams': { vi: 'Đội', en: 'Teams' },
   'home.scheduled': { vi: 'Sắp đá', en: 'Scheduled' },
   'home.played': { vi: 'Đã đá', en: 'Played' },
+  'home.championOdds.title': {
+    vi: 'Xác suất vô địch',
+    en: 'Championship probability',
+  },
+  'home.championOdds.subtitle': {
+    vi: 'Top 3 đội có khả năng vô địch cao nhất — cập nhật sau mỗi trận',
+    en: 'Top 3 teams most likely to win — updated after each match',
+  },
+  'home.championOdds.simulations': {
+    vi: 'Cập nhật sau mỗi trận',
+    en: 'Updated after each match',
+  },
+  'home.championOdds.disclaimer': {
+    vi: 'Chỉ mang tính tham khảo — không phải dự đoán chính thức.',
+    en: 'For reference only — not an official forecast.',
+  },
   'home.quickStart': { vi: 'Lần đầu vào? Bắt đầu trong 4 bước', en: 'New here? Start in 4 steps' },
   'home.headlines': { vi: 'Tin nổi bật', en: 'Headlines' },
   'home.loadingHeadlines': { vi: 'Đang tải tin nổi bật…', en: 'Loading headlines…' },
@@ -987,7 +1007,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'featured.sectionLive': { vi: 'Trận đang diễn ra', en: 'Live match' },
   'featured.sectionUpcoming': { vi: 'Trận đấu gần nhất', en: 'Next up' },
   'wc.title': { vi: 'World Cup 2026', en: 'FIFA World Cup 2026' },
-  'wc.underway': { vi: 'Giải đấu đã bắt đầu', en: 'Tournament underway' },
+  'wc.underway': { vi: 'Đang diễn ra', en: 'Ongoing' },
   'wc.countdownTo': { vi: 'Đếm ngược tới World Cup 2026', en: 'Countdown to FIFA World Cup 2026' },
   'multiVar.loading': { vi: 'Đang phân tích đa biến…', en: 'Running multi-variable analysis…' },
   'history.moreMeetings': {

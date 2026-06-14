@@ -110,6 +110,8 @@ export const api = {
     ),
   tournamentBracket: (year = 2026) =>
     get<{ data: BracketPayload }>(`/tournaments/${year}/bracket`),
+  tournamentChampionOdds: (year = 2026) =>
+    get<{ data: ChampionOddsPayload }>(`/tournaments/${year}/champion-odds`),
   matchAnalysis: (id: string) =>
     get<{ data: MultiVariableAnalysis | null; meta?: { gatewayConfigured?: boolean } }>(
       `/analysis/${id}`,
@@ -249,6 +251,22 @@ export type GroupStandingsPayload = {
   tournamentId: string;
   groups: Record<string, { complete: boolean; rows: StandingRow[] }>;
   thirdPlaceRanking: Array<StandingRow & { group: string }>;
+};
+
+export type ChampionOddsEntry = {
+  teamId: string;
+  teamName: string;
+  countryCode: string | null;
+  probability: number;
+  rank: number;
+};
+
+export type ChampionOddsPayload = {
+  generatedAt: string;
+  simulations: number;
+  modelVersion?: string;
+  top: ChampionOddsEntry[];
+  all: ChampionOddsEntry[];
 };
 
 export type BracketMatchNode = {

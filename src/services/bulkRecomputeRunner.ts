@@ -1,6 +1,7 @@
 import type { AppEnv } from '../env';
 import { BULK_RECOMPUTE_KV_KEY, LAST_RECOMPUTE_META_KEY } from '../constants/pipeline';
 import { recomputeAllWc2026Matches } from './recomputeMatch';
+import { refreshChampionOdds } from './tournamentChampionOdds';
 import { logInfo } from '../utils/logger';
 import { nowIso } from '../utils/time';
 
@@ -25,6 +26,12 @@ export async function runBulkRecomputeIfPending(env: AppEnv): Promise<boolean> {
     recomputed: result.recomputed,
     failed: result.failed.length,
   });
+  try {
+    await refreshChampionOdds(env);
+    logInfo('champion odds refreshed after bulk recompute', { reason });
+  } catch (err) {
+    logInfo('champion odds refresh failed after bulk recompute', { reason, error: String(err) });
+  }
   return true;
 }
 

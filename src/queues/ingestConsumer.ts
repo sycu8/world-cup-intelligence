@@ -11,6 +11,7 @@ import {
   runBulkRecomputeIfPending,
   scheduleRecomputeAfterDataChange,
 } from '../services/bulkRecomputeRunner';
+import { runChampionOddsRefreshIfPending } from '../services/tournamentChampionOdds';
 import { deliverWebhook } from '../services/publicApi/webhooks';
 import { syncOfficialLineupsToMatches } from '../services/officialLineupSync';
 
@@ -36,6 +37,8 @@ export async function handleIngestBatch(
           }
 
           if (await runBulkRecomputeIfPending(env)) break;
+
+          if (await runChampionOddsRefreshIfPending(env)) break;
 
           const recomputeIds =
             updatedIds.length > 0

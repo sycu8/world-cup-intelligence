@@ -41,5 +41,12 @@ export async function handleScheduledCron(
     };
     await env.INGEST_QUEUE?.send(job);
     logInfo('scheduled statsbomb open-data pull enqueued');
+
+    const refreshMc = import('../services/tournamentChampionOdds').then(({ refreshChampionOdds }) =>
+      refreshChampionOdds(env),
+    );
+    if (ctx) ctx.waitUntil(refreshMc.catch((err) => console.error('[champion-odds] weekly refresh failed', err)));
+    else await refreshMc;
+    logInfo('scheduled champion odds refresh started');
   }
 }

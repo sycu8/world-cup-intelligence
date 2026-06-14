@@ -47,7 +47,85 @@ export async function getTeamFormSnapshot(
     return getTeamFormSnapshot(db, teamId, limit);
   }
 
-  if (!results?.length) return null;
+  return buildFormSnapshotFromRows(results ?? [], teamId);
+}
+
+/** Form from completed matches before the live tournament (historical + pre-WC). */
+/** Batch historical form for many teams (chunked D1 queries). */
+export async function loadHistoricalFormForTeams(
+  db: D1Database,
+  teamIds: string[],
+  limitPerTeam = 8,
+  excludeTournamentId = 't-2026',
+): Promise<Map<string, TeamFormSnapshot>> {
+  const out = new Map<string, TeamFormSnapshot>();
+  if (!teamIds.length) return out;
+
+  const rowsByTeam = new Map<string, MatchRow[]>();
+  const chunkSize = 8;
+
+  for (let offset = 0; offset < teamIds.length; offset += chunkSize) {
+    const chunk = teamIds.slice(offset, offset + chunkSize);
+    const placeholders = chunk.map(() => '?').join(',');
+    const { results } = await db
+      .prepare(
+        `SELECT home_team_id, away_team_id, home_score, away_score, home_xg, away_xg, kickoff_utc
+         FROM matches
+         WHERE status IN ('completed', 'finished')
+           AND tournament_id != ?
+           AND (home_team_id IN (${placeholders}) OR away_team_id IN (${placeholders}))
+         ORDER BY kickoff_utc DESC
+         LIMIT ?`,
+      )
+      .bind(excludeTournamentId, ...chunk, ...chunk, limitPerTeam * chunk.length)
+      .all<MatchRow & { kickoff_utc: string }>();
+
+    for (const row of results ?? []) {
+      for (const teamId of [row.home_team_id, row.away_team_id]) {
+        if (!chunk.includes(teamId)) continue;
+        const bucket = rowsByTeam.get(teamId) ?? [];
+        if (bucket.length >= limitPerTeam) continue;
+        bucket.push(row);
+        rowsByTeam.set(teamId, bucket);
+      }
+    }
+  }
+
+  for (const teamId of teamIds) {
+    const snapshot = buildFormSnapshotFromRows(rowsByTeam.get(teamId) ?? [], teamId);
+    if (snapshot) out.set(teamId, snapshot);
+  }
+
+  return out;
+}
+
+export async function getTeamHistoricalFormSnapshot(
+  db: D1Database,
+  teamId: string,
+  limit = 8,
+  excludeTournamentId = 't-2026',
+): Promise<TeamFormSnapshot | null> {
+  const { results } = await db
+    .prepare(
+      `SELECT home_team_id, away_team_id, home_score, away_score, home_xg, away_xg
+       FROM matches
+       WHERE status = 'completed'
+         AND (home_team_id = ? OR away_team_id = ?)
+         AND tournament_id != ?
+       ORDER BY kickoff_utc DESC
+       LIMIT ?`,
+    )
+    .bind(teamId, teamId, excludeTournamentId, limit)
+    .all<MatchRow>();
+
+  const snapshot = buildFormSnapshotFromRows(results ?? [], teamId);
+  if (snapshot) return snapshot;
+
+  return getTeamFormSnapshot(db, teamId, limit);
+}
+
+function buildFormSnapshotFromRows(results: MatchRow[], teamId: string): TeamFormSnapshot | null {
+  if (!results.length) return null;
 
   let points = 0;
   let gf = 0;
