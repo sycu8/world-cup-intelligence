@@ -28,11 +28,23 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Apply D1 migrations (UAT)
+        if: inputs.target == 'uat'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npm run db:migrate:uat
+
       - name: Deploy UAT
         if: inputs.target == 'uat'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npm run deploy:uat
+
+      - name: Apply D1 migrations (Production)
+        if: inputs.target == 'production'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npm run db:migrate:production
 
       - name: Deploy Production
         if: inputs.target == 'production'
