@@ -273,6 +273,12 @@ adminRoutes.post('/crawl-news', async (c) => {
   return c.json({ status: 'ok', inserted });
 });
 
+adminRoutes.post('/refresh-champion-odds', async (c) => {
+  const { refreshChampionOdds } = await import('../services/tournamentChampionOdds');
+  const data = await refreshChampionOdds(c.env);
+  return c.json({ status: 'ok', data });
+});
+
 const apiClientSchema = z.object({ name: z.string().min(1).max(120) });
 
 adminRoutes.post('/api-clients', async (c) => {

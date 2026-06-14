@@ -70,3 +70,12 @@ tournamentRoutes.get('/:year/bracket', async (c) => {
   const data = await buildBracketPayload(c.env);
   return c.json({ data });
 });
+
+tournamentRoutes.get('/:year/champion-odds', async (c) => {
+  const year = Number(c.req.param('year'));
+  if (year !== 2026) return c.json({ error: 'Not found' }, 404);
+  const { getChampionOddsForDisplay } = await import('../services/tournamentChampionOdds');
+  const data = await getChampionOddsForDisplay(c.env);
+  if (!data) return c.json({ error: 'Unavailable' }, 503);
+  return c.json({ data }, 200, { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600' });
+});

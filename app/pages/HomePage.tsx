@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import type { GroupStandingsPayload } from '../lib/api';
 import { Link } from 'react-router-dom';
-import { api, type DashboardData, type NewsArticle, type ScheduleMatch } from '../lib/api';
+import { api, type DashboardData, type NewsArticle, type ScheduleMatch, type ChampionOddsPayload } from '../lib/api';
 import { consumeHomePrefetch } from '../lib/homePrefetch';
 import { FeaturedMatchHero } from '../components/home/FeaturedMatchHero';
 import { WorldCupCountdown } from '../components/home/WorldCupCountdown';
 import { PlatformSnapshot } from '../components/home/PlatformSnapshot';
+import { ChampionOddsPanel } from '../components/home/ChampionOddsPanel';
 import { NewUserQuickStart } from '../components/home/NewUserQuickStart';
 import { HomePageSkeleton } from '../components/home/HomePageSkeleton';
 import { Bilingual } from '../components/i18n/Bilingual';
@@ -34,6 +35,7 @@ export function HomePage() {
   const [matchProbabilities, setMatchProbabilities] = useState<
     Record<string, { homeWin: number; draw: number; awayWin: number }>
   >({});
+  const [championOdds, setChampionOdds] = useState<ChampionOddsPayload | null>(null);
   const [loading, setLoading] = useState(true);
 
   const applyHome = useCallback((payload: Awaited<ReturnType<typeof api.home>>) => {
@@ -42,6 +44,7 @@ export function HomePage() {
     setHotNews(payload.data.hotNews.slice(0, 3));
     setStandings(payload.data.standings ?? null);
     setMatchProbabilities(payload.data.matchProbabilities ?? {});
+    setChampionOdds(payload.data.championOdds ?? null);
   }, []);
 
   const load = useCallback(async () => {
@@ -58,6 +61,7 @@ export function HomePage() {
       setHotNews([]);
       setStandings(null);
       setMatchProbabilities({});
+      setChampionOdds(null);
     } finally {
       setLoading(false);
     }
@@ -111,6 +115,7 @@ export function HomePage() {
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-stretch">
             <div className="flex flex-col gap-4">
               <WorldCupCountdown targetUtc={tournamentStart} />
+              <ChampionOddsPanel odds={championOdds} loading={!championOdds} />
               <PlatformSnapshot dashboard={dashboard} compact />
             </div>
             {featured ? (

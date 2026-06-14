@@ -228,6 +228,10 @@ export type LocaleKey =
   | 'home.teams'
   | 'home.scheduled'
   | 'home.played'
+  | 'home.championOdds.title'
+  | 'home.championOdds.subtitle'
+  | 'home.championOdds.simulations'
+  | 'home.championOdds.disclaimer'
   | 'home.quickStart'
   | 'home.headlines'
   | 'home.loadingHeadlines'
@@ -909,6 +913,22 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'home.teams': { vi: 'Đội', en: 'Teams' },
   'home.scheduled': { vi: 'Sắp đá', en: 'Scheduled' },
   'home.played': { vi: 'Đã đá', en: 'Played' },
+  'home.championOdds.title': {
+    vi: 'Xác suất vô địch (Monte Carlo)',
+    en: 'Championship odds (Monte Carlo)',
+  },
+  'home.championOdds.subtitle': {
+    vi: 'Top 3 đội có khả năng vô địch cao nhất — mô phỏng cả giải từ kết quả hiện tại',
+    en: 'Top 3 teams most likely to win — full-tournament simulation from current results',
+  },
+  'home.championOdds.simulations': {
+    vi: 'Dựa trên {n} lần mô phỏng · cập nhật định kỳ',
+    en: 'Based on {n} simulations · refreshed periodically',
+  },
+  'home.championOdds.disclaimer': {
+    vi: 'Chỉ mang tính tham khảo — không phải dự đoán chính thức.',
+    en: 'For reference only — not an official forecast.',
+  },
   'home.quickStart': { vi: 'Lần đầu vào? Bắt đầu trong 4 bước', en: 'New here? Start in 4 steps' },
   'home.headlines': { vi: 'Tin nổi bật', en: 'Headlines' },
   'home.loadingHeadlines': { vi: 'Đang tải tin nổi bật…', en: 'Loading headlines…' },
