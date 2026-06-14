@@ -16,7 +16,7 @@ function formatPct(probability: number, locale: string): string {
 }
 
 export function ChampionOddsPanel({ odds, loading = false }: Props) {
-  const { mode, t } = useI18n();
+  const { mode } = useI18n();
   const locale = mode === 'en' ? 'en-US' : 'vi-VN';
 
   if (loading && !odds) {
@@ -78,9 +78,6 @@ export function ChampionOddsPanel({ odds, loading = false }: Props) {
         ))}
       </ol>
 
-      <p className="text-xs text-muted-dim">
-        {t('home.championOdds.simulations').replace('{n}', String(odds.simulations.toLocaleString(locale)))}
-      </p>
       <p className="text-xs text-muted-dim">
         <Bilingual k="home.championOdds.disclaimer" />
       </p>

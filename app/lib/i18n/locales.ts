@@ -914,16 +914,16 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'home.scheduled': { vi: 'Sắp đá', en: 'Scheduled' },
   'home.played': { vi: 'Đã đá', en: 'Played' },
   'home.championOdds.title': {
-    vi: 'Xác suất vô địch (Monte Carlo)',
-    en: 'Championship odds (Monte Carlo)',
+    vi: 'Xác suất vô địch',
+    en: 'Championship probability',
   },
   'home.championOdds.subtitle': {
-    vi: 'Top 3 đội — mô phỏng từ phong độ lịch sử, thể lực & đội hình (cập nhật sau mỗi trận)',
-    en: 'Top 3 teams — simulated from historical form, fitness & squad status (updates after each match)',
+    vi: 'Top 3 đội có khả năng vô địch cao nhất — cập nhật sau mỗi trận',
+    en: 'Top 3 teams most likely to win — updated after each match',
   },
   'home.championOdds.simulations': {
-    vi: '{n} lần mô phỏng · tự cập nhật khi có trận kết thúc',
-    en: '{n} simulations · auto-refreshes when a match finishes',
+    vi: 'Cập nhật sau mỗi trận',
+    en: 'Updated after each match',
   },
   'home.championOdds.disclaimer': {
     vi: 'Chỉ mang tính tham khảo — không phải dự đoán chính thức.',
