@@ -6,6 +6,8 @@ import { Bilingual } from '../i18n/Bilingual';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { formatLocalizedVersus, matchStageLabel } from '../../lib/i18n/stageLabels';
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
+import { MatchKickoffDisplay, ScheduleTimezoneBanner } from '../match/MatchKickoffDisplay';
+import { formatKickoffDateLong, getViewerLocale, localDateKey, SCHEDULE_TZ } from '../../lib/matchKickoffDisplay';
 
 type Props = {
   byDate: Record<string, ScheduleMatch[]>;
@@ -19,7 +21,8 @@ export function MatchScheduleCalendar({ byDate, matches, totalExpected = 104 }: 
   const { mode, t } = useI18n();
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [query, setQuery] = useState('');
-  const locale = mode === 'en' ? 'en' : 'vi-VN';
+  const appLocale = mode === 'en' ? 'en' : 'vi-VN';
+  const locale = useMemo(() => getViewerLocale(appLocale), [appLocale]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -35,7 +38,7 @@ export function MatchScheduleCalendar({ byDate, matches, totalExpected = 104 }: 
   const filteredByDate = useMemo(() => {
     const out: Record<string, ScheduleMatch[]> = {};
     for (const m of filtered) {
-      const d = m.kickoff_utc?.slice(0, 10) ?? 'unknown';
+      const d = m.kickoff_utc ? localDateKey(m.kickoff_utc, SCHEDULE_TZ) : 'unknown';
       if (!out[d]) out[d] = [];
       out[d].push(m);
     }
@@ -55,6 +58,14 @@ export function MatchScheduleCalendar({ byDate, matches, totalExpected = 104 }: 
     { id: 'Group', key: 'calendar.filterGroup' },
     { id: 'knockout', key: 'calendar.filterKnockout' },
   ];
+
+  function formatDayHeading(date: string): string {
+    const sample = filteredByDate[date]?.[0];
+    if (sample?.kickoff_utc) {
+      return formatKickoffDateLong(sample.kickoff_utc, SCHEDULE_TZ, locale);
+    }
+    return date;
+  }
 
   return (
     <section className="panel space-y-4">
@@ -83,6 +94,8 @@ export function MatchScheduleCalendar({ byDate, matches, totalExpected = 104 }: 
         />
       </div>
 
+      <ScheduleTimezoneBanner />
+
       <div className="flex flex-wrap gap-2">
         {stages.map((s) => (
           <button
@@ -109,12 +122,7 @@ export function MatchScheduleCalendar({ byDate, matches, totalExpected = 104 }: 
           {dates.map((date) => (
             <div key={date}>
               <p className="sticky top-0 z-10 mb-2 border-b border-border/60 bg-panel py-1 text-xs font-semibold uppercase tracking-wider text-pressing">
-                {new Date(date + 'T12:00:00').toLocaleDateString(locale, {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
+                {formatDayHeading(date)}
                 <span className="ml-2 font-normal text-muted">({filteredByDate[date].length})</span>
               </p>
               <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -139,10 +147,7 @@ export function MatchScheduleCalendar({ byDate, matches, totalExpected = 104 }: 
                         )}
                       </div>
                       <p className="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-muted">
-                        {new Date(m.kickoff_utc).toLocaleTimeString(locale, {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showLocalReference />
                         {m.stage === 'Group' && m.group_code ? ` · ${t('calendar.groupLabel')} ${m.group_code}` : ''}
                         {m.stage && m.stage !== 'Group' ? ` · ${matchStageLabel(m.stage, t)}` : ''}
                         {hasMatchResult(m.status) && (

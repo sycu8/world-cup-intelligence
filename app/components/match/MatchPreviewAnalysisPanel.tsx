@@ -2,7 +2,7 @@ import type { MatchPreviewAnalysis } from '../../lib/api';
 import { SectionLabel } from '../tactical/SectionLabel';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { pickLocalized, type LocalizedString } from '../../lib/briefingText';
-import { pct } from '../../lib/format';
+import { formatKickoffDateTime, getViewerLocale } from '../../lib/matchKickoffDisplay';
 import { formatMatchVersus } from '../../lib/matchTeams';
 import { matchVersusSeparator } from '../../lib/i18n/stageLabels';
 import { LineupColumn } from './LineupColumn';
@@ -37,7 +37,7 @@ export function MatchPreviewAnalysisPanel({ preview, loading, variant = 'default
   if (!preview) return null;
 
   const pick = (line: LocalizedString) => pickLocalized(line, mode);
-  const locale = mode === 'en' ? 'en' : 'vi-VN';
+  const locale = getViewerLocale(mode === 'en' ? 'en' : 'vi-VN');
   const versusLabel = formatMatchVersus(
     preview.home.teamId,
     preview.away.teamId,
@@ -75,7 +75,7 @@ export function MatchPreviewAnalysisPanel({ preview, loading, variant = 'default
           </p>
           <p className="mt-1 break-words font-mono-data text-[11px] text-muted-dim sm:text-xs">
             {versusLabel} ·{' '}
-            {new Date(preview.kickoffUtc).toLocaleString(locale, {
+            {formatKickoffDateTime(preview.kickoffUtc, locale, {
               dateStyle: 'medium',
               timeStyle: 'short',
             })}

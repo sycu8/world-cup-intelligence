@@ -142,7 +142,7 @@ function GroupCard({
                 className="group grid grid-cols-[2.25rem_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 rounded-md px-1 py-1 text-[10px] transition hover:bg-pressing/10 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto_auto] sm:gap-x-2 sm:text-[11px]"
               >
                 <time className="font-mono-data text-[9px] text-muted sm:text-[10px]">
-                  <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showVnReference={false} />
+                  <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showLocalReference={false} />
                 </time>
                 <span className="min-w-0 truncate text-foreground/90">
                   <MatchTeamsWithFlags
@@ -219,7 +219,7 @@ function KnockoutRoundPanel({
               className="group grid grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] items-center gap-x-2 px-2 py-2 text-xs transition hover:bg-pressing/5 sm:px-3"
             >
               <time className="font-mono-data text-[10px] text-muted">
-                <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showVnReference={false} />
+                <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showLocalReference={false} />
               </time>
               <span className="min-w-0 truncate font-medium">
                 <MatchTeamsWithFlags
