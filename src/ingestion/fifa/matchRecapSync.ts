@@ -11,32 +11,45 @@ import type { ParsedCommentaryLine } from './parseFifaTimeline';
 export type FifaRecapTranslationState = {
   needsCommentary: boolean;
   needsRecap: boolean;
+  commentaryTotal: number;
+  commentaryUntranslated: number;
 };
+
+/** Re-sync commentary only when missing or mostly still English. */
+export const COMMENTARY_RETRANSLATE_RATIO = 0.35;
+
+export function commentaryNeedsFullRetranslate(total: number, untranslated: number): boolean {
+  if (total === 0) return true;
+  return untranslated / total >= COMMENTARY_RETRANSLATE_RATIO;
+}
 
 export async function loadFifaRecapTranslationState(
   db: D1Database,
   matchId: string,
 ): Promise<FifaRecapTranslationState> {
-  const [commentaryRow, untranslatedRow, recapRow] = await Promise.all([
-    db.prepare(`SELECT 1 FROM match_commentary WHERE match_id = ? LIMIT 1`).bind(matchId).first(),
+  const [commentaryStats, recapRow] = await Promise.all([
     db
       .prepare(
-        `SELECT 1 FROM match_commentary
-         WHERE match_id = ? AND source_id = ? AND text_vi = text_en LIMIT 1`,
+        `SELECT COUNT(*) AS total,
+                SUM(CASE WHEN text_vi = text_en THEN 1 ELSE 0 END) AS untranslated
+         FROM match_commentary
+         WHERE match_id = ? AND source_id = ?`,
       )
       .bind(matchId, FIFA_SOURCE_ID)
-      .first(),
+      .first<{ total: number; untranslated: number | null }>(),
     db
       .prepare(`SELECT summary_vi, summary_en FROM match_recaps WHERE match_id = ?`)
       .bind(matchId)
       .first<{ summary_vi: string; summary_en: string }>(),
   ]);
 
-  const needsCommentary = !commentaryRow || !!untranslatedRow;
+  const commentaryTotal = commentaryStats?.total ?? 0;
+  const commentaryUntranslated = commentaryStats?.untranslated ?? 0;
+  const needsCommentary = commentaryNeedsFullRetranslate(commentaryTotal, commentaryUntranslated);
   const needsRecap =
     !recapRow || !isLikelyVietnamese(recapRow.summary_vi, recapRow.summary_en);
 
-  return { needsCommentary, needsRecap };
+  return { needsCommentary, needsRecap, commentaryTotal, commentaryUntranslated };
 }
 
 async function loadPossession(
@@ -100,8 +113,16 @@ export async function translateAndStoreCommentary(
 ): Promise<number> {
   if (!lines.length) return 0;
 
+  const existing = await env.DB.prepare(
+    `SELECT id, text_vi FROM match_commentary WHERE match_id = ? AND source_id = ? ORDER BY sort_order ASC`,
+  )
+    .bind(matchId, FIFA_SOURCE_ID)
+    .all<{ id: string; text_vi: string }>();
+  const existingViById = new Map((existing.results ?? []).map((row) => [row.id, row.text_vi]));
+
   const textsEn = lines.map((l) => l.textEn);
-  const textsVi = await translateCommentaryLines(env, textsEn);
+  const cachedVi = lines.map((line) => existingViById.get(line.id));
+  const textsVi = await translateCommentaryLines(env, textsEn, cachedVi);
 
   await env.DB.prepare(`DELETE FROM match_commentary WHERE match_id = ? AND source_id = ?`)
     .bind(matchId, FIFA_SOURCE_ID)

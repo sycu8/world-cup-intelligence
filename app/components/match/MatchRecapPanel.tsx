@@ -17,12 +17,36 @@ export function MatchRecapPanel({ matchId, homeTeamId, homeLabel, awayLabel }: P
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    api
-      .matchRecap(matchId)
-      .then((r) => setRecap(r.data))
-      .catch(() => setRecap(null))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+
+    const load = () => {
+      setLoading(true);
+      api
+        .matchRecap(matchId)
+        .then((r) => {
+          if (cancelled) return;
+          setRecap(r.data);
+          const missingSummary = !r.data?.summaryVi?.trim() && !r.data?.summaryEn?.trim();
+          if (missingSummary && attempts < 4) {
+            attempts += 1;
+            retryTimer = setTimeout(load, 4000);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setRecap(null);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, [matchId]);
 
   if (loading) {

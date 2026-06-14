@@ -143,6 +143,11 @@ async function tryEspnStatsFallback(
   return true;
 }
 
+export type FifaBlogSyncOptions = {
+  /** When false, skip re-translating/storing commentary (recap/stats only). */
+  translateCommentary?: boolean;
+};
+
 /** Pull Match Centre live blog (timeline) + Gameday team stats into D1. */
 export async function syncFifaMatchBlogAndStats(
   env: AppEnv,
@@ -151,6 +156,7 @@ export async function syncFifaMatchBlogAndStats(
   awayTeamId: string,
   info: FifaMatchInfo,
   fifaMatchIdOverride?: string | null,
+  options?: FifaBlogSyncOptions,
 ): Promise<{ commentary: number; statsUpdated: boolean; recapUpdated: boolean }> {
   const fifaMatchId = fifaMatchIdOverride ?? info.IdMatch;
   if (!fifaMatchId) {
@@ -165,7 +171,7 @@ export async function syncFifaMatchBlogAndStats(
   const timeline = await fetchFifaTimeline(fifaMatchId);
   if (timeline?.Event?.length) {
     parsedLines = parseFifaTimelineCommentary(timeline, internalMatchId);
-    if (parsedLines.length) {
+    if (parsedLines.length && options?.translateCommentary !== false) {
       try {
         commentary = await translateAndStoreCommentary(env, internalMatchId, parsedLines);
       } catch (e) {
@@ -290,7 +296,9 @@ export async function ensureFifaBlogAndStats(
   const info = await fetchFifaMatchInfo(fifaMatchId);
   if (!info) return;
 
-  await syncFifaMatchBlogAndStats(env, matchId, homeTeamId, awayTeamId, info, fifaMatchId);
+  await syncFifaMatchBlogAndStats(env, matchId, homeTeamId, awayTeamId, info, fifaMatchId, {
+    translateCommentary: translationState.needsCommentary,
+  });
 }
 
 export async function shouldSyncFifaBlogAndStats(

@@ -1,6 +1,6 @@
 import type { AppEnv } from '../env';
 import { parseEnv } from '../env';
-import { resolveMatchRef } from './matchRef';
+import { resolveMatchRef, type MatchWithSlug } from './matchRef';
 import { syncFifaMatchByRef } from '../ingestion/fifa/fifaLiveSync';
 import { shouldSyncFifaBlogAndStats, ensureFifaBlogAndStats } from '../ingestion/fifa/fifaLiveBlogSync';
 import { loadTeamMatchStatsCompleteness } from '../ingestion/fifa/teamMatchStatsComplete';
@@ -40,43 +40,16 @@ export type MatchRecapPayload = {
   playerStats: PlayerMatchStatRow[];
 };
 
-export async function getMatchRecap(env: AppEnv, ref: string): Promise<MatchRecapPayload | null> {
-  const resolved = await resolveMatchRef(env.DB, ref);
-  if (!resolved) return null;
+export type GetMatchRecapOptions = {
+  /** Cloudflare waitUntil — FIFA sync runs in background instead of blocking the response. */
+  waitUntil?: (promise: Promise<unknown>) => void;
+};
 
+async function loadRecapPayloadFromDb(
+  env: AppEnv,
+  resolved: MatchWithSlug,
+): Promise<MatchRecapPayload | null> {
   const matchId = resolved.id;
-
-  if (parseEnv(env).fifaLiveEnabled || !parseEnv(env).mockSources) {
-    const statsIncomplete =
-      (resolved.status === 'live' || resolved.status === 'completed') &&
-      !(await loadTeamMatchStatsCompleteness(
-        env.DB,
-        matchId,
-        resolved.home_team_id,
-        resolved.away_team_id,
-      )).complete;
-    const needsBlogStatsSync =
-      (resolved.status === 'live' || resolved.status === 'completed') &&
-      (statsIncomplete ||
-        (await shouldSyncFifaBlogAndStats(
-          env,
-          matchId,
-          resolved.status,
-          resolved.home_team_id,
-          resolved.away_team_id,
-        )));
-    if (needsBlogStatsSync) {
-      await syncFifaMatchByRef(env, matchId).catch(() => undefined);
-    }
-    await ensureFifaBlogAndStats(
-      env,
-      matchId,
-      resolved.home_team_id,
-      resolved.away_team_id,
-      resolved.fifa_match_id,
-      resolved.status,
-    ).catch(() => undefined);
-  }
 
   const [recap, commentaryRows, playerRows] = await Promise.all([
     env.DB.prepare(
@@ -164,4 +137,59 @@ export async function getMatchRecap(env: AppEnv, ref: string): Promise<MatchReca
       redCards: r.red_cards,
     })),
   };
+}
+
+async function refreshFifaRecapIfNeeded(env: AppEnv, resolved: ResolvedMatchRef): Promise<void> {
+  const matchId = resolved.id;
+  const statsIncomplete =
+    (resolved.status === 'live' || resolved.status === 'completed') &&
+    !(await loadTeamMatchStatsCompleteness(
+      env.DB,
+      matchId,
+      resolved.home_team_id,
+      resolved.away_team_id,
+    )).complete;
+  const needsBlogStatsSync =
+    (resolved.status === 'live' || resolved.status === 'completed') &&
+    (statsIncomplete ||
+      (await shouldSyncFifaBlogAndStats(
+        env,
+        matchId,
+        resolved.status,
+        resolved.home_team_id,
+        resolved.away_team_id,
+      )));
+  if (needsBlogStatsSync) {
+    await syncFifaMatchByRef(env, matchId).catch(() => undefined);
+  }
+  await ensureFifaBlogAndStats(
+    env,
+    matchId,
+    resolved.home_team_id,
+    resolved.away_team_id,
+    resolved.fifa_match_id,
+    resolved.status,
+  ).catch(() => undefined);
+}
+
+export async function getMatchRecap(
+  env: AppEnv,
+  ref: string,
+  opts?: GetMatchRecapOptions,
+): Promise<MatchRecapPayload | null> {
+  const resolved = await resolveMatchRef(env.DB, ref);
+  if (!resolved) return null;
+
+  const payload = await loadRecapPayloadFromDb(env, resolved);
+
+  if (parseEnv(env).fifaLiveEnabled || !parseEnv(env).mockSources) {
+    const work = refreshFifaRecapIfNeeded(env, resolved);
+    if (opts?.waitUntil) {
+      opts.waitUntil(work);
+    } else {
+      await work;
+    }
+  }
+
+  return payload;
 }

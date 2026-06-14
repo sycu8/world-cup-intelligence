@@ -200,7 +200,9 @@ matchRoutes.get('/:matchId/stats', async (c) => {
 });
 
 matchRoutes.get('/:matchId/recap', async (c) => {
-  const data = await getMatchRecap(c.env, c.req.param('matchId'));
+  const data = await getMatchRecap(c.env, c.req.param('matchId'), {
+    waitUntil: (promise) => c.executionCtx.waitUntil(promise),
+  });
   if (!data) return c.json({ error: 'Not found' }, 404);
   return c.json({ data });
 });

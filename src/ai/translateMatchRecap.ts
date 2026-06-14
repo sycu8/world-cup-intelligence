@@ -100,16 +100,37 @@ export async function translateMatchRecapText(
   return null;
 }
 
-/** Translate commentary lines; returns parallel array (null keeps English fallback). */
+const COMMENTARY_TRANSLATE_CONCURRENCY = 8;
+
+async function mapConcurrent<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (!items.length) return [];
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const i = nextIndex++;
+      results[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+/** Translate commentary lines in parallel; reuse cached Vietnamese when provided. */
 export async function translateCommentaryLines(
   env: AppEnv,
   linesEn: string[],
+  existingVi?: (string | null | undefined)[],
 ): Promise<string[]> {
-  const out: string[] = [];
-  for (const line of linesEn) {
-    const vi = await translateMatchRecapText(env, line, 480);
-    out.push(vi ?? line);
-  }
+  const out = await mapConcurrent(linesEn, COMMENTARY_TRANSLATE_CONCURRENCY, async (line, i) => {
+    const cached = existingVi?.[i]?.trim();
+    if (cached && isLikelyVietnamese(cached, line)) return cached;
+    return (await translateMatchRecapText(env, line, 480)) ?? line;
+  });
   if (out.some((vi, i) => vi !== linesEn[i] && isLikelyVietnamese(vi, linesEn[i]))) {
     logInfo('fifa commentary translated to Vietnamese', { lines: out.length });
   }
