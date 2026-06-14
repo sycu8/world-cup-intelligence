@@ -104,7 +104,9 @@ publicApiRoutes.get('/matches', async (c) => {
 });
 
 publicApiRoutes.get('/matches/:ref/snapshot', async (c) => {
-  const snapshot = await getMatchSnapshot(c.env, c.req.param('ref'));
+  const snapshot = await getMatchSnapshot(c.env, c.req.param('ref'), {
+    waitUntil: (promise) => c.executionCtx.waitUntil(promise),
+  });
   if (!snapshot) return c.json({ error: 'Not found' }, 404);
   return c.json({ data: snapshot });
 });

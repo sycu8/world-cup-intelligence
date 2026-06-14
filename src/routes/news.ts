@@ -295,10 +295,8 @@ newsRoutes.get('/:docId', async (c) => {
 
   if (!row) return c.json({ error: 'Not found' }, 404);
 
-  const patched = await ensureNewsArticleTranslated(c.env, row);
-  if (patched) {
-    row.title_vi = patched.title_vi;
-    row.summary_vi = patched.summary_vi;
+  if (needsNewsTranslation(row)) {
+    c.executionCtx.waitUntil(ensureNewsArticleTranslated(c.env, row).catch(() => undefined));
   }
 
   const article = mapArticle(row);

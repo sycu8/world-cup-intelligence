@@ -26,15 +26,24 @@ export type MatchSnapshotPayload = {
   eventsCount: number;
 };
 
-export async function getMatchSnapshot(env: AppEnv, ref: string): Promise<MatchSnapshotPayload | null> {
+export type GetMatchSnapshotOptions = {
+  waitUntil?: (promise: Promise<unknown>) => void;
+};
+
+export async function getMatchSnapshot(
+  env: AppEnv,
+  ref: string,
+  opts?: GetMatchSnapshotOptions,
+): Promise<MatchSnapshotPayload | null> {
   const resolved = await resolveMatchRef(env.DB, ref);
   if (!resolved) return null;
 
   const matchId = resolved.id;
+  const waitUntil = opts?.waitUntil;
 
   const [stats, recap, events] = await Promise.all([
-    getMatchStats(env, ref).catch(() => null),
-    getMatchRecap(env, ref).catch(() => null),
+    getMatchStats(env, ref, { waitUntil }).catch(() => null),
+    getMatchRecap(env, ref, { waitUntil }).catch(() => null),
     eventsRepo.getMatchEvents(env.DB, matchId).catch(() => []),
   ]);
 

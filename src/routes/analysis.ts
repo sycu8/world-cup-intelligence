@@ -22,15 +22,19 @@ analysisRoutes.get('/:matchId', async (c) => {
   const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
   if (!resolved) return c.json({ error: 'Not found' }, 404);
   const matchId = resolved.id;
-  let analysis = await getCachedAnalysis(c.env, matchId);
-  if (!analysis && isGatewayConfigured(c.env)) {
-    analysis = await runMultiVariableAnalysis(c.env, matchId);
-  }
-  if (!analysis) {
+  const analysis = await getCachedAnalysis(c.env, matchId);
+  if (analysis) return c.json({ data: analysis });
+
+  if (isGatewayConfigured(c.env)) {
+    c.executionCtx.waitUntil(runMultiVariableAnalysis(c.env, matchId).catch(() => undefined));
     return c.json({
       data: null,
-      meta: { gatewayConfigured: isGatewayConfigured(c.env), status: 'pending_or_unconfigured' },
+      meta: { gatewayConfigured: true, status: 'pending' },
     });
   }
-  return c.json({ data: analysis });
+
+  return c.json({
+    data: null,
+    meta: { gatewayConfigured: false, status: 'pending_or_unconfigured' },
+  });
 });

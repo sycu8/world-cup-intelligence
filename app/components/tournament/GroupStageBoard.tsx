@@ -362,7 +362,12 @@ export function GroupStageBoard({
     const load = (showLoading: boolean) => {
       if (showLoading) setGroupLoading(true);
 
-      Promise.all([api.tournamentStandings(2026), api.tournamentMatchProbabilities(2026)])
+      Promise.all([
+        api.tournamentStandings(2026),
+        hasInitialProbs
+          ? Promise.resolve({ data: initialProbs })
+          : api.tournamentMatchProbabilities(2026),
+      ])
         .then(([s, p]) => {
           if (!cancelled) {
             setStandings(s.data);
@@ -389,7 +394,7 @@ export function GroupStageBoard({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [mainTab, hasInitialBoard]);
+  }, [mainTab, hasInitialBoard, hasInitialProbs, initialProbs]);
 
   useEffect(() => {
     if (mainTab !== 'knockout') return;
