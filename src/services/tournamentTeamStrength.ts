@@ -4,7 +4,7 @@ import type { TeamRow } from '../db/schema';
 import { lineupModifier } from '../models/probability/playerAvailability';
 import { isWc2026HostTeam } from '../models/probability/matchContext';
 import { applyEffectiveTeamProfile } from './teamProfile';
-import { getTeamHistoricalFormSnapshot } from './teamFormStats';
+import { loadHistoricalFormForTeams } from './teamFormStats';
 import { buildLineupFeaturesFromPlayers } from './lineupFeatures';
 
 export type TeamStrengthProfile = {
@@ -53,13 +53,7 @@ export async function loadTeamStrengthProfiles(
   const db = env.DB;
   const profiles: Record<string, TeamStrengthProfile> = {};
   const teamIds = teams.map((t) => t.id);
-
-  const formByTeam = new Map<string, Awaited<ReturnType<typeof getTeamHistoricalFormSnapshot>>>();
-  await Promise.all(
-    teamIds.map(async (teamId) => {
-      formByTeam.set(teamId, await getTeamHistoricalFormSnapshot(db, teamId, 8, WC2026_TOURNAMENT_ID));
-    }),
-  );
+  const formByTeam = await loadHistoricalFormForTeams(db, teamIds, 8, WC2026_TOURNAMENT_ID);
 
   const firstLineupByTeam = new Map<string, { id: string; formation: string; isOfficial: boolean }>();
   if (teamIds.length) {

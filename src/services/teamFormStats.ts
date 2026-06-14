@@ -51,6 +51,48 @@ export async function getTeamFormSnapshot(
 }
 
 /** Form from completed matches before the live tournament (historical + pre-WC). */
+/** Batch historical form for many teams (single D1 round-trip). */
+export async function loadHistoricalFormForTeams(
+  db: D1Database,
+  teamIds: string[],
+  limitPerTeam = 8,
+  excludeTournamentId = 't-2026',
+): Promise<Map<string, TeamFormSnapshot>> {
+  const out = new Map<string, TeamFormSnapshot>();
+  if (!teamIds.length) return out;
+
+  const placeholders = teamIds.map(() => '?').join(',');
+  const { results } = await db
+    .prepare(
+      `SELECT home_team_id, away_team_id, home_score, away_score, home_xg, away_xg, kickoff_utc
+       FROM matches
+       WHERE status = 'completed'
+         AND tournament_id != ?
+         AND (home_team_id IN (${placeholders}) OR away_team_id IN (${placeholders}))
+       ORDER BY kickoff_utc DESC`,
+    )
+    .bind(excludeTournamentId, ...teamIds, ...teamIds)
+    .all<MatchRow & { kickoff_utc: string }>();
+
+  const rowsByTeam = new Map<string, MatchRow[]>();
+  for (const row of results ?? []) {
+    for (const teamId of [row.home_team_id, row.away_team_id]) {
+      if (!teamIds.includes(teamId)) continue;
+      const bucket = rowsByTeam.get(teamId) ?? [];
+      if (bucket.length >= limitPerTeam) continue;
+      bucket.push(row);
+      rowsByTeam.set(teamId, bucket);
+    }
+  }
+
+  for (const teamId of teamIds) {
+    const snapshot = buildFormSnapshotFromRows(rowsByTeam.get(teamId) ?? [], teamId);
+    if (snapshot) out.set(teamId, snapshot);
+  }
+
+  return out;
+}
+
 export async function getTeamHistoricalFormSnapshot(
   db: D1Database,
   teamId: string,
