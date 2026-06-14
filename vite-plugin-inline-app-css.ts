@@ -29,7 +29,7 @@ export function inlineAppCss(clientOutDir = 'dist/client'): Plugin {
           match[0],
           `<style id="app-css">${css}</style>\n`,
         );
-        fs.unlinkSync(cssPath);
+        // Keep the extracted .css file — lazy chunks still preload it via Vite's CSS map.
 
         const jsMatch = out.match(
           /<script type="module" crossorigin src="(\/assets\/[^"]+\.js)"><\/script>/,
