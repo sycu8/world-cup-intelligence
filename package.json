@@ -13,6 +13,7 @@
     "build": "vite build",
     "pull:statsbomb": "node scripts/pull-statsbomb-open-data.mjs",
     "pull:statsbomb:local": "node scripts/pull-statsbomb-open-data.mjs --local",
+    "sync:fifa-schedule": "node scripts/fetch-fifa-wc2026-calendar.mjs && node scripts/generate-fifa-kickoff-migration.mjs && node scripts/generate-fifa-results-migration.mjs",
     "test": "vitest run",
     "lint": "eslint src app --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",

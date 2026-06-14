@@ -3,7 +3,7 @@
  * @see https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/match-schedule-fixtures-results-teams-stadiums
  */
 import { nationMeta } from './nationIsoCodes.mjs';
-import { kickoffUtcForFifaNumber } from './wc2026-vn-kickoffs.mjs';
+import { fifaMatchIdForFifaNumber, kickoffUtcForFifaNumber } from './wc2026-fifa-kickoffs.mjs';
 
 /** @typedef {{ name: string; short: string; iso: string; confederation: string }} TeamMeta */
 
@@ -296,24 +296,26 @@ export const KNOCKOUT_MATCHES = [
 ];
 
 /**
- * Assign kickoff UTC from Thể Thao 247 Vietnam schedule (GMT+7).
+ * Assign kickoff UTC from FIFA Match Centre calendar (UTC).
  * @param {typeof GROUP_STAGE_MATCHES} matches
  */
 export function assignGroupKickoffs(matches) {
   return matches.map((m) => ({
     ...m,
     kickoffUtc: kickoffUtcForFifaNumber(m.fifaNumber),
+    fifaMatchId: fifaMatchIdForFifaNumber(m.fifaNumber),
   }));
 }
 
 /**
- * Knockout kickoffs from VN schedule table (matches 73–104).
+ * Knockout kickoffs from FIFA calendar (matches 73–104).
  * @param {typeof KNOCKOUT_MATCHES} matches
  */
 export function assignKnockoutKickoffs(matches) {
   return matches.map((m) => ({
     ...m,
     kickoffUtc: kickoffUtcForFifaNumber(m.fifaNumber),
+    fifaMatchId: fifaMatchIdForFifaNumber(m.fifaNumber),
   }));
 }
 

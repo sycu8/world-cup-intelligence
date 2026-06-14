@@ -1,17 +1,12 @@
 /**
- * WC 2026 kickoff times in Vietnam (GMT+7) — source: Thể Thao 247
- * @see https://thethao247.vn/world-cup/426-lich-thi-dau-world-cup-2026-d399919.html
+ * Vietnam timezone helpers for WC 2026 kickoff display.
+ * Kickoff UTC values come from FIFA Match Centre via wc2026-fifa-kickoffs.mjs.
  */
-import vnKickoffs from './wc2026-vn-kickoffs.json' with { type: 'json' };
+export { kickoffUtcForFifaNumber } from './wc2026-fifa-kickoffs.mjs';
 
 export const VIETNAM_TZ = 'Asia/Ho_Chi_Minh';
 export const VN_KICKOFF_SOURCE =
-  'https://thethao247.vn/world-cup/426-lich-thi-dau-world-cup-2026-d399919.html';
-
-/** @typedef {{ fifaNumber: number; vnDate: string; vnTime: string }} VnKickoffRow */
-
-/** @type {Map<number, VnKickoffRow>} */
-const byFifaNumber = new Map(vnKickoffs.map((row) => [row.fifaNumber, row]));
+  'https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures';
 
 /**
  * Parse dd/mm or dd/mm/yyyy + HH:mm (Vietnam local) → ISO UTC.
@@ -30,22 +25,4 @@ export function vnKickoffToUtc(vnDate, vnTime) {
   // Vietnam is UTC+7 year-round.
   const utcMs = Date.UTC(year, month - 1, day, hh - 7, mm, 0);
   return new Date(utcMs).toISOString().replace('.000Z', 'Z');
-}
-
-/** @param {number} fifaNumber 1–104 */
-export function kickoffUtcForFifaNumber(fifaNumber) {
-  const row = byFifaNumber.get(fifaNumber);
-  if (!row) {
-    throw new Error(`Missing VN kickoff for FIFA match #${fifaNumber}`);
-  }
-  return vnKickoffToUtc(row.vnDate, row.vnTime);
-}
-
-/** @returns {VnKickoffRow[]} */
-export function allVnKickoffs() {
-  return [...vnKickoffs].sort((a, b) => a.fifaNumber - b.fifaNumber);
-}
-
-if (byFifaNumber.size !== 104) {
-  throw new Error(`Expected 104 VN kickoffs, got ${byFifaNumber.size}`);
 }
