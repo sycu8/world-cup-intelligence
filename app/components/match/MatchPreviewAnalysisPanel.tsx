@@ -2,6 +2,7 @@ import type { MatchPreviewAnalysis } from '../../lib/api';
 import { SectionLabel } from '../tactical/SectionLabel';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { pickLocalized, type LocalizedString } from '../../lib/briefingText';
+import { pct } from '../../lib/format';
 import { formatKickoffDateTime, getViewerLocale } from '../../lib/matchKickoffDisplay';
 import { formatMatchVersus } from '../../lib/matchTeams';
 import { matchVersusSeparator } from '../../lib/i18n/stageLabels';

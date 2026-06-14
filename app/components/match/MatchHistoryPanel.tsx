@@ -216,7 +216,7 @@ export function MatchHistoryPanel({
         <div className="space-y-3 border-t border-border/40 pt-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <Bilingual k="match.recentWcTitle" as="h4" className="text-sm font-semibold uppercase tracking-wider text-pressing" />
+              <Bilingual k="match.recentWcTitle" as="h3" className="text-sm font-semibold uppercase tracking-wider text-pressing" />
               <DataKindBadge kind="actual" compact />
             </div>
             <p className="mt-1 text-xs text-muted">{t('match.recentWcHint')}</p>
