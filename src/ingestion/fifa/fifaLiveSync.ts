@@ -23,6 +23,7 @@ import {
   syncFifaMatchBlogAndStats,
   shouldSyncFifaBlogAndStats,
   backfillIncompleteFifaMatchStats,
+  backfillMissingFifaRecaps,
 } from './fifaLiveBlogSync';
 import { syncFifaMatchLineupsFromInfo, shouldSyncFifaLineupForKickoff } from './fifaLineupSync';
 import { FIFA_SOURCE_ID, WC2026_TOURNAMENT_ID } from './constants';
@@ -455,6 +456,10 @@ export async function syncFifaWc2026Matches(env: AppEnv): Promise<FifaSyncResult
 
   await backfillIncompleteFifaMatchStats(env, 4).catch((e) => {
     logError('fifa stats backfill batch failed', { error: String(e) });
+  });
+
+  await backfillMissingFifaRecaps(env, 4).catch((e) => {
+    logError('fifa recap backfill batch failed', { error: String(e) });
   });
 
   logInfo('fifa wc2026 sync complete', {
