@@ -41,6 +41,8 @@ import { Bilingual } from '../components/i18n/Bilingual';
 import { derivePlayerImpact, defaultContributionSegments } from '../lib/derivePlayerImpact';
 import { resolveTeamDisplayName } from '../lib/matchTeams';
 import { useMatchLiveData } from '../lib/useMatchLiveData';
+import { useMatchProbabilityMovement } from '../lib/useMatchProbabilityMovement';
+import { deferNonCritical } from '../lib/deferNonCritical';
 import { adjustProbabilities } from '../lib/simulator';
 import { pct } from '../lib/format';
 import { pickLocalized } from '../lib/briefingText';
@@ -97,6 +99,10 @@ export function MatchPage() {
   };
 
   const { match, prob, loadError } = useMatchLiveData(matchId);
+  const { movement: probMovement, loading: probMovementLoading } = useMatchProbabilityMovement(
+    matchId,
+    prob,
+  );
   const { data: pitchMap, loading: pitchLoading } = usePitchMapLive(matchId, match?.status === 'live');
   useLegacyMatchRedirect(matchId, match?.slug, matchPagePath);
 
@@ -105,7 +111,7 @@ export function MatchPage() {
   useEffect(() => {
     if (!matchId) return;
     setNotFound(false);
-    api.matchBriefing(matchId).then((r) => setBriefing(r.data)).catch(() => setBriefing(null));
+
     api.matchEvents(matchId).then((r) => setEvents(r.data as typeof events));
     api.matchHistory(matchId).then((r) => {
       setHistory(r.data.worldCupHistory ?? r.data.history);
@@ -125,19 +131,45 @@ export function MatchPage() {
       .then((r) => setPreview(r.data))
       .catch(() => setPreview(null))
       .finally(() => setPreviewLoading(false));
-    setAnalysisLoading(true);
-    api
-      .matchAnalysis(matchId)
-      .then((r) => setAnalysis(r.data))
-      .catch(() => setAnalysis(null))
-      .finally(() => setAnalysisLoading(false));
-    setIntelLoading(true);
-    Promise.all([
-      api.matchTeamSystem(matchId).then((r) => setTeamSystem(r.data)).catch(() => setTeamSystem(null)),
-      api.matchScenarios(matchId).then((r) => setScenarios(r.data)).catch(() => setScenarios(null)),
-      api.matchScenarioPredictions(matchId).then((r) => setScenarioPredictions(r.data)).catch(() => setScenarioPredictions(null)),
-      api.matchMarketSignals(matchId).then((r) => setMarketSignals(r.data)).catch(() => setMarketSignals(null)),
-    ]).finally(() => setIntelLoading(false));
+
+    deferNonCritical(() => {
+      api.matchBriefing(matchId).then((r) => setBriefing(r.data)).catch(() => setBriefing(null));
+
+      const pollAnalysis = (attempt = 0) => {
+        api
+          .matchAnalysis(matchId)
+          .then((r) => {
+            if (r.data) {
+              setAnalysis(r.data);
+              setAnalysisLoading(false);
+              return;
+            }
+            if (attempt < 4) {
+              setTimeout(() => pollAnalysis(attempt + 1), 4000);
+              return;
+            }
+            setAnalysis(null);
+            setAnalysisLoading(false);
+          })
+          .catch(() => {
+            setAnalysis(null);
+            setAnalysisLoading(false);
+          });
+      };
+      setAnalysisLoading(true);
+      pollAnalysis();
+
+      setIntelLoading(true);
+      Promise.all([
+        api.matchTeamSystem(matchId).then((r) => setTeamSystem(r.data)).catch(() => setTeamSystem(null)),
+        api.matchScenarios(matchId).then((r) => setScenarios(r.data)).catch(() => setScenarios(null)),
+        api
+          .matchScenarioPredictions(matchId)
+          .then((r) => setScenarioPredictions(r.data))
+          .catch(() => setScenarioPredictions(null)),
+        api.matchMarketSignals(matchId).then((r) => setMarketSignals(r.data)).catch(() => setMarketSignals(null)),
+      ]).finally(() => setIntelLoading(false));
+    });
   }, [matchId]);
 
   useEffect(() => {
@@ -428,6 +460,7 @@ export function MatchPage() {
             matchId={matchId}
             prob={prob}
             currentMinute={match.minute ?? 0}
+            movement={probMovement}
           />
         )}
       </section>
@@ -438,6 +471,8 @@ export function MatchPage() {
             matchId={matchId}
             homeWin={displayProb?.homeWin}
             awayWin={displayProb?.awayWin}
+            movement={probMovement}
+            movementLoading={probMovementLoading}
           />
         )}
       </section>

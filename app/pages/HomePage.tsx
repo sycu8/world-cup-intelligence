@@ -14,7 +14,9 @@ import { useI18n } from '../lib/i18n/I18nContext';
 const HomeNewsPreview = lazy(() =>
   import('../components/home/HomeNewsPreview').then((m) => ({ default: m.HomeNewsPreview })),
 );
-import { GroupStageBoard } from '../components/tournament/GroupStageBoard';
+const GroupStageBoard = lazy(() =>
+  import('../components/tournament/GroupStageBoard').then((m) => ({ default: m.GroupStageBoard })),
+);
 
 const REFRESH_MS = 30_000;
 const WC2026_START = '2026-06-11T14:00:00Z';
@@ -99,11 +101,13 @@ export function HomePage() {
       ) : (
         <>
           <NewUserQuickStart />
-          <GroupStageBoard
-            matches={matches}
-            initialStandings={standings}
-            initialProbs={matchProbabilities}
-          />
+          <Suspense fallback={<SectionFallback className="min-h-[24rem]" />}>
+            <GroupStageBoard
+              matches={matches}
+              initialStandings={standings}
+              initialProbs={matchProbabilities}
+            />
+          </Suspense>
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-stretch">
             <div className="flex flex-col gap-4">
               <WorldCupCountdown targetUtc={tournamentStart} />

@@ -139,7 +139,7 @@ async function loadRecapPayloadFromDb(
   };
 }
 
-async function refreshFifaRecapIfNeeded(env: AppEnv, resolved: ResolvedMatchRef): Promise<void> {
+async function refreshFifaRecapIfNeeded(env: AppEnv, resolved: MatchWithSlug): Promise<void> {
   const matchId = resolved.id;
   const statsIncomplete =
     (resolved.status === 'live' || resolved.status === 'completed') &&

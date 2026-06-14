@@ -6,7 +6,7 @@ import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import * as tournamentsRepo from '../db/repositories/tournamentsRepo';
 import { computeProbability } from '../models/probability/engine';
 import { buildMatchFeaturesWithForm } from '../services/matchFeatures';
-import { generateTacticalBriefing } from '../ai/tacticalBriefing';
+import { generateTacticalBriefing, getCachedBriefing, fallbackBriefing } from '../ai/tacticalBriefing';
 import { parseEnv } from '../env';
 
 export const probabilityRoutes = new Hono<{ Bindings: AppEnv }>();
@@ -158,10 +158,17 @@ probabilityRoutes.get('/:matchId/tactical-briefing', async (c) => {
   const resolved = await resolveProbability(c, matchId, recompute);
   if (!resolved) return c.json({ error: 'Not found' }, 404);
   const config = parseEnv(c.env);
-  const briefing = await generateTacticalBriefing(c.env, {
+
+  const cached = await getCachedBriefing(c.env, matchId);
+  if (cached) return c.json({ data: cached });
+
+  const input = {
     matchId,
     probability: resolved.data,
     aiFallback: config.aiFallback,
-  });
-  return c.json({ data: briefing });
+  };
+  const instant = fallbackBriefing(input);
+  c.executionCtx.waitUntil(generateTacticalBriefing(c.env, input).catch(() => undefined));
+
+  return c.json({ data: instant });
 });

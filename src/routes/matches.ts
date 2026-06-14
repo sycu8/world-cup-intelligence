@@ -19,6 +19,10 @@ import { getMatchThumbnailPng, getMatchThumbnailSvg } from '../services/matchThu
 
 export const matchRoutes = new Hono<{ Bindings: AppEnv }>();
 
+const scheduleBackground: (c: { executionCtx: { waitUntil: (p: Promise<unknown>) => void } }) => (
+  promise: Promise<unknown>,
+) => void = (c) => (promise) => c.executionCtx.waitUntil(promise);
+
 async function loadMatch(c: { env: AppEnv; req: { param: (k: string) => string } }) {
   const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
   return resolved;
@@ -61,9 +65,7 @@ matchRoutes.get('/:matchId', async (c) => {
 
   const cfg = parseEnv(c.env);
   if ((cfg.fifaLiveEnabled || !cfg.mockSources) && (await shouldSyncFifaMatch(c.env, resolved.id, resolved.status))) {
-    await syncFifaMatchByRef(c.env, resolved.id).catch(() => undefined);
-    const fresh = await loadMatch(c);
-    return c.json({ data: fresh ?? resolved });
+    scheduleBackground(c)(syncFifaMatchByRef(c.env, resolved.id).catch(() => undefined));
   }
 
   return c.json({ data: resolved });
@@ -87,7 +89,7 @@ matchRoutes.get('/:matchId/lineups', async (c) => {
   ]);
   if (!homeTeam || !awayTeam) return c.json({ error: 'Teams not found' }, 404);
 
-  await ensureMatchLineups(c.env, matchId);
+  ensureMatchLineups(c.env, matchId, { waitUntil: scheduleBackground(c) });
 
   const [homeDisplay, awayDisplay, raw] = await Promise.all([
     getLineupDisplayForMatch(c.env, matchId, homeTeam.id, homeTeam.name),
@@ -136,7 +138,7 @@ matchRoutes.get('/:matchId/history', async (c) => {
 matchRoutes.get('/:matchId/pitch-map', async (c) => {
   const resolved = await loadMatch(c);
   if (!resolved) return c.json({ error: 'Not found' }, 404);
-  const data = await getPitchMapPayload(c.env, resolved.id);
+  const data = await getPitchMapPayload(c.env, resolved.id, { waitUntil: scheduleBackground(c) });
   if (!data) return c.json({ error: 'Not found' }, 404);
   return c.json({ data });
 });
@@ -144,7 +146,7 @@ matchRoutes.get('/:matchId/pitch-map', async (c) => {
 matchRoutes.get('/:matchId/preview', async (c) => {
   const resolved = await loadMatch(c);
   if (!resolved) return c.json({ error: 'Not found' }, 404);
-  const data = await getMatchPreviewAnalysis(c.env, resolved.id);
+  const data = await getMatchPreviewAnalysis(c.env, resolved.id, { waitUntil: scheduleBackground(c) });
   if (!data) return c.json({ error: 'Not found' }, 404);
   return c.json({ data: { ...data, slug: resolved.slug } });
 });
@@ -194,15 +196,13 @@ matchRoutes.get('/:matchId/hints', async (c) => {
 });
 
 matchRoutes.get('/:matchId/stats', async (c) => {
-  const data = await getMatchStats(c.env, c.req.param('matchId'));
+  const data = await getMatchStats(c.env, c.req.param('matchId'), { waitUntil: scheduleBackground(c) });
   if (!data) return c.json({ error: 'Not found' }, 404);
   return c.json({ data });
 });
 
 matchRoutes.get('/:matchId/recap', async (c) => {
-  const data = await getMatchRecap(c.env, c.req.param('matchId'), {
-    waitUntil: (promise) => c.executionCtx.waitUntil(promise),
-  });
+  const data = await getMatchRecap(c.env, c.req.param('matchId'), { waitUntil: scheduleBackground(c) });
   if (!data) return c.json({ error: 'Not found' }, 404);
   return c.json({ data });
 });

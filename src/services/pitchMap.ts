@@ -243,14 +243,28 @@ function buildSide(
   };
 }
 
-export async function getPitchMapPayload(env: AppEnv, ref: string): Promise<PitchMapPayload | null> {
+export type GetPitchMapOptions = {
+  /** Cloudflare waitUntil — FIFA score/lineup sync runs in background instead of blocking. */
+  waitUntil?: (promise: Promise<unknown>) => void;
+};
+
+export async function getPitchMapPayload(
+  env: AppEnv,
+  ref: string,
+  opts?: GetPitchMapOptions,
+): Promise<PitchMapPayload | null> {
   const resolved = await resolveMatchRef(env.DB, ref);
   if (!resolved) return null;
 
   const matchId = resolved.id;
   const cfg = parseEnv(env);
   if ((cfg.fifaLiveEnabled || !cfg.mockSources) && (await shouldSyncFifaMatch(env, matchId, resolved.status))) {
-    await syncFifaMatchByRef(env, matchId).catch(() => undefined);
+    const work = syncFifaMatchByRef(env, matchId).catch(() => undefined);
+    if (opts?.waitUntil) {
+      opts.waitUntil(work);
+    } else {
+      await work;
+    }
   }
 
   const lineupRows = await loadLineupRows(env, matchId);
