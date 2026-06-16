@@ -28,6 +28,7 @@ homeRoutes.get('/', async (c) => {
     buildGroupStandingsPayload(c.env),
     buildTournamentMatchProbabilitiesPayload(c.env, WC2026_TOURNAMENT_ID, {
       scheduleBackgroundFill: false,
+      inlineFill: false,
     }),
     getChampionOddsForHome(c.env, c.executionCtx),
   ]);

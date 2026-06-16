@@ -53,6 +53,7 @@ tournamentRoutes.get('/:year/match-probabilities', async (c) => {
   if (year !== 2026) return c.json({ error: 'Not found' }, 404);
   const payload = await buildTournamentMatchProbabilitiesPayload(c.env, WC2026_TOURNAMENT_ID, {
     scheduleBackgroundFill: false,
+    inlineFill: false,
   });
   if (payload.meta.missingIds.length > 0) {
     c.executionCtx.waitUntil(
