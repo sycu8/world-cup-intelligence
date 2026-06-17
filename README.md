@@ -24,7 +24,7 @@ Demo live: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-b
 | Hạng mục | Thay đổi |
 |----------|----------|
 | **Trang trận** | Sửa crash thiếu import `MatchAnalyticsPanel`; trang hiển thị đầy đủ sau khi API trả dữ liệu. |
-| **Thống kê trận (`MatchLiveStatsPanel`)** | Layout 3 cột căn giữa, bar possession, highlight số cao hơn; footer nguồn/cập nhật căn giữa. |
+| **Thống kê trận (`MatchLiveStatsPanel`)** | Layout mobile-first: nhãn chỉ số ở giữa, số hai đội hai cột; bar possession full-width; tên đội rút gọn trên mobile. |
 | **Nhãn dự đoán** | Bỏ dấu `~` trên xác suất/xG/tỉ số dự đoán; giữ `●` (thực tế) và `≈` (giả lập). Component `DataKindBadge` / `DataKindMark`. |
 | **Pitch map** | `GET /api/matches/:ref/pitch-map` — sơ đồ sân, lineup live, rating, movement vectors (`PitchMap`, migration `0028`). |
 | **Recap & staff** | Tóm tắt trận FIFA (`MatchRecapPanel`), HLV/trọng tài (`MatchStaffPanel`, migration `0025`). |
