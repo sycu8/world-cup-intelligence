@@ -6,11 +6,13 @@
   html {
     font-size: 17px;
     -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
   }
 
   body {
     margin: 0;
     min-height: 100vh;
+    overflow-x: hidden;
     font-family: 'Be Vietnam Pro', system-ui, sans-serif;
     font-size: 1rem;
     line-height: 1.65;
@@ -46,15 +48,15 @@
 
 @layer components {
   .panel {
-    @apply rounded-card border border-border bg-panel p-5 shadow-tactical backdrop-blur-sm;
+    @apply rounded-card border border-border bg-panel p-4 shadow-tactical backdrop-blur-sm sm:p-5;
   }
 
   .panel-dense {
-    @apply rounded-card border border-border bg-panel p-4 shadow-tactical backdrop-blur-sm;
+    @apply rounded-card border border-border bg-panel p-3 shadow-tactical backdrop-blur-sm sm:p-4;
   }
 
   .panel-elevated {
-    @apply rounded-panel border border-border bg-panel2 p-6 shadow-elevated backdrop-blur-sm;
+    @apply rounded-panel border border-border bg-panel2 p-4 shadow-elevated backdrop-blur-sm sm:p-6;
   }
 
   .hero-glow {

@@ -43,6 +43,93 @@ function BoardTab({
   );
 }
 
+function BoardMatchRow({
+  match,
+  prob,
+  showDate = false,
+  dense = false,
+}: {
+  match: ScheduleMatch;
+  prob?: { homeWin: number; draw: number; awayWin: number };
+  showDate?: boolean;
+  dense?: boolean;
+}) {
+  const { t } = useI18n();
+  const showScore = hasMatchResult(match.status);
+
+  const kickoff = (
+    <time className="font-mono-data text-[10px] text-muted">
+      <MatchKickoffDisplay kickoffUtc={match.kickoff_utc} showDate={showDate} showLocalReference={false} />
+    </time>
+  );
+
+  const teams = (
+    <MatchTeamsWithFlags
+      homeName={match.home_name}
+      awayName={match.away_name}
+      homeShort={match.home_short}
+      awayShort={match.away_short}
+      homeCountryCode={match.home_country_code}
+      awayCountryCode={match.away_country_code}
+      separator="–"
+      flagClassName="h-2 w-3 rounded-sm object-cover ring-1 ring-white/10 sm:h-2.5 sm:w-4"
+    />
+  );
+
+  const scoreBlock = (
+    <span className="flex shrink-0 items-center justify-end gap-1">
+      {showScore ? (
+        <MatchResultScore
+          homeScore={match.home_score}
+          awayScore={match.away_score}
+          status={match.status}
+          variant={match.status === 'completed' || match.status === 'finished' ? 'badge' : 'compact'}
+        />
+      ) : (
+        <span className="font-mono-data text-[10px] text-muted/35">–</span>
+      )}
+      {match.status === 'live' && (
+        <span className="text-[9px] font-bold uppercase text-live">{t('common.live')}</span>
+      )}
+    </span>
+  );
+
+  const probBlock = <CompactMatchProb homeWin={prob?.homeWin} draw={prob?.draw} awayWin={prob?.awayWin} />;
+
+  return (
+    <Link
+      to={resolveMatchHref(match)}
+      className={`group block rounded-md transition hover:bg-pressing/10 ${
+        dense ? 'px-2 py-2 sm:px-3' : 'px-1 py-1.5'
+      }`}
+    >
+      <div className="flex flex-col gap-1 sm:hidden">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 shrink-0">{kickoff}</div>
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5">
+            {scoreBlock}
+            {probBlock}
+          </div>
+        </div>
+        <div className="min-w-0 text-[11px] leading-snug text-foreground/90">{teams}</div>
+      </div>
+
+      <div
+        className={`hidden items-center gap-x-2 sm:grid ${
+          showDate
+            ? 'grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] text-xs'
+            : 'grid-cols-[2.5rem_minmax(0,1fr)_auto_auto] text-[11px]'
+        }`}
+      >
+        {kickoff}
+        <span className="min-w-0 truncate font-medium text-foreground/90">{teams}</span>
+        {scoreBlock}
+        {probBlock}
+      </div>
+    </Link>
+  );
+}
+
 function GroupCard({
   code,
   standings,
@@ -131,53 +218,11 @@ function GroupCard({
       </table>
 
       <ul className="space-y-0.5 border-t border-border/40 pt-1.5">
-        {fixtures.map((m) => {
-          const prob = probs[m.id];
-          const showScore = hasMatchResult(m.status);
-
-          return (
-            <li key={m.id}>
-              <Link
-                to={resolveMatchHref(m)}
-                className="group grid grid-cols-[2.25rem_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 rounded-md px-1 py-1 text-[10px] transition hover:bg-pressing/10 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto_auto] sm:gap-x-2 sm:text-[11px]"
-              >
-                <time className="font-mono-data text-[9px] text-muted sm:text-[10px]">
-                  <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showLocalReference={false} />
-                </time>
-                <span className="min-w-0 truncate text-foreground/90">
-                  <MatchTeamsWithFlags
-                    homeName={m.home_name}
-                    awayName={m.away_name}
-                    homeShort={m.home_short}
-                    awayShort={m.away_short}
-                    homeCountryCode={m.home_country_code}
-                    awayCountryCode={m.away_country_code}
-                    separator="–"
-                    flagClassName="h-2 w-3 rounded-sm object-cover ring-1 ring-white/10 sm:h-2.5 sm:w-4"
-                  />
-                </span>
-                <span className="flex shrink-0 items-center justify-end gap-1">
-                  {showScore ? (
-                    <MatchResultScore
-                      homeScore={m.home_score}
-                      awayScore={m.away_score}
-                      status={m.status}
-                      variant={
-                        m.status === 'completed' || m.status === 'finished' ? 'badge' : 'compact'
-                      }
-                    />
-                  ) : (
-                    <span className="font-mono-data text-[10px] text-muted/35">–</span>
-                  )}
-                  {m.status === 'live' && (
-                    <span className="text-[9px] font-bold uppercase text-live">{t('common.live')}</span>
-                  )}
-                </span>
-                <CompactMatchProb homeWin={prob?.homeWin} draw={prob?.draw} awayWin={prob?.awayWin} />
-              </Link>
-            </li>
-          );
-        })}
+        {fixtures.map((m) => (
+          <li key={m.id}>
+            <BoardMatchRow match={m} prob={probs[m.id]} showDate />
+          </li>
+        ))}
       </ul>
     </div>
   );
@@ -208,49 +253,11 @@ function KnockoutRoundPanel({
 
   return (
     <ul className="divide-y divide-border/40 rounded-lg border border-border/50 bg-panel2/20">
-      {roundMatches.map((m) => {
-        const prob = probs[m.id];
-        const showScore = hasMatchResult(m.status);
-
-        return (
-          <li key={m.id}>
-            <Link
-              to={resolveMatchHref(m)}
-              className="group grid grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] items-center gap-x-2 px-2 py-2 text-xs transition hover:bg-pressing/5 sm:px-3"
-            >
-              <time className="font-mono-data text-[10px] text-muted">
-                <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showLocalReference={false} />
-              </time>
-              <span className="min-w-0 truncate font-medium">
-                <MatchTeamsWithFlags
-                  homeName={m.home_name}
-                  awayName={m.away_name}
-                  homeShort={m.home_short}
-                  awayShort={m.away_short}
-                  homeCountryCode={m.home_country_code}
-                  awayCountryCode={m.away_country_code}
-                  separator="–"
-                />
-              </span>
-              <span className="flex shrink-0 items-center justify-end">
-                {showScore ? (
-                  <MatchResultScore
-                    homeScore={m.home_score}
-                    awayScore={m.away_score}
-                    status={m.status}
-                    variant={
-                      m.status === 'completed' || m.status === 'finished' ? 'badge' : 'compact'
-                    }
-                  />
-                ) : (
-                  <span className="font-mono-data text-[11px] text-muted/35">–</span>
-                )}
-              </span>
-              <CompactMatchProb homeWin={prob?.homeWin} draw={prob?.draw} awayWin={prob?.awayWin} />
-            </Link>
-          </li>
-        );
-      })}
+      {roundMatches.map((m) => (
+        <li key={m.id}>
+          <BoardMatchRow match={m} prob={probs[m.id]} showDate dense />
+        </li>
+      ))}
     </ul>
   );
 }
@@ -270,14 +277,14 @@ function GroupStagePanel({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <p className="text-xs text-muted">{t('groupBoard.subtitle')}</p>
           <p className="mt-1 font-mono-data text-[10px] text-muted-dim sm:text-xs">
             {t('groupBoard.standingsHint')}
           </p>
         </div>
-        <p className="font-mono-data text-[10px] text-muted sm:text-xs">{t('groupBoard.probHint')}</p>
+        <p className="shrink-0 font-mono-data text-[10px] text-muted sm:text-xs">{t('groupBoard.probHint')}</p>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -300,7 +307,7 @@ function GroupStagePanel({
             {standings.thirdPlaceRanking.slice(0, 12).map((row, i) => (
               <li
                 key={`${row.group}-${row.teamId}`}
-                className="font-mono-data text-[10px] text-foreground/90 sm:text-[11px]"
+                className="break-words font-mono-data text-[10px] text-foreground/90 sm:text-[11px]"
               >
                 {i + 1}.{' '}
                 <TeamNameWithFlag
