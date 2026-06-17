@@ -65,6 +65,33 @@ export function buildExplanationFactors(input: MatchFeatureInput): {
       evidenceType: 'official',
     });
   }
+  if (input.liveMatchStats) {
+    const { home, away } = input.liveMatchStats;
+    const homePoss = home.possession ?? 50;
+    const awayPoss = away.possession ?? 50;
+    if (Math.abs(homePoss - awayPoss) >= 8) {
+      factors.push({
+        key: 'live_possession',
+        label: 'In-match possession edge',
+        direction: homePoss >= awayPoss ? 'home' : 'away',
+        impact: Math.abs(homePoss - awayPoss) / 100,
+        confidence: 0.88,
+        evidenceType: 'live_event',
+      });
+    }
+    const homeXg = home.xg ?? 0;
+    const awayXg = away.xg ?? 0;
+    if (Math.abs(homeXg - awayXg) >= 0.2) {
+      factors.push({
+        key: 'live_xg',
+        label: 'Live xG pressure',
+        direction: homeXg >= awayXg ? 'home' : 'away',
+        impact: Math.min(0.35, Math.abs(homeXg - awayXg) / 2),
+        confidence: 0.9,
+        evidenceType: 'live_event',
+      });
+    }
+  }
 
   const sorted = [...factors].sort((a, b) => b.impact - a.impact);
   return { positive: sorted.slice(0, 3), negative: sorted.slice(-2) };

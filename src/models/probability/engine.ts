@@ -9,6 +9,7 @@ import {
 import { lineupModifier } from './playerAvailability';
 import { tacticalMatchupModifier } from './tacticalMatchup';
 import { gameStateModifier } from './liveGameState';
+import { liveMatchStatsModifier } from './liveMatchStatsModifier';
 import { aggregateWdl, buildScorelineMatrix, mostLikelyScore } from './scoreline';
 import { buildIntervalDistribution } from './interval';
 import { buildExplanationFactors } from './explainFactors';
@@ -27,6 +28,9 @@ function clampLambda(v: number): number {
 export async function computeProbability(input: MatchFeatureInput): Promise<ProbabilityResult> {
   const tactical = tacticalMatchupModifier(input.homeLineup, input.awayLineup);
   const gameState = gameStateModifier(input.minute, input.currentScore.home, input.currentScore.away);
+  const liveStats = input.liveMatchStats
+    ? liveMatchStatsModifier(input.liveMatchStats)
+    : { home: 1, away: 1 };
   const context = matchContextModifier(input);
   const rankGap = rankingGapModifier(input.homeTeam, input.awayTeam);
   const coaches = coachModifier(input.homeCoach, input.awayCoach);
@@ -44,6 +48,7 @@ export async function computeProbability(input: MatchFeatureInput): Promise<Prob
       lineupModifier(input.homeLineup) *
       tactical.home *
       gameState.home *
+      liveStats.home *
       context.home *
       rankGap.home *
       coaches.home *
@@ -58,6 +63,7 @@ export async function computeProbability(input: MatchFeatureInput): Promise<Prob
       lineupModifier(input.awayLineup) *
       tactical.away *
       gameState.away *
+      liveStats.away *
       context.away *
       rankGap.away *
       coaches.away *

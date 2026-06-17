@@ -10,6 +10,10 @@ import { buildLineupFeaturesFromPlayers } from './lineupFeatures';
 import { predictionMatchState } from '../models/probability/matchState';
 import { isWc2026HostTeam } from '../models/probability/matchContext';
 import { loadStaffFeaturesForMatch } from './matchStaff';
+import {
+  hasUsableLiveStats,
+  type LiveSideStats,
+} from '../models/probability/liveMatchStatsModifier';
 
 function teamToFeatures(team: TeamRow, form?: TeamFormSnapshot | null): TeamFeatures {
   const elo = team.elo_rating ?? 1700;
@@ -116,6 +120,53 @@ async function loadLineupFeaturesForTeam(
   );
 }
 
+async function loadLiveMatchStats(
+  db: D1Database,
+  match: MatchRow,
+): Promise<import('../models/probability/liveMatchStatsModifier').LiveMatchStatsInput | undefined> {
+  if (match.status !== 'live') return undefined;
+
+  const { results } = await db
+    .prepare(
+      `SELECT team_id, possession, shots, shots_on_target, xg, passes, pass_accuracy
+       FROM team_match_stats WHERE match_id = ?`,
+    )
+    .bind(match.id)
+    .all<{
+      team_id: string;
+      possession: number | null;
+      shots: number | null;
+      shots_on_target: number | null;
+      xg: number | null;
+      passes: number | null;
+      pass_accuracy: number | null;
+    }>();
+
+  const byTeam = new Map((results ?? []).map((row) => [row.team_id, row]));
+  const homeRow = byTeam.get(match.home_team_id);
+  const awayRow = byTeam.get(match.away_team_id);
+  if (!homeRow && !awayRow) return undefined;
+
+  const mapSide = (row: (typeof results)[number] | undefined): LiveSideStats => ({
+    possession: row?.possession ?? null,
+    shots: row?.shots ?? null,
+    shotsOnTarget: row?.shots_on_target ?? null,
+    xg: row?.xg ?? null,
+    passes: row?.passes ?? null,
+    passAccuracy: row?.pass_accuracy ?? null,
+  });
+
+  const home = mapSide(homeRow);
+  const away = mapSide(awayRow);
+  if (!hasUsableLiveStats(home, away)) return undefined;
+
+  return {
+    home,
+    away,
+    minute: match.minute ?? 0,
+  };
+}
+
 export async function buildMatchFeaturesWithForm(
   env: AppEnv,
   match: MatchRow,
@@ -123,7 +174,7 @@ export async function buildMatchFeaturesWithForm(
   away: TeamRow,
   tournamentYear: number,
 ): Promise<MatchFeatureInput> {
-  const [homeForm, awayForm, homeLineup, awayLineup, staff] = await Promise.all([
+  const [homeForm, awayForm, homeLineup, awayLineup, staff, liveMatchStats] = await Promise.all([
     getTeamFormSnapshot(env.DB, home.id, 6, match.tournament_id),
     getTeamFormSnapshot(env.DB, away.id, 6, match.tournament_id),
     loadLineupFeaturesForTeam(env.DB, match.id, home.id),
@@ -137,6 +188,7 @@ export async function buildMatchFeaturesWithForm(
       home.country_code,
       away.country_code,
     ),
+    loadLiveMatchStats(env.DB, match),
   ]);
 
   const features = buildMatchFeatures(match, home, away, tournamentYear, {
@@ -149,6 +201,7 @@ export async function buildMatchFeaturesWithForm(
   if (staff.homeCoach) features.homeCoach = staff.homeCoach;
   if (staff.awayCoach) features.awayCoach = staff.awayCoach;
   if (staff.referee) features.referee = staff.referee;
+  if (liveMatchStats) features.liveMatchStats = liveMatchStats;
 
   const lineupConfidence =
     (homeLineup ? 0.04 : 0) + (awayLineup ? 0.04 : 0);
@@ -159,6 +212,9 @@ export async function buildMatchFeaturesWithForm(
       0.98,
       features.sourceConfidence + lineupConfidence + staffConfidence,
     );
+  }
+  if (liveMatchStats) {
+    features.sourceConfidence = Math.min(0.99, features.sourceConfidence + 0.03);
   }
 
   return features;
