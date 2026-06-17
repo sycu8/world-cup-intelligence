@@ -429,7 +429,7 @@ npm test            # ✓ 116 tests, 35 files
 
 | Môi trường | URL | Worker version |
 |------------|-----|----------------|
-| Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) | `bff73993-489e-4108-9fa0-02c812074c92` |
+| Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) | `2583dd35-de64-4196-87ba-91d36e40a6c4` |
 | UAT | [wc-tactical-uat.sycu-lee.workers.dev](https://wc-tactical-uat.sycu-lee.workers.dev) | *(chạy `npm run deploy:uat` để cập nhật)* |
 
 **Đã kiểm tra:**
