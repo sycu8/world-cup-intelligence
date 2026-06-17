@@ -1131,7 +1131,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'countdown.min': { vi: 'p', en: 'm' },
   'countdown.sec': { vi: 's', en: 's' },
   'matrix.title': { vi: 'Ma trận tỉ số', en: 'Scoreline matrix' },
-  'matrix.subtitle': { vi: 'Khối lượng tỉ số chính xác hàng đầu', en: 'Top exact-score masses' },
+  'matrix.subtitle': {
+    vi: 'Chỉ hiển thị tỉ số có xác suất ≥ 0,1%',
+    en: 'Only scorelines with probability ≥ 0.1% are shown',
+  },
   'multiVar.title': { vi: 'Phân tích đa biến', en: 'Multi-variable' },
   'multiVar.subtitle': { vi: 'Lớp phân tích AI', en: 'AI reasoning layer' },
   'multiVar.analysisHeading': { vi: 'Phân tích', en: 'Analysis' },
