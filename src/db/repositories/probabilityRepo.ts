@@ -47,6 +47,22 @@ export async function getLatestSnapshot(
     .first<ProbabilitySnapshotRow>();
 }
 
+/** Earliest pre-match style snapshot — prefer minute 0, else oldest recorded. */
+export async function getPreMatchSnapshot(
+  db: D1Database,
+  matchId: string,
+): Promise<ProbabilitySnapshotRow | null> {
+  return db
+    .prepare(
+      `SELECT * FROM probability_snapshots
+       WHERE match_id = ?
+       ORDER BY CASE WHEN minute = 0 THEN 0 ELSE 1 END, minute ASC, second ASC, created_at ASC
+       LIMIT 1`,
+    )
+    .bind(matchId)
+    .first<ProbabilitySnapshotRow>();
+}
+
 export async function saveSnapshot(db: D1Database, result: ProbabilityResult, r2Key?: string): Promise<string> {
   const id = newId('ps');
   await db

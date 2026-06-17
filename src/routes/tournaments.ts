@@ -80,3 +80,31 @@ tournamentRoutes.get('/:year/champion-odds', async (c) => {
   if (!data) return c.json({ error: 'Unavailable' }, 503);
   return c.json({ data }, 200, { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600' });
 });
+
+tournamentRoutes.get('/:year/prediction-accuracy', async (c) => {
+  const year = Number(c.req.param('year'));
+  if (year !== 2026) return c.json({ error: 'Not found' }, 404);
+  const { buildPredictionAccuracyReport } = await import('../services/predictionAccuracy');
+  const data = await buildPredictionAccuracyReport(c.env);
+  return c.json({ data }, 200, { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=120' });
+});
+
+tournamentRoutes.get('/:year/upcoming-probability-verification', async (c) => {
+  const year = Number(c.req.param('year'));
+  if (year !== 2026) return c.json({ error: 'Not found' }, 404);
+  const refresh = c.req.query('refresh') === '1';
+  const { buildUpcomingProbabilityVerification, refreshUpcomingProbabilities } = await import(
+    '../services/upcomingProbabilityVerification'
+  );
+  const data = await buildUpcomingProbabilityVerification(c.env);
+  if (refresh && data.missing > 0) {
+    c.executionCtx.waitUntil(
+      refreshUpcomingProbabilities(c.env)
+        .then((r) => {
+          data.refreshed = r.refreshed;
+        })
+        .catch(() => undefined),
+    );
+  }
+  return c.json({ data }, 200, { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=60' });
+});

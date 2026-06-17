@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import type { GroupStandingsPayload } from '../lib/api';
-import { api, type DashboardData, type NewsArticle, type ScheduleMatch, type ChampionOddsPayload } from '../lib/api';
+import { api, type DashboardData, type NewsArticle, type ScheduleMatch, type ChampionOddsPayload, type PredictionAccuracyReport, type UpcomingProbabilityVerification } from '../lib/api';
 import { consumeHomePrefetch } from '../lib/homePrefetch';
 import { FeaturedMatchHero } from '../components/home/FeaturedMatchHero';
 import { WorldCupCountdown } from '../components/home/WorldCupCountdown';
 import { PlatformSnapshot } from '../components/home/PlatformSnapshot';
 import { ChampionOddsPanel } from '../components/home/ChampionOddsPanel';
+import { PredictionAccuracyPanel } from '../components/home/PredictionAccuracyPanel';
 import { NewUserQuickStart } from '../components/home/NewUserQuickStart';
 import { Bilingual } from '../components/i18n/Bilingual';
 
@@ -47,6 +48,9 @@ export function HomePage() {
   const [hotNews, setHotNews] = useState<NewsArticle[]>([]);
   const [standings, setStandings] = useState<GroupStandingsPayload | null>(null);
   const [championOdds, setChampionOdds] = useState<ChampionOddsPayload | null>(null);
+  const [predictionAccuracy, setPredictionAccuracy] = useState<PredictionAccuracyReport | null>(null);
+  const [upcomingVerification, setUpcomingVerification] = useState<UpcomingProbabilityVerification | null>(null);
+  const [predictionLoading, setPredictionLoading] = useState(true);
   const [boardReady, setBoardReady] = useState(false);
   const [extrasReady, setExtrasReady] = useState(false);
 
@@ -116,6 +120,35 @@ export function HomePage() {
     };
   }, [applyHome, loadBoardFast]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadPredictionInsights = async () => {
+      try {
+        const [accuracyRes, upcomingRes] = await Promise.all([
+          api.tournamentPredictionAccuracy(2026),
+          api.tournamentUpcomingProbabilityVerification(2026, true),
+        ]);
+        if (!cancelled) {
+          setPredictionAccuracy(accuracyRes.data);
+          setUpcomingVerification(upcomingRes.data);
+        }
+      } catch {
+        if (!cancelled) {
+          setPredictionAccuracy(null);
+          setUpcomingVerification(null);
+        }
+      } finally {
+        if (!cancelled) setPredictionLoading(false);
+      }
+    };
+    void loadPredictionInsights();
+    const timer = window.setInterval(loadPredictionInsights, REFRESH_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   const featured = dashboard?.featuredMatch ?? null;
 
   return (
@@ -154,6 +187,11 @@ export function HomePage() {
             <div className="flex flex-col gap-4">
               <WorldCupCountdown />
               <ChampionOddsPanel odds={championOdds} loading={!championOdds} />
+              <PredictionAccuracyPanel
+                accuracy={predictionAccuracy}
+                upcoming={upcomingVerification}
+                loading={predictionLoading}
+              />
               <PlatformSnapshot dashboard={dashboard} compact />
             </div>
             {featured ? (

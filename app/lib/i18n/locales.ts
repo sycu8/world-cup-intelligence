@@ -232,6 +232,14 @@ export type LocaleKey =
   | 'home.championOdds.subtitle'
   | 'home.championOdds.simulations'
   | 'home.championOdds.disclaimer'
+  | 'home.predictionAccuracy.title'
+  | 'home.predictionAccuracy.subtitle'
+  | 'home.predictionAccuracy.favoriteHit'
+  | 'home.predictionAccuracy.scorelineHit'
+  | 'home.predictionAccuracy.evaluated'
+  | 'home.predictionAccuracy.upcomingTitle'
+  | 'home.predictionAccuracy.upcomingCoverage'
+  | 'home.predictionAccuracy.disclaimer'
   | 'home.quickStart'
   | 'home.headlines'
   | 'home.loadingHeadlines'
@@ -928,6 +936,38 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'home.championOdds.disclaimer': {
     vi: 'Chỉ mang tính tham khảo — không phải dự đoán chính thức.',
     en: 'For reference only — not an official forecast.',
+  },
+  'home.predictionAccuracy.title': {
+    vi: 'Độ chính xác dự đoán (tới hiện tại)',
+    en: 'Prediction accuracy (to date)',
+  },
+  'home.predictionAccuracy.subtitle': {
+    vi: 'So sánh xác suất trước trận (snapshot sớm nhất) với kết quả thực tế.',
+    en: 'Pre-match probabilities (earliest snapshot) vs actual results.',
+  },
+  'home.predictionAccuracy.favoriteHit': {
+    vi: 'Đúng cửa mạnh · {n}/{total}',
+    en: 'Favorite correct · {n}/{total}',
+  },
+  'home.predictionAccuracy.scorelineHit': {
+    vi: 'Đúng tỉ số khả dĩ nhất',
+    en: 'Top scoreline correct',
+  },
+  'home.predictionAccuracy.evaluated': {
+    vi: 'Trận đã đánh giá',
+    en: 'Matches evaluated',
+  },
+  'home.predictionAccuracy.upcomingTitle': {
+    vi: 'Trận tiếp theo',
+    en: 'Upcoming fixtures',
+  },
+  'home.predictionAccuracy.upcomingCoverage': {
+    vi: '{with}/{total} trận đã có xác suất mô hình',
+    en: '{with}/{total} fixtures with model probabilities',
+  },
+  'home.predictionAccuracy.disclaimer': {
+    vi: 'Cửa mạnh = đội có xác suất thắng/hòa/thua cao nhất trước trận. Không phải khuyến nghị cược.',
+    en: 'Favorite = highest pre-match H/D/A probability. Not betting advice.',
   },
   'home.quickStart': { vi: 'Lần đầu vào? Bắt đầu trong 4 bước', en: 'New here? Start in 4 steps' },
   'home.headlines': { vi: 'Tin nổi bật', en: 'Headlines' },
