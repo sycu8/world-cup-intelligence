@@ -8,7 +8,7 @@
 
 ## Cập nhật mới (06/2026)
 
-Phiên bản đã deploy lên **Production** ([wcstat.orangecloud.vn](https://wcstat.orangecloud.vn)) — Worker `53b85e8a-…`.
+Phiên bản đã deploy lên **Production** ([wcstat.orangecloud.vn](https://wcstat.orangecloud.vn)) — Worker `596bb064-…` (gộp PR #7–#13).
 
 ### Minh chứng trên web (Mexico 2–0 South Africa)
 
