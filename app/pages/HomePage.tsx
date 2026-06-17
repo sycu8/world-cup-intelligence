@@ -46,9 +46,6 @@ export function HomePage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [hotNews, setHotNews] = useState<NewsArticle[]>([]);
   const [standings, setStandings] = useState<GroupStandingsPayload | null>(null);
-  const [matchProbabilities, setMatchProbabilities] = useState<
-    Record<string, { homeWin: number; draw: number; awayWin: number }>
-  >({});
   const [championOdds, setChampionOdds] = useState<ChampionOddsPayload | null>(null);
   const [boardReady, setBoardReady] = useState(false);
   const [extrasReady, setExtrasReady] = useState(false);
@@ -58,7 +55,6 @@ export function HomePage() {
     setDashboard(payload.data.dashboard);
     setHotNews(payload.data.hotNews.slice(0, 3));
     setStandings(payload.data.standings ?? null);
-    setMatchProbabilities(payload.data.matchProbabilities ?? {});
     setChampionOdds(payload.data.championOdds ?? null);
     setBoardReady(true);
     setExtrasReady(true);
@@ -94,7 +90,6 @@ export function HomePage() {
         await fastBoard.catch(() => undefined);
         setDashboard(null);
         setHotNews([]);
-        setMatchProbabilities({});
         setChampionOdds(null);
         setBoardReady(true);
         setExtrasReady(true);
@@ -147,7 +142,6 @@ export function HomePage() {
           <GroupStageBoard
             matches={matches}
             initialStandings={standings}
-            initialProbs={matchProbabilities}
           />
         </Suspense>
       )}

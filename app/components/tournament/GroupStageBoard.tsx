@@ -4,7 +4,6 @@ import { api, type GroupStandingsPayload, type ScheduleMatch } from '../../lib/a
 import { resolveMatchHref } from '../../lib/matchPaths';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { groupStageLabel, KNOCKOUT_STAGE_ORDER, matchStageLabel } from '../../lib/i18n/stageLabels';
-import { CompactMatchProb } from './CompactMatchProb';
 import { MatchTeamsWithFlags, TeamNameWithFlag } from '../team/TeamNameWithFlag';
 import { MatchKickoffDisplay } from '../match/MatchKickoffDisplay';
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
@@ -13,7 +12,6 @@ const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as c
 
 type MainTab = 'group' | 'knockout';
 type KnockoutStage = (typeof KNOCKOUT_STAGE_ORDER)[number];
-type MatchProbMap = Record<string, { homeWin: number; draw: number; awayWin: number }>;
 
 function formatGd(gd: number): string {
   return gd > 0 ? `+${gd}` : String(gd);
@@ -45,12 +43,10 @@ function BoardTab({
 
 function BoardMatchRow({
   match,
-  prob,
   showDate = false,
   dense = false,
 }: {
   match: ScheduleMatch;
-  prob?: { homeWin: number; draw: number; awayWin: number };
   showDate?: boolean;
   dense?: boolean;
 }) {
@@ -94,8 +90,6 @@ function BoardMatchRow({
     </span>
   );
 
-  const probBlock = <CompactMatchProb homeWin={prob?.homeWin} draw={prob?.draw} awayWin={prob?.awayWin} />;
-
   return (
     <Link
       to={resolveMatchHref(match)}
@@ -109,20 +103,18 @@ function BoardMatchRow({
           {scoreBlock}
         </div>
         <div className="min-w-0 text-[11px] leading-snug text-foreground/90">{teams}</div>
-        <div className="flex justify-end">{probBlock}</div>
       </div>
 
       <div
         className={`hidden items-center gap-x-2 sm:grid ${
           showDate
-            ? 'grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] text-xs'
-            : 'grid-cols-[2.5rem_minmax(0,1fr)_auto_auto] text-[11px]'
+            ? 'grid-cols-[5.5rem_minmax(0,1fr)_auto] text-xs'
+            : 'grid-cols-[2.5rem_minmax(0,1fr)_auto] text-[11px]'
         }`}
       >
         {kickoff}
         <span className="min-w-0 truncate font-medium text-foreground/90">{teams}</span>
         {scoreBlock}
-        {probBlock}
       </div>
     </Link>
   );
@@ -132,13 +124,11 @@ function GroupCard({
   code,
   standings,
   fixtures,
-  probs,
   standingsUnavailable,
 }: {
   code: string;
   standings: GroupStandingsPayload['groups'][string] | undefined;
   fixtures: ScheduleMatch[];
-  probs: MatchProbMap;
   standingsUnavailable?: boolean;
 }) {
   const { t } = useI18n();
@@ -218,7 +208,7 @@ function GroupCard({
       <ul className="space-y-0.5 border-t border-border/40 pt-1.5">
         {fixtures.map((m) => (
           <li key={m.id}>
-            <BoardMatchRow match={m} prob={probs[m.id]} showDate />
+            <BoardMatchRow match={m} showDate />
           </li>
         ))}
       </ul>
@@ -229,11 +219,9 @@ function GroupCard({
 function KnockoutRoundPanel({
   stage,
   matches,
-  probs,
 }: {
   stage: KnockoutStage;
   matches: ScheduleMatch[];
-  probs: MatchProbMap;
 }) {
   const { t } = useI18n();
 
@@ -253,7 +241,7 @@ function KnockoutRoundPanel({
     <ul className="divide-y divide-border/40 rounded-lg border border-border/50 bg-panel2/20">
       {roundMatches.map((m) => (
         <li key={m.id}>
-          <BoardMatchRow match={m} prob={probs[m.id]} showDate dense />
+          <BoardMatchRow match={m} showDate dense />
         </li>
       ))}
     </ul>
@@ -264,25 +252,20 @@ function GroupStagePanel({
   standings,
   standingsError,
   groupFixtures,
-  probs,
 }: {
   standings: GroupStandingsPayload | null;
   standingsError: boolean;
   groupFixtures: Record<string, ScheduleMatch[]>;
-  probs: MatchProbMap;
 }) {
   const { t } = useI18n();
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs text-muted">{t('groupBoard.subtitle')}</p>
-          <p className="mt-1 font-mono-data text-[10px] text-muted-dim sm:text-xs">
-            {t('groupBoard.standingsHint')}
-          </p>
-        </div>
-        <p className="shrink-0 font-mono-data text-[10px] text-muted sm:text-xs">{t('groupBoard.probHint')}</p>
+      <div className="min-w-0">
+        <p className="text-xs text-muted">{t('groupBoard.subtitle')}</p>
+        <p className="mt-1 font-mono-data text-[10px] text-muted-dim sm:text-xs">
+          {t('groupBoard.standingsHint')}
+        </p>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -292,7 +275,6 @@ function GroupStagePanel({
             code={code}
             standings={standings?.groups[code]}
             fixtures={groupFixtures[code] ?? []}
-            probs={probs}
             standingsUnavailable={standingsError}
           />
         ))}
@@ -330,24 +312,19 @@ function GroupStagePanel({
 type Props = {
   matches: ScheduleMatch[];
   initialStandings?: GroupStandingsPayload | null;
-  initialProbs?: MatchProbMap;
 };
 
 export function GroupStageBoard({
   matches,
   initialStandings = null,
-  initialProbs = {},
 }: Props) {
   const { t } = useI18n();
   const hasInitialBoard = !!initialStandings;
-  const hasInitialProbs = Object.keys(initialProbs).length > 0;
   const [mainTab, setMainTab] = useState<MainTab>('group');
   const [knockoutStage, setKnockoutStage] = useState<KnockoutStage>('Round of 32');
   const [standings, setStandings] = useState<GroupStandingsPayload | null>(initialStandings);
   const [standingsError, setStandingsError] = useState(false);
-  const [probs, setProbs] = useState<MatchProbMap>(initialProbs);
   const [groupLoading, setGroupLoading] = useState(!hasInitialBoard);
-  const [knockoutLoading, setKnockoutLoading] = useState(false);
 
   useEffect(() => {
     if (initialStandings) {
@@ -355,10 +332,7 @@ export function GroupStageBoard({
       setStandingsError(false);
       setGroupLoading(false);
     }
-    if (hasInitialProbs) {
-      setProbs(initialProbs);
-    }
-  }, [initialStandings, initialProbs, hasInitialProbs]);
+  }, [initialStandings]);
 
   useEffect(() => {
     if (mainTab !== 'group' || hasInitialBoard) return;
@@ -367,17 +341,12 @@ export function GroupStageBoard({
     const load = (showLoading: boolean) => {
       if (showLoading) setGroupLoading(true);
 
-      Promise.all([
-        api.tournamentStandings(2026),
-        hasInitialProbs
-          ? Promise.resolve({ data: initialProbs })
-          : api.tournamentMatchProbabilities(2026),
-      ])
-        .then(([s, p]) => {
+      api
+        .tournamentStandings(2026)
+        .then((s) => {
           if (!cancelled) {
             setStandings(s.data);
             setStandingsError(false);
-            setProbs(p.data);
           }
         })
         .catch(() => {
@@ -399,28 +368,7 @@ export function GroupStageBoard({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [mainTab, hasInitialBoard, hasInitialProbs, initialProbs]);
-
-  useEffect(() => {
-    if (mainTab !== 'knockout') return;
-    if (Object.keys(probs).length > 0) return;
-    let cancelled = false;
-    setKnockoutLoading(true);
-    api
-      .tournamentMatchProbabilities(2026)
-      .then((r) => {
-        if (!cancelled) setProbs(r.data);
-      })
-      .catch(() => {
-        if (!cancelled) setProbs({});
-      })
-      .finally(() => {
-        if (!cancelled) setKnockoutLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [mainTab, probs]);
+  }, [mainTab, hasInitialBoard]);
 
   const groupFixtures = useMemo(() => {
     const map: Record<string, ScheduleMatch[]> = {};
@@ -493,7 +441,6 @@ export function GroupStageBoard({
             standings={standings}
             standingsError={standingsError}
             groupFixtures={groupFixtures}
-            probs={probs}
           />
         )
       ) : (
@@ -528,11 +475,7 @@ export function GroupStageBoard({
             })}
           </div>
 
-          {knockoutLoading && Object.keys(probs).length === 0 ? (
-            <p className="text-sm text-muted">{t('groupBoard.loading')}</p>
-          ) : (
-            <KnockoutRoundPanel stage={knockoutStage} matches={knockoutMatches} probs={probs} />
-          )}
+          <KnockoutRoundPanel stage={knockoutStage} matches={knockoutMatches} />
         </div>
       )}
     </div>
