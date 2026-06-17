@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import type { GroupStandingsPayload } from '../lib/api';
-import { Link } from 'react-router-dom';
 import { api, type DashboardData, type NewsArticle, type ScheduleMatch, type ChampionOddsPayload } from '../lib/api';
 import { consumeHomePrefetch } from '../lib/homePrefetch';
 import { FeaturedMatchHero } from '../components/home/FeaturedMatchHero';
@@ -10,7 +9,6 @@ import { ChampionOddsPanel } from '../components/home/ChampionOddsPanel';
 import { NewUserQuickStart } from '../components/home/NewUserQuickStart';
 import { HomePageSkeleton } from '../components/home/HomePageSkeleton';
 import { Bilingual } from '../components/i18n/Bilingual';
-import { useI18n } from '../lib/i18n/I18nContext';
 
 const HomeNewsPreview = lazy(() =>
   import('../components/home/HomeNewsPreview').then((m) => ({ default: m.HomeNewsPreview })),
@@ -26,7 +24,6 @@ function SectionFallback({ className = 'min-h-[12rem]' }: { className?: string }
 }
 
 export function HomePage() {
-  const { t } = useI18n();
   const [matches, setMatches] = useState<ScheduleMatch[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [hotNews, setHotNews] = useState<NewsArticle[]>([]);
@@ -89,13 +86,6 @@ export function HomePage() {
           className="font-heading text-4xl tracking-tight md:text-5xl"
         />
         <Bilingual k="home.calendarSubtitle" as="p" className="mt-3 max-w-2xl text-base text-foreground/80" />
-        <p className="mt-2 text-sm text-muted-dim">
-          {t('home.newUserHint')}{' '}
-          <Link to="/guide" className="text-cyan hover:underline">
-            {t('home.newUserHintLink')}
-          </Link>{' '}
-          {t('home.newUserHintTail')}
-        </p>
       </header>
 
       {loading ? (
