@@ -21,10 +21,9 @@ export async function listLatestSnapshotsForTournament(
        INNER JOIN (
          SELECT match_id, MAX(id) AS latest_id
          FROM probability_snapshots
+         WHERE match_id IN (SELECT id FROM matches WHERE tournament_id = ?)
          GROUP BY match_id
-       ) latest ON latest.latest_id = ps.id
-       INNER JOIN matches m ON m.id = ps.match_id
-       WHERE m.tournament_id = ?`,
+       ) latest ON latest.latest_id = ps.id`,
     )
     .bind(tournamentId)
     .all<{
