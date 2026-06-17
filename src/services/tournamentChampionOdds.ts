@@ -3,6 +3,7 @@ import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import { getDb } from '../db/client';
 import type { TeamRow } from '../db/schema';
 import { applyEffectiveTeamProfile } from './teamProfile';
+import { loadRecentH2HTriples } from './tournamentMcSignals';
 import { loadTeamStrengthProfiles } from './tournamentTeamStrength';
 import {
   runTournamentMonteCarlo,
@@ -52,7 +53,7 @@ type MatchRow = {
   status: string;
 };
 
-const MODEL_VERSION = 'mc-strength-v2';
+const MODEL_VERSION = 'mc-strength-v3';
 
 async function loadMonteCarloInput(
   env: AppEnv,
@@ -83,7 +84,10 @@ async function loadMonteCarloInput(
   ]);
 
   const teams = (teamsRes.results ?? []).map((row) => applyEffectiveTeamProfile(row));
-  const teamStrength = await loadTeamStrengthProfiles(env, teams);
+  const [teamStrength, h2hTriples] = await Promise.all([
+    loadTeamStrengthProfiles(env, teams),
+    loadRecentH2HTriples(db),
+  ]);
 
   const teamMeta = new Map<string, { name: string; countryCode: string | null }>();
   for (const team of teams) {
@@ -139,6 +143,7 @@ async function loadMonteCarloInput(
       groupMatches,
       knockoutMatches,
       teamStrength,
+      h2hTriples,
       groupRankLinks,
       winnerLinks,
       simulations,

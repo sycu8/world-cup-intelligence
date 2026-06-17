@@ -70,6 +70,11 @@ export async function handleIngestBatch(
           await syncOfficialLineupsToMatches(env, { recompute: true });
           break;
         }
+        case 'refresh_live_probabilities': {
+          const { refreshLiveProbabilitiesFromStats } = await import('../services/liveProbabilityRefresh');
+          await refreshLiveProbabilitiesFromStats(env);
+          break;
+        }
         case 'source_ingest': {
           const handler = getIngestHandler(msg.body.sourceId);
           if (handler === 'statsbomb') {

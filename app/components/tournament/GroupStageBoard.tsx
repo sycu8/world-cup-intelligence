@@ -4,7 +4,6 @@ import { api, type GroupStandingsPayload, type ScheduleMatch } from '../../lib/a
 import { resolveMatchHref } from '../../lib/matchPaths';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { groupStageLabel, KNOCKOUT_STAGE_ORDER, matchStageLabel } from '../../lib/i18n/stageLabels';
-import { CompactMatchProb } from './CompactMatchProb';
 import { MatchTeamsWithFlags, TeamNameWithFlag } from '../team/TeamNameWithFlag';
 import { MatchKickoffDisplay } from '../match/MatchKickoffDisplay';
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
@@ -13,7 +12,6 @@ const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as c
 
 type MainTab = 'group' | 'knockout';
 type KnockoutStage = (typeof KNOCKOUT_STAGE_ORDER)[number];
-type MatchProbMap = Record<string, { homeWin: number; draw: number; awayWin: number }>;
 
 function formatGd(gd: number): string {
   return gd > 0 ? `+${gd}` : String(gd);
@@ -43,17 +41,91 @@ function BoardTab({
   );
 }
 
+function BoardMatchRow({
+  match,
+  showDate = false,
+  dense = false,
+}: {
+  match: ScheduleMatch;
+  showDate?: boolean;
+  dense?: boolean;
+}) {
+  const { t } = useI18n();
+  const showScore = hasMatchResult(match.status);
+
+  const kickoff = (
+    <time className="whitespace-nowrap font-mono-data text-[10px] leading-tight text-muted">
+      <MatchKickoffDisplay
+        kickoffUtc={match.kickoff_utc}
+        showDate={showDate}
+        inlineDate={showDate}
+        showLocalReference={false}
+      />
+    </time>
+  );
+
+  const teams = (
+    <MatchTeamsWithFlags
+      homeName={match.home_name}
+      awayName={match.away_name}
+      homeShort={match.home_short}
+      awayShort={match.away_short}
+      homeCountryCode={match.home_country_code}
+      awayCountryCode={match.away_country_code}
+      separator="–"
+      flagClassName="h-2 w-3 rounded-sm object-cover ring-1 ring-white/10 sm:h-2.5 sm:w-4"
+    />
+  );
+
+  const scoreBlock = (
+    <span className="flex shrink-0 items-center justify-end gap-1">
+      {showScore ? (
+        <MatchResultScore
+          homeScore={match.home_score}
+          awayScore={match.away_score}
+          status={match.status}
+          variant={match.status === 'completed' || match.status === 'finished' ? 'badge' : 'compact'}
+        />
+      ) : (
+        <span className="font-mono-data text-[10px] text-muted/35">–</span>
+      )}
+      {match.status === 'live' && (
+        <span className="text-[9px] font-bold uppercase text-live">{t('common.live')}</span>
+      )}
+    </span>
+  );
+
+  return (
+    <Link
+      to={resolveMatchHref(match)}
+      className={`group block rounded-md transition hover:bg-pressing/10 ${
+        dense ? 'px-2 py-2 sm:px-3' : 'px-1 py-1.5'
+      }`}
+    >
+      <div
+        className={`grid items-center gap-x-2 ${
+          showDate
+            ? 'grid-cols-[minmax(5.75rem,auto)_minmax(0,1fr)_auto] text-[10px] sm:text-xs'
+            : 'grid-cols-[2.5rem_minmax(0,1fr)_auto] text-[11px] sm:text-xs'
+        }`}
+      >
+        {kickoff}
+        <span className="min-w-0 truncate font-medium text-foreground/90">{teams}</span>
+        {scoreBlock}
+      </div>
+    </Link>
+  );
+}
+
 function GroupCard({
   code,
   standings,
   fixtures,
-  probs,
   standingsUnavailable,
 }: {
   code: string;
   standings: GroupStandingsPayload['groups'][string] | undefined;
   fixtures: ScheduleMatch[];
-  probs: MatchProbMap;
   standingsUnavailable?: boolean;
 }) {
   const { t } = useI18n();
@@ -131,53 +203,11 @@ function GroupCard({
       </table>
 
       <ul className="space-y-0.5 border-t border-border/40 pt-1.5">
-        {fixtures.map((m) => {
-          const prob = probs[m.id];
-          const showScore = hasMatchResult(m.status);
-
-          return (
-            <li key={m.id}>
-              <Link
-                to={resolveMatchHref(m)}
-                className="group grid grid-cols-[2.25rem_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 rounded-md px-1 py-1 text-[10px] transition hover:bg-pressing/10 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto_auto] sm:gap-x-2 sm:text-[11px]"
-              >
-                <time className="font-mono-data text-[9px] text-muted sm:text-[10px]">
-                  <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showLocalReference={false} />
-                </time>
-                <span className="min-w-0 truncate text-foreground/90">
-                  <MatchTeamsWithFlags
-                    homeName={m.home_name}
-                    awayName={m.away_name}
-                    homeShort={m.home_short}
-                    awayShort={m.away_short}
-                    homeCountryCode={m.home_country_code}
-                    awayCountryCode={m.away_country_code}
-                    separator="–"
-                    flagClassName="h-2 w-3 rounded-sm object-cover ring-1 ring-white/10 sm:h-2.5 sm:w-4"
-                  />
-                </span>
-                <span className="flex shrink-0 items-center justify-end gap-1">
-                  {showScore ? (
-                    <MatchResultScore
-                      homeScore={m.home_score}
-                      awayScore={m.away_score}
-                      status={m.status}
-                      variant={
-                        m.status === 'completed' || m.status === 'finished' ? 'badge' : 'compact'
-                      }
-                    />
-                  ) : (
-                    <span className="font-mono-data text-[10px] text-muted/35">–</span>
-                  )}
-                  {m.status === 'live' && (
-                    <span className="text-[9px] font-bold uppercase text-live">{t('common.live')}</span>
-                  )}
-                </span>
-                <CompactMatchProb homeWin={prob?.homeWin} draw={prob?.draw} awayWin={prob?.awayWin} />
-              </Link>
-            </li>
-          );
-        })}
+        {fixtures.map((m) => (
+          <li key={m.id}>
+            <BoardMatchRow match={m} showDate />
+          </li>
+        ))}
       </ul>
     </div>
   );
@@ -186,11 +216,9 @@ function GroupCard({
 function KnockoutRoundPanel({
   stage,
   matches,
-  probs,
 }: {
   stage: KnockoutStage;
   matches: ScheduleMatch[];
-  probs: MatchProbMap;
 }) {
   const { t } = useI18n();
 
@@ -208,49 +236,11 @@ function KnockoutRoundPanel({
 
   return (
     <ul className="divide-y divide-border/40 rounded-lg border border-border/50 bg-panel2/20">
-      {roundMatches.map((m) => {
-        const prob = probs[m.id];
-        const showScore = hasMatchResult(m.status);
-
-        return (
-          <li key={m.id}>
-            <Link
-              to={resolveMatchHref(m)}
-              className="group grid grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] items-center gap-x-2 px-2 py-2 text-xs transition hover:bg-pressing/5 sm:px-3"
-            >
-              <time className="font-mono-data text-[10px] text-muted">
-                <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showLocalReference={false} />
-              </time>
-              <span className="min-w-0 truncate font-medium">
-                <MatchTeamsWithFlags
-                  homeName={m.home_name}
-                  awayName={m.away_name}
-                  homeShort={m.home_short}
-                  awayShort={m.away_short}
-                  homeCountryCode={m.home_country_code}
-                  awayCountryCode={m.away_country_code}
-                  separator="–"
-                />
-              </span>
-              <span className="flex shrink-0 items-center justify-end">
-                {showScore ? (
-                  <MatchResultScore
-                    homeScore={m.home_score}
-                    awayScore={m.away_score}
-                    status={m.status}
-                    variant={
-                      m.status === 'completed' || m.status === 'finished' ? 'badge' : 'compact'
-                    }
-                  />
-                ) : (
-                  <span className="font-mono-data text-[11px] text-muted/35">–</span>
-                )}
-              </span>
-              <CompactMatchProb homeWin={prob?.homeWin} draw={prob?.draw} awayWin={prob?.awayWin} />
-            </Link>
-          </li>
-        );
-      })}
+      {roundMatches.map((m) => (
+        <li key={m.id}>
+          <BoardMatchRow match={m} showDate dense />
+        </li>
+      ))}
     </ul>
   );
 }
@@ -259,25 +249,20 @@ function GroupStagePanel({
   standings,
   standingsError,
   groupFixtures,
-  probs,
 }: {
   standings: GroupStandingsPayload | null;
   standingsError: boolean;
   groupFixtures: Record<string, ScheduleMatch[]>;
-  probs: MatchProbMap;
 }) {
   const { t } = useI18n();
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <p className="text-xs text-muted">{t('groupBoard.subtitle')}</p>
-          <p className="mt-1 font-mono-data text-[10px] text-muted-dim sm:text-xs">
-            {t('groupBoard.standingsHint')}
-          </p>
-        </div>
-        <p className="font-mono-data text-[10px] text-muted sm:text-xs">{t('groupBoard.probHint')}</p>
+      <div className="min-w-0">
+        <p className="text-xs text-muted">{t('groupBoard.subtitle')}</p>
+        <p className="mt-1 font-mono-data text-[10px] text-muted-dim sm:text-xs">
+          {t('groupBoard.standingsHint')}
+        </p>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -287,7 +272,6 @@ function GroupStagePanel({
             code={code}
             standings={standings?.groups[code]}
             fixtures={groupFixtures[code] ?? []}
-            probs={probs}
             standingsUnavailable={standingsError}
           />
         ))}
@@ -300,7 +284,7 @@ function GroupStagePanel({
             {standings.thirdPlaceRanking.slice(0, 12).map((row, i) => (
               <li
                 key={`${row.group}-${row.teamId}`}
-                className="font-mono-data text-[10px] text-foreground/90 sm:text-[11px]"
+                className="break-words font-mono-data text-[10px] text-foreground/90 sm:text-[11px]"
               >
                 {i + 1}.{' '}
                 <TeamNameWithFlag
@@ -325,24 +309,19 @@ function GroupStagePanel({
 type Props = {
   matches: ScheduleMatch[];
   initialStandings?: GroupStandingsPayload | null;
-  initialProbs?: MatchProbMap;
 };
 
 export function GroupStageBoard({
   matches,
   initialStandings = null,
-  initialProbs = {},
 }: Props) {
   const { t } = useI18n();
   const hasInitialBoard = !!initialStandings;
-  const hasInitialProbs = Object.keys(initialProbs).length > 0;
   const [mainTab, setMainTab] = useState<MainTab>('group');
   const [knockoutStage, setKnockoutStage] = useState<KnockoutStage>('Round of 32');
   const [standings, setStandings] = useState<GroupStandingsPayload | null>(initialStandings);
   const [standingsError, setStandingsError] = useState(false);
-  const [probs, setProbs] = useState<MatchProbMap>(initialProbs);
   const [groupLoading, setGroupLoading] = useState(!hasInitialBoard);
-  const [knockoutLoading, setKnockoutLoading] = useState(false);
 
   useEffect(() => {
     if (initialStandings) {
@@ -350,10 +329,7 @@ export function GroupStageBoard({
       setStandingsError(false);
       setGroupLoading(false);
     }
-    if (hasInitialProbs) {
-      setProbs(initialProbs);
-    }
-  }, [initialStandings, initialProbs, hasInitialProbs]);
+  }, [initialStandings]);
 
   useEffect(() => {
     if (mainTab !== 'group' || hasInitialBoard) return;
@@ -362,17 +338,12 @@ export function GroupStageBoard({
     const load = (showLoading: boolean) => {
       if (showLoading) setGroupLoading(true);
 
-      Promise.all([
-        api.tournamentStandings(2026),
-        hasInitialProbs
-          ? Promise.resolve({ data: initialProbs })
-          : api.tournamentMatchProbabilities(2026),
-      ])
-        .then(([s, p]) => {
+      api
+        .tournamentStandings(2026)
+        .then((s) => {
           if (!cancelled) {
             setStandings(s.data);
             setStandingsError(false);
-            setProbs(p.data);
           }
         })
         .catch(() => {
@@ -394,28 +365,7 @@ export function GroupStageBoard({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [mainTab, hasInitialBoard, hasInitialProbs, initialProbs]);
-
-  useEffect(() => {
-    if (mainTab !== 'knockout') return;
-    if (Object.keys(probs).length > 0) return;
-    let cancelled = false;
-    setKnockoutLoading(true);
-    api
-      .tournamentMatchProbabilities(2026)
-      .then((r) => {
-        if (!cancelled) setProbs(r.data);
-      })
-      .catch(() => {
-        if (!cancelled) setProbs({});
-      })
-      .finally(() => {
-        if (!cancelled) setKnockoutLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [mainTab, probs]);
+  }, [mainTab, hasInitialBoard]);
 
   const groupFixtures = useMemo(() => {
     const map: Record<string, ScheduleMatch[]> = {};
@@ -488,7 +438,6 @@ export function GroupStageBoard({
             standings={standings}
             standingsError={standingsError}
             groupFixtures={groupFixtures}
-            probs={probs}
           />
         )
       ) : (
@@ -523,11 +472,7 @@ export function GroupStageBoard({
             })}
           </div>
 
-          {knockoutLoading && Object.keys(probs).length === 0 ? (
-            <p className="text-sm text-muted">{t('groupBoard.loading')}</p>
-          ) : (
-            <KnockoutRoundPanel stage={knockoutStage} matches={knockoutMatches} probs={probs} />
-          )}
+          <KnockoutRoundPanel stage={knockoutStage} matches={knockoutMatches} />
         </div>
       )}
     </div>

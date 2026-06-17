@@ -18,16 +18,25 @@ export async function handleScheduledCron(
 
   if (cron === '*/15 * * * *' || cron === 'every-15-min') {
     if (env.INGEST_QUEUE) {
-      const job: IngestJob = { type: 'crawl_news', idempotencyKey: crypto.randomUUID() };
-      await env.INGEST_QUEUE.send(job);
-      logInfo('scheduled news crawl enqueued');
+      await env.INGEST_QUEUE.send({
+        type: 'refresh_live_probabilities',
+        idempotencyKey: crypto.randomUUID(),
+      });
+      await env.INGEST_QUEUE.send({ type: 'crawl_news', idempotencyKey: crypto.randomUUID() });
+      logInfo('scheduled live prob refresh + news crawl enqueued');
       return;
     }
 
-    const run = crawlWorldCupNews(env);
-    if (ctx) ctx.waitUntil(run);
-    else await run;
-    logInfo('scheduled news crawl inline');
+    const { refreshLiveProbabilitiesFromStats } = await import('../services/liveProbabilityRefresh');
+    const liveProb = refreshLiveProbabilitiesFromStats(env);
+    const news = crawlWorldCupNews(env);
+    if (ctx) {
+      ctx.waitUntil(Promise.all([liveProb, news]).catch(() => undefined));
+    } else {
+      await liveProb;
+      await news;
+    }
+    logInfo('scheduled live prob refresh + news crawl inline');
     return;
   }
 

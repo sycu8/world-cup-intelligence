@@ -1,6 +1,7 @@
 import { SectionLabel } from './SectionLabel';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { normalizeScorelineKey } from '../../lib/format';
+import { scorelinesForMatrixDisplay } from '../../lib/scorelineMatrix';
 import { DataKindLegend, DataKindMark } from '../ui/DataKindBadge';
 
 type Props = {
@@ -12,10 +13,11 @@ type Props = {
 
 export function ScorelineMatrix({ distribution, highlight, actualScore, actualLive }: Props) {
   const { t } = useI18n();
-  const keys = Object.keys(distribution).sort();
-  const max = Math.max(...Object.values(distribution), 0.001);
   const predictedKey = highlight ? normalizeScorelineKey(highlight) : null;
   const actualKey = actualScore ? normalizeScorelineKey(actualScore) : null;
+  const keys = scorelinesForMatrixDisplay(distribution, { highlight, actualScore });
+  const visibleProbs = keys.map((k) => distribution[k] ?? 0);
+  const max = Math.max(...visibleProbs, 0.001);
 
   return (
     <div className="panel-dense overflow-x-auto">

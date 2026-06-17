@@ -94,7 +94,7 @@ export function MatchesPage() {
       ) : tab === 'schedule' ? (
         <TournamentSchedulePanel byDate={byDate} matches={matches} probs={probs} />
       ) : tab === 'standings' ? (
-        <GroupStageBoard matches={matches} initialProbs={probs} />
+        <GroupStageBoard matches={matches} />
       ) : tab === 'favorites' ? (
         <FavoritesPanel matches={matches} teams={teams} />
       ) : (

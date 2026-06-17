@@ -38,7 +38,7 @@ export function ChampionOddsPanel({ odds, loading = false }: Props) {
   const maxProb = odds.top[0]?.probability ?? 1;
 
   return (
-    <section className="panel-dense flex flex-col gap-3">
+    <section className="panel-dense flex min-h-[14rem] flex-col gap-3 sm:min-h-[17rem]">
       <div>
         <p className="label-tactical text-cyan">
           <Bilingual k="home.championOdds.title" />

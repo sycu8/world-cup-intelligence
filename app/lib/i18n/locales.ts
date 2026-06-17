@@ -232,6 +232,14 @@ export type LocaleKey =
   | 'home.championOdds.subtitle'
   | 'home.championOdds.simulations'
   | 'home.championOdds.disclaimer'
+  | 'home.predictionAccuracy.title'
+  | 'home.predictionAccuracy.subtitle'
+  | 'home.predictionAccuracy.favoriteHit'
+  | 'home.predictionAccuracy.scorelineHit'
+  | 'home.predictionAccuracy.evaluated'
+  | 'home.predictionAccuracy.upcomingTitle'
+  | 'home.predictionAccuracy.upcomingCoverage'
+  | 'home.predictionAccuracy.disclaimer'
   | 'home.quickStart'
   | 'home.headlines'
   | 'home.loadingHeadlines'
@@ -929,6 +937,38 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     vi: 'Chỉ mang tính tham khảo — không phải dự đoán chính thức.',
     en: 'For reference only — not an official forecast.',
   },
+  'home.predictionAccuracy.title': {
+    vi: 'Độ chính xác dự đoán (tới hiện tại)',
+    en: 'Prediction accuracy (to date)',
+  },
+  'home.predictionAccuracy.subtitle': {
+    vi: 'So sánh xác suất trước trận (snapshot sớm nhất) với kết quả thực tế.',
+    en: 'Pre-match probabilities (earliest snapshot) vs actual results.',
+  },
+  'home.predictionAccuracy.favoriteHit': {
+    vi: 'Đúng cửa mạnh · {n}/{total}',
+    en: 'Favorite correct · {n}/{total}',
+  },
+  'home.predictionAccuracy.scorelineHit': {
+    vi: 'Đúng tỉ số khả dĩ nhất',
+    en: 'Top scoreline correct',
+  },
+  'home.predictionAccuracy.evaluated': {
+    vi: 'Trận đã đánh giá',
+    en: 'Matches evaluated',
+  },
+  'home.predictionAccuracy.upcomingTitle': {
+    vi: 'Trận tiếp theo',
+    en: 'Upcoming fixtures',
+  },
+  'home.predictionAccuracy.upcomingCoverage': {
+    vi: '{with}/{total} trận đã có xác suất mô hình',
+    en: '{with}/{total} fixtures with model probabilities',
+  },
+  'home.predictionAccuracy.disclaimer': {
+    vi: 'Cửa mạnh = đội có xác suất thắng/hòa/thua cao nhất trước trận. Không phải khuyến nghị cược.',
+    en: 'Favorite = highest pre-match H/D/A probability. Not betting advice.',
+  },
   'home.quickStart': { vi: 'Lần đầu vào? Bắt đầu trong 4 bước', en: 'New here? Start in 4 steps' },
   'home.headlines': { vi: 'Tin nổi bật', en: 'Headlines' },
   'home.loadingHeadlines': { vi: 'Đang tải tin nổi bật…', en: 'Loading headlines…' },
@@ -1131,7 +1171,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'countdown.min': { vi: 'p', en: 'm' },
   'countdown.sec': { vi: 's', en: 's' },
   'matrix.title': { vi: 'Ma trận tỉ số', en: 'Scoreline matrix' },
-  'matrix.subtitle': { vi: 'Khối lượng tỉ số chính xác hàng đầu', en: 'Top exact-score masses' },
+  'matrix.subtitle': {
+    vi: 'Chỉ hiển thị tỉ số có xác suất ≥ 0,1%',
+    en: 'Only scorelines with probability ≥ 0.1% are shown',
+  },
   'multiVar.title': { vi: 'Phân tích đa biến', en: 'Multi-variable' },
   'multiVar.subtitle': { vi: 'Lớp phân tích AI', en: 'AI reasoning layer' },
   'multiVar.analysisHeading': { vi: 'Phân tích', en: 'Analysis' },
@@ -1225,8 +1268,8 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   },
   'staff.title': { vi: 'Ban huấn luyện & trọng tài', en: 'Coaching staff & officials' },
   'staff.subtitle': {
-    vi: 'HLV trưởng và trọng tài chính thức — dùng trong mô hình xác suất wc-prob-v4.',
-    en: 'Head coaches and appointed officials — inputs to the wc-prob-v4 probability model.',
+    vi: 'HLV trưởng và trọng tài chính thức — dùng trong mô hình xác suất wc-prob-v5.',
+    en: 'Head coaches and appointed officials — inputs to the wc-prob-v5 probability model.',
   },
   'staff.loading': { vi: 'Đang tải thông tin ban huấn luyện…', en: 'Loading staff data…' },
   'staff.referee': { vi: 'Trọng tài chính', en: 'Referee' },

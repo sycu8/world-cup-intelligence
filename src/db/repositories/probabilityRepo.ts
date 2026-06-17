@@ -21,10 +21,9 @@ export async function listLatestSnapshotsForTournament(
        INNER JOIN (
          SELECT match_id, MAX(id) AS latest_id
          FROM probability_snapshots
+         WHERE match_id IN (SELECT id FROM matches WHERE tournament_id = ?)
          GROUP BY match_id
-       ) latest ON latest.latest_id = ps.id
-       INNER JOIN matches m ON m.id = ps.match_id
-       WHERE m.tournament_id = ?`,
+       ) latest ON latest.latest_id = ps.id`,
     )
     .bind(tournamentId)
     .all<{
@@ -43,6 +42,22 @@ export async function getLatestSnapshot(
   return db
     .prepare(
       'SELECT * FROM probability_snapshots WHERE match_id = ? ORDER BY minute DESC, second DESC LIMIT 1',
+    )
+    .bind(matchId)
+    .first<ProbabilitySnapshotRow>();
+}
+
+/** Earliest pre-match style snapshot — prefer minute 0, else oldest recorded. */
+export async function getPreMatchSnapshot(
+  db: D1Database,
+  matchId: string,
+): Promise<ProbabilitySnapshotRow | null> {
+  return db
+    .prepare(
+      `SELECT * FROM probability_snapshots
+       WHERE match_id = ?
+       ORDER BY CASE WHEN minute = 0 THEN 0 ELSE 1 END, minute ASC, second ASC, created_at ASC
+       LIMIT 1`,
     )
     .bind(matchId)
     .first<ProbabilitySnapshotRow>();

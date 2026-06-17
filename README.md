@@ -8,7 +8,7 @@
 
 ## Cập nhật mới (06/2026)
 
-Phiên bản đã deploy lên **Production** ([wcstat.orangecloud.vn](https://wcstat.orangecloud.vn)) — Worker `bff73993-…`.
+Phiên bản đã deploy lên **Production** ([wcstat.orangecloud.vn](https://wcstat.orangecloud.vn)) — Worker `596bb064-…` (gộp PR #7–#13).
 
 ### Minh chứng trên web (Mexico 2–0 South Africa)
 
@@ -23,8 +23,14 @@ Demo live: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-b
 
 | Hạng mục | Thay đổi |
 |----------|----------|
+| **Trang chủ — hướng dẫn** | Quick-start 4 bước: khối thu gọn + **4 tab full-width** (mobile: 1–4) + panel một bước/lần; hiện ngay không chờ API. |
+| **Trang chủ — tải bảng đấu** | Progressive load: schedule/standings trước, `/api/home` sau; index `0026` cho snapshot theo giải. |
+| **Xác suất live 15p** | Cron + `liveMatchStatsModifier` cập nhật xác suất từ thống kê trận đang diễn ra. |
+| **Mobile UX** | `GroupStageBoard` stack 2 dòng; padding panel nhỏ hơn trên mobile. |
+| **Ma trận tỉ số** | Chỉ hiển thị ô có xác suất ≥ 0,1% (giữ highlight + tỉ số thực tế). |
+| **Vô địch (MC v3)** | H2H, phong độ hiệp, blend strength 35/65; Poisson tight scores cho Đức/Brazil/Anh/Bồ Đào Nha/Pháp. |
 | **Trang trận** | Sửa crash thiếu import `MatchAnalyticsPanel`; trang hiển thị đầy đủ sau khi API trả dữ liệu. |
-| **Thống kê trận (`MatchLiveStatsPanel`)** | Layout 3 cột căn giữa, bar possession, highlight số cao hơn; footer nguồn/cập nhật căn giữa. |
+| **Thống kê trận (`MatchLiveStatsPanel`)** | Layout mobile-first: nhãn chỉ số ở giữa, số hai đội hai cột; bar possession full-width; tên đội rút gọn trên mobile. |
 | **Nhãn dự đoán** | Bỏ dấu `~` trên xác suất/xG/tỉ số dự đoán; giữ `●` (thực tế) và `≈` (giả lập). Component `DataKindBadge` / `DataKindMark`. |
 | **Pitch map** | `GET /api/matches/:ref/pitch-map` — sơ đồ sân, lineup live, rating, movement vectors (`PitchMap`, migration `0028`). |
 | **Recap & staff** | Tóm tắt trận FIFA (`MatchRecapPanel`), HLV/trọng tài (`MatchStaffPanel`, migration `0025`). |
@@ -43,6 +49,7 @@ Chụp lại screenshot sau deploy: `node scripts/capture-screenshots.mjs` (cầ
 ## Tính năng chính
 
 ### Trang chủ (`/`)
+- **Hướng dẫn người mới** — khối thu gọn *Lần đầu vào? Bắt đầu trong 4 bước* (`NewUserQuickStart`); mở rộng hiện **4 tab full-width** (mobile: số 1–4; desktop: nhãn ngắn) + một panel nội dung; link *Hướng dẫn đầy đủ* → `/guide`
 - Trận nổi bật (featured match) + xác suất real-time
 - **Bảng đấu** (`GroupStageBoard`) — hai tab chính, lazy-load để tránh quá tải:
   - **Bảng đấu vòng bảng** — 12 bảng A–L, xếp hạng đội thứ 3, xác suất trận vòng bảng
@@ -422,14 +429,14 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 
 ```bash
 npm run typecheck   # ✓ pass
-npm test            # ✓ 116 tests, 35 files
+npm test            # ✓ 199 tests, 58 files
 ```
 
 **Deploy gần nhất (06/2026):**
 
 | Môi trường | URL | Worker version |
 |------------|-----|----------------|
-| Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) | `bff73993-489e-4108-9fa0-02c812074c92` |
+| Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) | `596bb064-a1aa-4e7c-b690-b34ab55fedc7` |
 | UAT | [wc-tactical-uat.sycu-lee.workers.dev](https://wc-tactical-uat.sycu-lee.workers.dev) | *(chạy `npm run deploy:uat` để cập nhật)* |
 
 **Đã kiểm tra:**

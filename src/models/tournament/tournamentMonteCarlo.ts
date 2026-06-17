@@ -5,6 +5,7 @@ import {
   type GroupStanding,
 } from '../../services/tournamentProgression';
 import { resolveLoserTeamId, resolveWinnerTeamId, type MatchOutcome } from '../../services/matchLifecycle';
+import { blendTriples, pairKey, type MatchProbabilityTriple as H2hTriple } from '../../services/tournamentMcSignals';
 import type { TeamStrengthProfile } from '../../services/tournamentTeamStrength';
 import { estimateTripleFromTeamStrength } from '../../services/tournamentTeamStrength';
 
@@ -49,6 +50,7 @@ export type TournamentMonteCarloInput = {
   groupMatches: McGroupMatch[];
   knockoutMatches: McKnockoutMatch[];
   teamStrength: Record<string, TeamStrengthProfile>;
+  h2hTriples?: Map<string, H2hTriple>;
   groupRankLinks: McBracketLink[];
   winnerLinks: McBracketLink[];
   simulations: number;
@@ -81,6 +83,9 @@ function defaultStrength(teamId: string): TeamStrengthProfile {
     countryCode: null,
     isHost: false,
     effectiveRating: 1500,
+    attackRate: 1.0,
+    defenseRate: 1.0,
+    firstHalfLeadRate: 0.22,
   };
 }
 
@@ -89,31 +94,115 @@ function resolveTriple(
   awayTeamId: string,
   knockout: boolean,
   teamStrength: Record<string, TeamStrengthProfile>,
+  h2hTriples?: Map<string, H2hTriple>,
 ): MatchProbabilityTriple {
   const home = teamStrength[homeTeamId] ?? defaultStrength(homeTeamId);
   const away = teamStrength[awayTeamId] ?? defaultStrength(awayTeamId);
-  return estimateTripleFromTeamStrength(home, away, knockout);
+  const base = estimateTripleFromTeamStrength(home, away, knockout);
+  const overlay = h2hTriples?.get(pairKey(homeTeamId, awayTeamId));
+  return blendTriples(base, overlay, overlay ? 0.32 : 0);
 }
 
-function sampleGroupScore(triple: MatchProbabilityTriple, rng: () => number): { home: number; away: number } {
+function poissonSample(lambda: number, rng: () => number): number {
+  const L = Math.exp(-lambda);
+  let k = 0;
+  let p = 1;
+  do {
+    k += 1;
+    p *= rng();
+  } while (p > L);
+  return k - 1;
+}
+
+function expectedGoals(
+  home: TeamStrengthProfile,
+  away: TeamStrengthProfile,
+  knockout: boolean,
+): { home: number; away: number } {
+  const base = knockout ? 1.05 : 1.28;
+  const homeHtBoost = 1 + (home.firstHalfLeadRate - 0.22) * 0.35;
+  const homeLambda = base * home.attackRate * homeHtBoost / Math.max(0.48, away.defenseRate);
+  const awayLambda = (base * 0.94 * away.attackRate) / Math.max(0.48, home.defenseRate);
+  return {
+    home: Math.max(0.28, Math.min(3.4, homeLambda)),
+    away: Math.max(0.22, Math.min(3.0, awayLambda)),
+  };
+}
+
+function sampleScoreForOutcome(
+  homeLambda: number,
+  awayLambda: number,
+  outcome: 'home' | 'draw' | 'away',
+  rng: () => number,
+): { home: number; away: number } {
+  let home = poissonSample(homeLambda, rng);
+  let away = poissonSample(awayLambda, rng);
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    if (outcome === 'home' && home > away) break;
+    if (outcome === 'away' && away > home) break;
+    if (outcome === 'draw' && home === away) break;
+    home = poissonSample(homeLambda, rng);
+    away = poissonSample(awayLambda, rng);
+  }
+
+  if (outcome === 'home') {
+    if (home <= away) {
+      away = Math.max(0, home - 1);
+      if (home === 0 && away === 0) home = 1;
+      if (home === away) home = away + 1;
+    }
+    if (home - away > 2 && rng() < 0.72) {
+      const tight = rng() < 0.58 ? 1 : 2;
+      away = Math.max(0, tight - 1);
+      home = tight;
+    }
+  } else if (outcome === 'away') {
+    if (away <= home) {
+      home = Math.max(0, away - 1);
+      if (home === 0 && away === 0) away = 1;
+      if (home === away) away = home + 1;
+    }
+    if (away - home > 2 && rng() < 0.72) {
+      const tight = rng() < 0.58 ? 1 : 2;
+      home = Math.max(0, tight - 1);
+      away = tight;
+    }
+  } else {
+    if (home !== away) {
+      const avg = Math.min(3, Math.round((home + away) / 2));
+      home = avg;
+      away = avg;
+    }
+  }
+
+  return { home, away };
+}
+
+function sampleGroupScore(
+  triple: MatchProbabilityTriple,
+  home: TeamStrengthProfile,
+  away: TeamStrengthProfile,
+  rng: () => number,
+): { home: number; away: number } {
+  const lambdas = expectedGoals(home, away, false);
   const r = rng();
-  if (r < triple.homeWin) {
-    return rng() < 0.35 ? { home: 2, away: 1 } : { home: 1, away: 0 };
-  }
-  if (r < triple.homeWin + triple.draw) {
-    return rng() < 0.5 ? { home: 1, away: 1 } : { home: 0, away: 0 };
-  }
-  return rng() < 0.35 ? { home: 1, away: 2 } : { home: 0, away: 1 };
+  if (r < triple.homeWin) return sampleScoreForOutcome(lambdas.home, lambdas.away, 'home', rng);
+  if (r < triple.homeWin + triple.draw) return sampleScoreForOutcome(lambdas.home, lambdas.away, 'draw', rng);
+  return sampleScoreForOutcome(lambdas.home, lambdas.away, 'away', rng);
 }
 
 function sampleKnockoutScores(
   triple: MatchProbabilityTriple,
+  home: TeamStrengthProfile,
+  away: TeamStrengthProfile,
   rng: () => number,
 ): { home: number; away: number } {
+  const lambdas = expectedGoals(home, away, true);
   const r = rng();
-  if (r < triple.homeWin) return { home: 1, away: 0 };
-  if (r < triple.homeWin + triple.draw) return { home: 1, away: 1 };
-  return { home: 0, away: 1 };
+  if (r < triple.homeWin) return sampleScoreForOutcome(lambdas.home, lambdas.away, 'home', rng);
+  if (r < triple.homeWin + triple.draw) return sampleScoreForOutcome(lambdas.home, lambdas.away, 'draw', rng);
+  return sampleScoreForOutcome(lambdas.home, lambdas.away, 'away', rng);
 }
 
 function compareThird(a: GroupStanding & { group: string }, b: GroupStanding & { group: string }): number {
@@ -143,8 +232,10 @@ export function simulateTournamentOnce(input: TournamentMonteCarloInput, rng: ()
       continue;
     }
 
-    const triple = resolveTriple(m.homeTeamId, m.awayTeamId, false, input.teamStrength);
-    const score = sampleGroupScore(triple, rng);
+    const home = input.teamStrength[m.homeTeamId] ?? defaultStrength(m.homeTeamId);
+    const away = input.teamStrength[m.awayTeamId] ?? defaultStrength(m.awayTeamId);
+    const triple = resolveTriple(m.homeTeamId, m.awayTeamId, false, input.teamStrength, input.h2hTriples);
+    const score = sampleGroupScore(triple, home, away, rng);
     groupRows.push({
       group_code: m.groupCode,
       home_team_id: m.homeTeamId,
@@ -195,8 +286,10 @@ export function simulateTournamentOnce(input: TournamentMonteCarloInput, rng: ()
       const awayTeamId = pairing?.away;
       if (!homeTeamId || !awayTeamId) continue;
 
-      const triple = resolveTriple(homeTeamId, awayTeamId, true, input.teamStrength);
-      const score = sampleKnockoutScores(triple, rng);
+      const home = input.teamStrength[homeTeamId] ?? defaultStrength(homeTeamId);
+      const away = input.teamStrength[awayTeamId] ?? defaultStrength(awayTeamId);
+      const triple = resolveTriple(homeTeamId, awayTeamId, true, input.teamStrength, input.h2hTriples);
+      const score = sampleKnockoutScores(triple, home, away, rng);
       const outcome: MatchOutcome = {
         home_team_id: homeTeamId,
         away_team_id: awayTeamId,

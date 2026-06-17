@@ -112,6 +112,12 @@ export const api = {
     get<{ data: BracketPayload }>(`/tournaments/${year}/bracket`),
   tournamentChampionOdds: (year = 2026) =>
     get<{ data: ChampionOddsPayload }>(`/tournaments/${year}/champion-odds`),
+  tournamentPredictionAccuracy: (year = 2026) =>
+    get<{ data: PredictionAccuracyReport }>(`/tournaments/${year}/prediction-accuracy`),
+  tournamentUpcomingProbabilityVerification: (year = 2026, refresh = false) =>
+    get<{ data: UpcomingProbabilityVerification }>(
+      `/tournaments/${year}/upcoming-probability-verification${refresh ? '?refresh=1' : ''}`,
+    ),
   matchAnalysis: (id: string) =>
     get<{ data: MultiVariableAnalysis | null; meta?: { gatewayConfigured?: boolean } }>(
       `/analysis/${id}`,
@@ -267,6 +273,63 @@ export type ChampionOddsPayload = {
   modelVersion?: string;
   top: ChampionOddsEntry[];
   all: ChampionOddsEntry[];
+};
+
+export type PredictionOutcome = 'home' | 'draw' | 'away';
+
+export type MatchPredictionEvaluation = {
+  matchId: string;
+  kickoffUtc: string;
+  homeName: string;
+  awayName: string;
+  actualScore: string;
+  predictedOutcome: PredictionOutcome;
+  actualOutcome: PredictionOutcome;
+  favoriteHit: boolean;
+  predictedScore: string | null;
+  scorelineHit: boolean;
+  brierScore: number;
+  modelVersion: string;
+  predictedProbs: { home: number; draw: number; away: number };
+};
+
+export type PredictionAccuracyReport = {
+  tournamentYear: 2026;
+  evaluatedAt: string;
+  completedTotal: number;
+  completedWithSnapshot: number;
+  favoriteHits: number;
+  favoriteHitRate: number | null;
+  drawPredictions: number;
+  drawHits: number;
+  scorelineHits: number;
+  scorelineHitRate: number | null;
+  avgBrier: number | null;
+  modelVersions: Record<string, number>;
+  recent: MatchPredictionEvaluation[];
+};
+
+export type UpcomingMatchProbability = {
+  matchId: string;
+  kickoffUtc: string;
+  homeName: string;
+  awayName: string;
+  status: string;
+  hasProbability: boolean;
+  homeWin?: number;
+  draw?: number;
+  awayWin?: number;
+  modelVersion?: string;
+  snapshotAt?: string;
+};
+
+export type UpcomingProbabilityVerification = {
+  verifiedAt: string;
+  upcomingTotal: number;
+  withProbability: number;
+  missing: number;
+  refreshed: number;
+  matches: UpcomingMatchProbability[];
 };
 
 export type BracketMatchNode = {

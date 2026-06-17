@@ -24,6 +24,9 @@ function profile(
     countryCode: null,
     isHost: false,
     effectiveRating: 1750,
+    attackRate: 1.35,
+    defenseRate: 0.82,
+    firstHalfLeadRate: 0.32,
     ...overrides,
   };
 }
@@ -51,6 +54,35 @@ describe('tournamentMonteCarlo', () => {
     expect(sum).toBeGreaterThan(0);
     expect(sum).toBeLessThanOrEqual(1.01);
     expect(result.championCounts[0]?.prob).toBeGreaterThan(0);
+  });
+
+  it('elite teams win more often than weaker opponents', () => {
+    const input = finalOnlyInput();
+    input.teamStrength['t-a1'] = profile('t-a1', {
+      effectiveRating: 1920,
+      attackRate: 1.65,
+      defenseRate: 0.72,
+      firstHalfLeadRate: 0.38,
+      fifaRanking: 3,
+    });
+    input.teamStrength['t-a2'] = profile('t-a2', {
+      effectiveRating: 1480,
+      attackRate: 0.85,
+      defenseRate: 1.25,
+      firstHalfLeadRate: 0.15,
+      fifaRanking: 35,
+    });
+
+    let eliteChampionWins = 0;
+    for (let i = 0; i < 400; i += 1) {
+      let seed = i + 1;
+      const rng = () => {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        return seed / 0x7fffffff;
+      };
+      if (simulateTournamentOnce(input, rng) === 't-a1') eliteChampionWins += 1;
+    }
+    expect(eliteChampionWins).toBeGreaterThan(200);
   });
 
   it('simulateTournamentOnce is deterministic with fixed rng', () => {

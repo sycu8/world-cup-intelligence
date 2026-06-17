@@ -124,7 +124,7 @@ export async function getTeamHistoricalFormSnapshot(
   return getTeamFormSnapshot(db, teamId, limit);
 }
 
-function buildFormSnapshotFromRows(results: MatchRow[], teamId: string): TeamFormSnapshot | null {
+export function buildFormSnapshotFromRows(results: MatchRow[], teamId: string): TeamFormSnapshot | null {
   if (!results.length) return null;
 
   let points = 0;
