@@ -88,11 +88,12 @@ export function HomePage() {
         <Bilingual k="home.calendarSubtitle" as="p" className="mt-3 max-w-2xl text-base text-foreground/80" />
       </header>
 
+      <NewUserQuickStart />
+
       {loading ? (
         <HomePageSkeleton />
       ) : (
         <>
-          <NewUserQuickStart />
           <Suspense fallback={<SectionFallback className="min-h-[24rem]" />}>
             <GroupStageBoard
               matches={matches}
