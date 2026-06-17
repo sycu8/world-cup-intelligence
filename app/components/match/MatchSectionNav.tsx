@@ -34,10 +34,10 @@ export function MatchSectionNav({ active, onSelect, sectionRefs }: Props) {
   };
 
   return (
-    <nav
-      className="sticky top-[52px] z-20 -mx-4 border-b border-border/60 bg-background/95 px-2 py-1.5 backdrop-blur-md md:top-0"
-      aria-label={t('match.sectionNav')}
-    >
+      <nav
+        className="sticky top-[3.25rem] z-20 -mx-4 border-b border-border/60 bg-background/95 px-4 py-1.5 backdrop-blur-md md:top-0"
+        aria-label={t('match.sectionNav')}
+      >
       <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-none">
         {ids.map((id) => (
           <button

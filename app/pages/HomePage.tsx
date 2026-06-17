@@ -81,14 +81,18 @@ export function HomePage() {
   const featured = dashboard?.featuredMatch ?? null;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <header>
         <Bilingual
           k="home.calendarTitle"
           as="h1"
-          className="font-heading text-4xl tracking-tight md:text-5xl"
+          className="font-heading text-2xl tracking-tight sm:text-4xl md:text-5xl"
         />
-        <Bilingual k="home.calendarSubtitle" as="p" className="mt-3 max-w-2xl text-base text-foreground/80" />
+        <Bilingual
+          k="home.calendarSubtitle"
+          as="p"
+          className="mt-2 max-w-2xl text-sm text-foreground/80 sm:mt-3 sm:text-base"
+        />
         <p className="mt-2 text-sm text-muted-dim">
           {t('home.newUserHint')}{' '}
           <Link to="/guide" className="text-cyan hover:underline">
