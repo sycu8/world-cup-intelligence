@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import type { GroupStandingsPayload } from '../lib/api';
-import { Link } from 'react-router-dom';
 import { api, type DashboardData, type NewsArticle, type ScheduleMatch, type ChampionOddsPayload } from '../lib/api';
 import { consumeHomePrefetch } from '../lib/homePrefetch';
 import { FeaturedMatchHero } from '../components/home/FeaturedMatchHero';
@@ -9,7 +8,6 @@ import { PlatformSnapshot } from '../components/home/PlatformSnapshot';
 import { ChampionOddsPanel } from '../components/home/ChampionOddsPanel';
 import { NewUserQuickStart } from '../components/home/NewUserQuickStart';
 import { Bilingual } from '../components/i18n/Bilingual';
-import { useI18n } from '../lib/i18n/I18nContext';
 
 const HomeNewsPreview = lazy(() =>
   import('../components/home/HomeNewsPreview').then((m) => ({ default: m.HomeNewsPreview })),
@@ -44,7 +42,6 @@ function HomeExtrasSkeleton() {
 }
 
 export function HomePage() {
-  const { t } = useI18n();
   const [matches, setMatches] = useState<ScheduleMatch[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [hotNews, setHotNews] = useState<NewsArticle[]>([]);
@@ -139,28 +136,20 @@ export function HomePage() {
           as="p"
           className="mt-2 max-w-2xl text-sm text-foreground/80 sm:mt-3 sm:text-base"
         />
-        <p className="mt-2 text-sm text-muted-dim">
-          {t('home.newUserHint')}{' '}
-          <Link to="/guide" className="text-cyan hover:underline">
-            {t('home.newUserHintLink')}
-          </Link>{' '}
-          {t('home.newUserHintTail')}
-        </p>
       </header>
+
+      <NewUserQuickStart />
 
       {!boardReady ? (
         <BoardSkeleton />
       ) : (
-        <>
-          <NewUserQuickStart />
-          <Suspense fallback={<BoardSkeleton />}>
-            <GroupStageBoard
-              matches={matches}
-              initialStandings={standings}
-              initialProbs={matchProbabilities}
-            />
-          </Suspense>
-        </>
+        <Suspense fallback={<BoardSkeleton />}>
+          <GroupStageBoard
+            matches={matches}
+            initialStandings={standings}
+            initialProbs={matchProbabilities}
+          />
+        </Suspense>
       )}
 
       {!extrasReady ? (
