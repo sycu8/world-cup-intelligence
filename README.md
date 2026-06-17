@@ -429,14 +429,14 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 
 ```bash
 npm run typecheck   # ✓ pass
-npm test            # ✓ 190 tests, 55 files
+npm test            # ✓ 199 tests, 58 files
 ```
 
 **Deploy gần nhất (06/2026):**
 
 | Môi trường | URL | Worker version |
 |------------|-----|----------------|
-| Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) | *(xem output `npm run deploy:production`)* |
+| Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) | `596bb064-a1aa-4e7c-b690-b34ab55fedc7` |
 | UAT | [wc-tactical-uat.sycu-lee.workers.dev](https://wc-tactical-uat.sycu-lee.workers.dev) | *(chạy `npm run deploy:uat` để cập nhật)* |
 
 **Đã kiểm tra:**
