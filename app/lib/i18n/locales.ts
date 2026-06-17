@@ -1268,8 +1268,8 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   },
   'staff.title': { vi: 'Ban huấn luyện & trọng tài', en: 'Coaching staff & officials' },
   'staff.subtitle': {
-    vi: 'HLV trưởng và trọng tài chính thức — dùng trong mô hình xác suất wc-prob-v4.',
-    en: 'Head coaches and appointed officials — inputs to the wc-prob-v4 probability model.',
+    vi: 'HLV trưởng và trọng tài chính thức — dùng trong mô hình xác suất wc-prob-v5.',
+    en: 'Head coaches and appointed officials — inputs to the wc-prob-v5 probability model.',
   },
   'staff.loading': { vi: 'Đang tải thông tin ban huấn luyện…', en: 'Loading staff data…' },
   'staff.referee': { vi: 'Trọng tài chính', en: 'Referee' },

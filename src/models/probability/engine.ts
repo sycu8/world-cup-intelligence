@@ -16,7 +16,7 @@ import { buildExplanationFactors } from './explainFactors';
 import { matchContextModifier, rankingGapModifier } from './matchContext';
 import { coachModifier, refereeModifier } from './staffModifiers';
 
-export const MODEL_VERSION = 'wc-prob-v4';
+export const MODEL_VERSION = 'wc-prob-v5';
 const BASE_GOAL_RATE = 1.35;
 const LAMBDA_MIN = 0.05;
 const LAMBDA_MAX = 5.5;
