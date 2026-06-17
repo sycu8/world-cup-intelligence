@@ -44,7 +44,7 @@ Chụp lại screenshot sau deploy: `node scripts/capture-screenshots.mjs` (cầ
 ## Tính năng chính
 
 ### Trang chủ (`/`)
-- **Hướng dẫn người mới** — khối thu gọn *Lần đầu vào? Bắt đầu trong 4 bước* (`NewUserQuickStart`); mở rộng để xem 4 shortcut; link *Hướng dẫn đầy đủ* → `/guide`
+- **Hướng dẫn người mới** — khối thu gọn *Lần đầu vào? Bắt đầu trong 4 bước* (`NewUserQuickStart`); mở rộng hiện **4 tab full-width** (mobile: số 1–4; desktop: nhãn ngắn) + một panel nội dung; link *Hướng dẫn đầy đủ* → `/guide`
 - Trận nổi bật (featured match) + xác suất real-time
 - **Bảng đấu** (`GroupStageBoard`) — hai tab chính, lazy-load để tránh quá tải:
   - **Bảng đấu vòng bảng** — 12 bảng A–L, xếp hạng đội thứ 3, xác suất trận vòng bảng
