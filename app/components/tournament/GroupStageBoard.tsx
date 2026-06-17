@@ -54,8 +54,13 @@ function BoardMatchRow({
   const showScore = hasMatchResult(match.status);
 
   const kickoff = (
-    <time className="font-mono-data text-[10px] text-muted">
-      <MatchKickoffDisplay kickoffUtc={match.kickoff_utc} showDate={showDate} showLocalReference={false} />
+    <time className="whitespace-nowrap font-mono-data text-[10px] leading-tight text-muted">
+      <MatchKickoffDisplay
+        kickoffUtc={match.kickoff_utc}
+        showDate={showDate}
+        inlineDate={showDate}
+        showLocalReference={false}
+      />
     </time>
   );
 
@@ -97,19 +102,11 @@ function BoardMatchRow({
         dense ? 'px-2 py-2 sm:px-3' : 'px-1 py-1.5'
       }`}
     >
-      <div className="flex flex-col gap-1.5 sm:hidden">
-        <div className="flex items-center justify-between gap-2">
-          <div className="shrink-0">{kickoff}</div>
-          {scoreBlock}
-        </div>
-        <div className="min-w-0 text-[11px] leading-snug text-foreground/90">{teams}</div>
-      </div>
-
       <div
-        className={`hidden items-center gap-x-2 sm:grid ${
+        className={`grid items-center gap-x-2 ${
           showDate
-            ? 'grid-cols-[5.5rem_minmax(0,1fr)_auto] text-xs'
-            : 'grid-cols-[2.5rem_minmax(0,1fr)_auto] text-[11px]'
+            ? 'grid-cols-[minmax(5.75rem,auto)_minmax(0,1fr)_auto] text-[10px] sm:text-xs'
+            : 'grid-cols-[2.5rem_minmax(0,1fr)_auto] text-[11px] sm:text-xs'
         }`}
       >
         {kickoff}
