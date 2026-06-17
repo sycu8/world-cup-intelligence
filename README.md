@@ -23,9 +23,14 @@ Demo live: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-b
 
 | Hạng mục | Thay đổi |
 |----------|----------|
-| **Trang chủ — hướng dẫn** | Quick-start 4 bước gom vào khối thu gọn (`NewUserQuickStart`), mặc định đóng; link `/guide` luôn hiển thị; hiện ngay không chờ API. |
+| **Trang chủ — hướng dẫn** | Quick-start 4 bước: khối thu gọn + **4 tab full-width** (mobile: 1–4) + panel một bước/lần; hiện ngay không chờ API. |
+| **Trang chủ — tải bảng đấu** | Progressive load: schedule/standings trước, `/api/home` sau; index `0026` cho snapshot theo giải. |
+| **Xác suất live 15p** | Cron + `liveMatchStatsModifier` cập nhật xác suất từ thống kê trận đang diễn ra. |
+| **Mobile UX** | `GroupStageBoard` stack 2 dòng; padding panel nhỏ hơn trên mobile. |
+| **Ma trận tỉ số** | Chỉ hiển thị ô có xác suất ≥ 0,1% (giữ highlight + tỉ số thực tế). |
+| **Vô địch (MC v3)** | H2H, phong độ hiệp, blend strength 35/65; Poisson tight scores cho Đức/Brazil/Anh/Bồ Đào Nha/Pháp. |
 | **Trang trận** | Sửa crash thiếu import `MatchAnalyticsPanel`; trang hiển thị đầy đủ sau khi API trả dữ liệu. |
-| **Thống kê trận (`MatchLiveStatsPanel`)** | Layout 3 cột căn giữa, bar possession, highlight số cao hơn; footer nguồn/cập nhật căn giữa. |
+| **Thống kê trận (`MatchLiveStatsPanel`)** | Layout mobile-first: nhãn chỉ số ở giữa, số hai đội hai cột; bar possession full-width; tên đội rút gọn trên mobile. |
 | **Nhãn dự đoán** | Bỏ dấu `~` trên xác suất/xG/tỉ số dự đoán; giữ `●` (thực tế) và `≈` (giả lập). Component `DataKindBadge` / `DataKindMark`. |
 | **Pitch map** | `GET /api/matches/:ref/pitch-map` — sơ đồ sân, lineup live, rating, movement vectors (`PitchMap`, migration `0028`). |
 | **Recap & staff** | Tóm tắt trận FIFA (`MatchRecapPanel`), HLV/trọng tài (`MatchStaffPanel`, migration `0025`). |
@@ -431,7 +436,7 @@ npm test            # ✓ 190 tests, 55 files
 
 | Môi trường | URL | Worker version |
 |------------|-----|----------------|
-| Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) | `36ffacaa-b546-4f8b-b32e-34a1040ff031` |
+| Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) | *(xem output `npm run deploy:production`)* |
 | UAT | [wc-tactical-uat.sycu-lee.workers.dev](https://wc-tactical-uat.sycu-lee.workers.dev) | *(chạy `npm run deploy:uat` để cập nhật)* |
 
 **Đã kiểm tra:**
