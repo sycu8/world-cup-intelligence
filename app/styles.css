@@ -163,6 +163,15 @@
     border-radius: 4px;
   }
 
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   .api-docs-hero {
     box-shadow:
       0 0 80px rgba(0, 229, 255, 0.06),

@@ -103,15 +103,13 @@ function BoardMatchRow({
         dense ? 'px-2 py-2 sm:px-3' : 'px-1 py-1.5'
       }`}
     >
-      <div className="flex flex-col gap-1 sm:hidden">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 shrink-0">{kickoff}</div>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5">
-            {scoreBlock}
-            {probBlock}
-          </div>
+      <div className="flex flex-col gap-1.5 sm:hidden">
+        <div className="flex items-center justify-between gap-2">
+          <div className="shrink-0">{kickoff}</div>
+          {scoreBlock}
         </div>
         <div className="min-w-0 text-[11px] leading-snug text-foreground/90">{teams}</div>
+        <div className="flex justify-end">{probBlock}</div>
       </div>
 
       <div

@@ -101,35 +101,41 @@ function StatBar({ homeNum, awayNum, className = '' }: { homeNum: number | null;
 
 function StatCompareRow({ row }: { row: StatRow }) {
   return (
-    <div className="py-3 sm:py-3.5">
-      <p className="mb-2 text-center text-xs font-medium leading-snug text-muted sm:text-sm">{row.key}</p>
-      <div className="grid grid-cols-2 items-end gap-3 px-1 sm:gap-6">
+    <div className="rounded-lg bg-panel2/25 px-3 py-3 sm:px-4 sm:py-3.5">
+      <p className="mb-2.5 text-center text-xs font-medium leading-snug text-muted sm:text-sm">{row.key}</p>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2 sm:gap-4">
         <p
           className={`text-right font-mono-data text-xl tabular-nums sm:text-2xl ${valueTone(row.homeNum, row.awayNum, 'home')}`}
         >
           {row.home}
         </p>
+        <span className="pb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted/50" aria-hidden>
+          vs
+        </span>
         <p
           className={`text-left font-mono-data text-xl tabular-nums sm:text-2xl ${valueTone(row.homeNum, row.awayNum, 'away')}`}
         >
           {row.away}
         </p>
       </div>
-      {row.showBar && <StatBar homeNum={row.homeNum} awayNum={row.awayNum} className="mt-2.5" />}
+      {row.showBar && <StatBar homeNum={row.homeNum} awayNum={row.awayNum} className="mt-3" />}
     </div>
   );
 }
 
 function TeamHeader({ homeLabel, awayLabel }: { homeLabel: string; awayLabel: string }) {
   return (
-    <div className="grid grid-cols-2 gap-3 border-b border-border/50 pb-3">
+    <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
       <p className="truncate text-right text-sm font-semibold text-cyan sm:text-base" title={homeLabel}>
-        <span className="sm:hidden">{compactTeamLabel(homeLabel)}</span>
-        <span className="hidden sm:inline">{homeLabel}</span>
+        <span className="md:hidden">{compactTeamLabel(homeLabel)}</span>
+        <span className="hidden md:inline">{homeLabel}</span>
       </p>
+      <span className="text-[10px] font-medium uppercase tracking-wide text-muted/50" aria-hidden>
+        vs
+      </span>
       <p className="truncate text-left text-sm font-semibold text-magenta sm:text-base" title={awayLabel}>
-        <span className="sm:hidden">{compactTeamLabel(awayLabel)}</span>
-        <span className="hidden sm:inline">{awayLabel}</span>
+        <span className="md:hidden">{compactTeamLabel(awayLabel)}</span>
+        <span className="hidden md:inline">{awayLabel}</span>
       </p>
     </div>
   );
@@ -179,7 +185,7 @@ export function MatchLiveStatsPanel({ matchId, homeLabel, awayLabel, live }: Pro
           <div className="mt-4 w-full">
             <TeamHeader homeLabel={homeLabel} awayLabel={awayLabel} />
 
-            <div className="divide-y divide-border/40">
+            <div className="grid gap-2 sm:gap-2.5">
               {rows.map((row) => (
                 <StatCompareRow key={row.key} row={row} />
               ))}
