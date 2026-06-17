@@ -8,7 +8,7 @@
 
 ## Cập nhật mới (06/2026)
 
-Phiên bản đã deploy lên **Production** ([wcstat.orangecloud.vn](https://wcstat.orangecloud.vn)) — Worker `bff73993-…`.
+Phiên bản đã deploy lên **Production** ([wcstat.orangecloud.vn](https://wcstat.orangecloud.vn)) — Worker `36ffacaa-…`.
 
 ### Minh chứng trên web (Mexico 2–0 South Africa)
 
@@ -23,6 +23,7 @@ Demo live: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-b
 
 | Hạng mục | Thay đổi |
 |----------|----------|
+| **Trang chủ — hướng dẫn** | Quick-start 4 bước gom vào khối thu gọn (`NewUserQuickStart`), mặc định đóng; link `/guide` luôn hiển thị; hiện ngay không chờ API. |
 | **Trang trận** | Sửa crash thiếu import `MatchAnalyticsPanel`; trang hiển thị đầy đủ sau khi API trả dữ liệu. |
 | **Thống kê trận (`MatchLiveStatsPanel`)** | Layout 3 cột căn giữa, bar possession, highlight số cao hơn; footer nguồn/cập nhật căn giữa. |
 | **Nhãn dự đoán** | Bỏ dấu `~` trên xác suất/xG/tỉ số dự đoán; giữ `●` (thực tế) và `≈` (giả lập). Component `DataKindBadge` / `DataKindMark`. |
@@ -43,6 +44,7 @@ Chụp lại screenshot sau deploy: `node scripts/capture-screenshots.mjs` (cầ
 ## Tính năng chính
 
 ### Trang chủ (`/`)
+- **Hướng dẫn người mới** — khối thu gọn *Lần đầu vào? Bắt đầu trong 4 bước* (`NewUserQuickStart`); mở rộng để xem 4 shortcut; link *Hướng dẫn đầy đủ* → `/guide`
 - Trận nổi bật (featured match) + xác suất real-time
 - **Bảng đấu** (`GroupStageBoard`) — hai tab chính, lazy-load để tránh quá tải:
   - **Bảng đấu vòng bảng** — 12 bảng A–L, xếp hạng đội thứ 3, xác suất trận vòng bảng
@@ -422,14 +424,14 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 
 ```bash
 npm run typecheck   # ✓ pass
-npm test            # ✓ 116 tests, 35 files
+npm test            # ✓ 190 tests, 55 files
 ```
 
 **Deploy gần nhất (06/2026):**
 
 | Môi trường | URL | Worker version |
 |------------|-----|----------------|
-| Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) | `bff73993-489e-4108-9fa0-02c812074c92` |
+| Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) | `36ffacaa-b546-4f8b-b32e-34a1040ff031` |
 | UAT | [wc-tactical-uat.sycu-lee.workers.dev](https://wc-tactical-uat.sycu-lee.workers.dev) | *(chạy `npm run deploy:uat` để cập nhật)* |
 
 **Đã kiểm tra:**
