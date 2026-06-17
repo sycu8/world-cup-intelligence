@@ -121,7 +121,8 @@ export async function getProbabilityMovement(env: AppEnv, matchId: string) {
     const reasonCode: 'baseline' | 'live' | 'recalc' =
       i === 0
         ? 'baseline'
-        : cur.minute > (prev?.minute ?? 0)
+        : cur.minute > (prev?.minute ?? 0) ||
+            (cur.minute > 0 && prev != null && cur.minute === prev.minute)
           ? 'live'
           : 'recalc';
 

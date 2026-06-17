@@ -15,6 +15,7 @@ import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 export async function recomputeMatchProbability(
   env: AppEnv,
   matchId: string,
+  options?: { allowDuplicateSnapshot?: boolean },
 ): Promise<ProbabilityResult | null> {
   const match = await matchesRepo.getMatch(env.DB, matchId);
   if (!match) return null;
@@ -50,6 +51,14 @@ export async function recomputeMatchProbability(
     sourceSummary: [],
     explanation: 'Statistical engine output — AI provides narrative only.',
   };
+
+  const allowDuplicate = options?.allowDuplicateSnapshot !== false;
+  if (!allowDuplicate) {
+    const existing = await probabilityRepo.getLatestSnapshot(env.DB, matchId);
+    if (existing?.input_hash === result.inputHash) {
+      return result;
+    }
+  }
 
   await probabilityRepo.saveSnapshot(env.DB, result);
 
