@@ -16,6 +16,7 @@
       "/.well-known/*",
       "/robots.txt",
       "/sitemap.xml",
+      "/llms.txt",
       "/auth.md",
       "/docs/api.md",
       "/oauth/*"

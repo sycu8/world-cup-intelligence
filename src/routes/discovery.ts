@@ -17,6 +17,7 @@ import {
   buildJwksDocument,
   buildDnsAidManifest,
   buildLinkHeaderValue,
+  buildLlmsTxt,
 } from '../services/siteDiscovery';
 
 export const discoveryRoutes = new Hono<{ Bindings: AppEnv }>();
@@ -34,6 +35,14 @@ discoveryRoutes.get('/sitemap.xml', async (c) => {
   const xml = await buildSitemapXml(c.env, origin);
   return c.body(xml, 200, {
     'Content-Type': 'application/xml; charset=utf-8',
+    'Cache-Control': 'public, max-age=3600',
+  });
+});
+
+discoveryRoutes.get('/llms.txt', (c) => {
+  const origin = siteOrigin(c.req.url);
+  return c.text(buildLlmsTxt(origin), 200, {
+    'Content-Type': 'text/plain; charset=utf-8',
     'Cache-Control': 'public, max-age=3600',
   });
 });

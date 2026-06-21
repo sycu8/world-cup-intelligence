@@ -97,6 +97,9 @@ describe('seoPages', () => {
       expect(page.titleEn.length).toBeGreaterThan(0);
       expect(page.descriptionVi.length).toBeGreaterThan(0);
       expect(page.descriptionEn.length).toBeGreaterThan(0);
+      expect(page.answerVi.length).toBeGreaterThan(20);
+      expect(page.answerEn.length).toBeGreaterThan(20);
+      expect(page.relatedPaths.length).toBeGreaterThan(0);
       expect(page.ctaLabelVi.length).toBeGreaterThan(0);
       expect(page.ctaLabelEn.length).toBeGreaterThan(0);
     }

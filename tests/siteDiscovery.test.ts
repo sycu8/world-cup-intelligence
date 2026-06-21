@@ -23,6 +23,7 @@ describe('siteDiscovery', () => {
     expect(txt).toContain('User-agent: Claude-Web');
     expect(txt).toContain('Content-Signal: ai-train=no, search=yes, ai-input=yes');
     expect(txt).toContain('Disallow: /api/admin/');
+    expect(txt).toContain('Llms-Txt:');
   });
 
   it('api-catalog is linkset+json shape', () => {
