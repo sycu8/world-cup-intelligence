@@ -20,7 +20,7 @@ describe('scenarioPredictionLabels VI', () => {
   it('translates Scenario likelihood explanation lines', () => {
     expect(
       translateScenarioDriver('Scenario likelihood 42.5% with model confidence 71%.', 'vi'),
-    ).toBe('Xác suất kịch bản 42.5% · độ tin cậy mô hình 71%.');
+    ).toBe('Xác suất kịch bản 42.5% · độ tin cậy 71%.');
     expect(translateScenarioDriver('Conditional W/D/L: 45/28/27.', 'vi')).toBe(
       'W/D/L có điều kiện: 45/28/27.',
     );
@@ -101,7 +101,7 @@ describe('scenarioPredictionLabels VI', () => {
 
   it('translates key drivers, risk factors, and legacy labels', () => {
     expect(translateScenarioDriver('Mexico defensive compactness 72%', 'vi')).toContain('compact phòng ngự');
-    expect(translateScenarioDriver('Engine xG 1.2-1.8', 'vi')).toContain('xG mô hình');
+    expect(translateScenarioDriver('Engine xG 1.2-1.8', 'vi')).toContain('xG dự đoán');
     expect(translateScenarioDriver('Missing inputs: lineup', 'vi')).toContain('Thiếu dữ liệu');
     expect(
       translateScenarioDriver('All required inputs available for baseline_expected_flow.', 'vi'),

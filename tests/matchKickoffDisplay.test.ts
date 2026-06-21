@@ -50,15 +50,15 @@ describe('matchKickoffDisplay', () => {
     expect(isVietnamTimezone('UTC')).toBe(false);
   });
 
-  it('builds kickoff display parts with VN reference for non-VN viewers', () => {
+  it('builds kickoff display parts with local reference for non-VN viewers', () => {
     const kickoff = '2026-06-11T19:00:00Z';
     const foreign = kickoffDisplayParts(kickoff, 'America/New_York', 'en-US');
-    expect(foreign.showVnReference).toBe(true);
-    expect(foreign.vnTime).toBeTruthy();
+    expect(foreign.showLocalReference).toBe(true);
+    expect(foreign.localTime).toBeTruthy();
 
     const local = kickoffDisplayParts(kickoff, VIETNAM_TZ, 'vi-VN');
-    expect(local.showVnReference).toBe(false);
-    expect(local.vnTime).toBeUndefined();
+    expect(local.showLocalReference).toBe(false);
+    expect(local.localTime).toBeUndefined();
   });
 
   it('returns timezone short label and falls back when Intl fails', () => {

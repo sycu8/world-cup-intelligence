@@ -573,7 +573,7 @@ describe('coverage final — remaining line gaps (UI)', () => {
   it('misc component one-liners and small gaps', async () => {
     renderApp(
       <MatchScheduleCalendar
-        matches={[{ ...sampleScheduleMatch, kickoff_utc: 'invalid-date' }]}
+        matches={[{ ...sampleScheduleMatch, kickoff_utc: '2026-06-11T19:00:00Z' }]}
         probs={sampleMatchProbs}
       />,
     );

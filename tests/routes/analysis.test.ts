@@ -27,15 +27,16 @@ describe('analysis routes extended', () => {
     expect(res.status).toBe(404);
   });
 
-  it('GET /:matchId runs analysis when gateway configured', async () => {
+  it('GET /:matchId queues analysis when gateway configured', async () => {
     const env = createRouteTestEnv({ AI_GATEWAY_ENABLED: 'true' });
-    const { res, json } = await jsonRoute<{ data: { executiveSummary: string } }>(
+    const { res, json } = await jsonRoute<{ data: null; meta: { status: string } }>(
       analysisRoutes,
       `/${FIXTURE_MATCH.id}`,
       { env },
     );
     expect(res.status).toBe(200);
-    expect(json.data.executiveSummary).toBe('Summary');
+    expect(json.data).toBeNull();
+    expect(json.meta.status).toBe('pending');
   });
 
   it('GET /:matchId returns cached analysis when present', async () => {

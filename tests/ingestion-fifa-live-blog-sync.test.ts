@@ -120,7 +120,7 @@ describe('ingestion fifaLiveBlogSync', () => {
       { ...matchInfo(), IdMatch: '' },
       null,
     );
-    expect(result).toEqual({ commentary: 0, statsUpdated: false });
+    expect(result).toEqual({ commentary: 0, statsUpdated: false, recapUpdated: false });
   });
 
   it('syncFifaMatchBlogAndStats handles commentary sync failure', async () => {
@@ -185,7 +185,7 @@ describe('ingestion fifaLiveBlogSync', () => {
       FIXTURE_MATCH.away_team_id,
       matchInfo(),
     );
-    expect(result).toEqual({ commentary: 0, statsUpdated: false });
+    expect(result).toEqual({ commentary: 0, statsUpdated: false, recapUpdated: false });
     expect(env.KV.put).not.toHaveBeenCalled();
   });
 
@@ -510,7 +510,8 @@ describe('ingestion fifaLiveBlogSync', () => {
       'completed',
     );
     const api = await import('../src/ingestion/fifa/fifaApiClient');
-    expect(api.fetchFifaMatchInfo).not.toHaveBeenCalled();
+    // Recap translation may still be pending even when stats/commentary exist.
+    expect(api.fetchFifaMatchInfo).toHaveBeenCalled();
   });
 
   it('ensureFifaBlogAndStats pulls when commentary missing', async () => {

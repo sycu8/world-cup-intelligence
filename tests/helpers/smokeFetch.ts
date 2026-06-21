@@ -49,6 +49,20 @@ const sampleArticle = {
   thumbnail_url: '/thumb.jpg',
 };
 
+const sampleChampionOdds = {
+  generatedAt: '2026-06-01T00:00:00Z',
+  simulations: 10000,
+  top: [
+    { teamId: 't-bra', teamName: 'Brazil', countryCode: 'BR', probability: 0.18, rank: 1 },
+    { teamId: 't-fra', teamName: 'France', countryCode: 'FR', probability: 0.14, rank: 2 },
+    { teamId: 't-eng', teamName: 'England', countryCode: 'GB', probability: 0.11, rank: 3 },
+  ],
+  all: [
+    { teamId: 't-bra', teamName: 'Brazil', countryCode: 'BR', probability: 0.18, rank: 1 },
+    { teamId: 't-fra', teamName: 'France', countryCode: 'FR', probability: 0.14, rank: 2 },
+  ],
+};
+
 const sampleBriefing = {
   summary: { vi: 'Tóm tắt chiến thuật', en: 'Tactical summary' },
   probabilityExplanation: [{ vi: 'Giải thích xác suất', en: 'Probability explanation' }],
@@ -317,6 +331,7 @@ export function mockApiBody(url: string): unknown {
         hotNews: [sampleArticle],
         standings: sampleStandings,
         matchProbabilities: sampleMatchProbs,
+        championOdds: sampleChampionOdds,
       },
     };
   }
@@ -371,6 +386,39 @@ export function mockApiBody(url: string): unknown {
   }
   if (url.includes('/api/tournaments/') && url.includes('/match-probabilities')) {
     return { data: sampleMatchProbs };
+  }
+  if (url.includes('/api/tournaments/') && url.includes('/prediction-accuracy')) {
+    return {
+      data: {
+        tournamentYear: 2026,
+        evaluatedAt: '2026-06-01T00:00:00Z',
+        completedTotal: 12,
+        completedWithSnapshot: 10,
+        favoriteHits: 8,
+        favoriteHitRate: 0.8,
+        drawPredictions: 2,
+        drawHits: 1,
+        scorelineHits: 2,
+        scorelineHitRate: 0.2,
+        avgBrier: 0.42,
+        modelVersions: { 'wc-prob-v4': 10 },
+        recent: [],
+      },
+    };
+  }
+  if (url.includes('/api/tournaments/') && url.includes('/upcoming-probability-verification')) {
+    return {
+      data: {
+        verifiedAt: '2026-06-01T00:00:00Z',
+        upcomingTotal: 24,
+        withProbability: 20,
+        missing: [],
+        matches: [],
+      },
+    };
+  }
+  if (url.includes('/api/tournaments/') && url.includes('/champion-odds')) {
+    return { data: sampleChampionOdds };
   }
   if (url.includes('/api/tournaments/') && url.includes('/bracket')) {
     return { data: sampleBracket };

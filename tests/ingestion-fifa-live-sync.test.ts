@@ -70,6 +70,8 @@ vi.mock('../src/ingestion/fifa/fifaLiveBlogSync', () => ({
   shouldSyncFifaBlogAndStats: vi.fn(async () => true),
   syncFifaMatchBlogAndStats: vi.fn(async () => ({ commentary: 1, statsUpdated: true })),
   backfillIncompleteFifaMatchStats: vi.fn(async () => 0),
+  backfillMissingFifaRecaps: vi.fn(async () => 0),
+  ensureFifaBlogAndStats: vi.fn(async () => undefined),
 }));
 
 vi.mock('../src/ingestion/fifa/fifaLineupSync', () => ({
