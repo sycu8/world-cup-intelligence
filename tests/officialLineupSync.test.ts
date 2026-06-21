@@ -222,6 +222,25 @@ describe('officialLineupSync', () => {
     expect(recomputeMatchProbability).toHaveBeenCalled();
   });
 
+  it('applyOfficialLineupToMatch overwrites squad_official lineup', async () => {
+    const { env, upserts } = mockEnv({
+      lineup: {
+        id: 'lu-squad',
+        formation: '4-4-2',
+        is_official: 1,
+        source_type: 'squad_official',
+      },
+    });
+    const result = await applyOfficialLineupToMatch(env, {
+      matchId: 'm-1',
+      teamId: 'team-usa',
+      formation: '4-3-3',
+      players: [{ playerId: 'p-1' }],
+    });
+    expect(result.updated).toBe(true);
+    expect(upserts[0]?.sourceType).toBe('match_official');
+  });
+
   it('syncOfficialLineupsToMatches bulk recompute when many matches updated', async () => {
     const matches = Array.from({ length: 7 }, (_, i) => ({
       id: `m-${i}`,

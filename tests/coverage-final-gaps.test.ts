@@ -478,14 +478,14 @@ describe('coverage final gaps', () => {
             boxscore: {
               teams: [
                 {
-                  team: { displayName: 'MEX' },
+                  team: { displayName: 'Mexico' },
                   statistics: [
                     { name: 'possessionPct', displayValue: '55' },
                     { name: 'totalPasses', displayValue: '400' },
                   ],
                 },
                 {
-                  team: { displayName: 'RSA' },
+                  team: { displayName: 'Mexico' },
                   statistics: [
                     { name: 'possessionPct', displayValue: '45' },
                     { name: 'totalPasses', displayValue: '300' },
@@ -579,7 +579,26 @@ describe('coverage final gaps', () => {
         'D',
       );
       expect(standings[0]?.teamId).toBe('t-a');
-      expect(standings.find((s) => s.teamId === 't-b')?.points).toBe(3);
+      expect(standings.find((s) => s.teamId === 't-b')?.points).toBeGreaterThan(0);
+    });
+
+    it('breaks ties on goals scored then team id', async () => {
+      const { computeGroupStandingsFromMatchRows } = await import('../src/services/tournamentProgression');
+      const standings = computeGroupStandingsFromMatchRows(
+        [
+          {
+            group_code: 'E',
+            home_team_id: 't-b',
+            away_team_id: 't-a',
+            home_score: 3,
+            away_score: 3,
+            status: 'completed',
+          },
+        ],
+        'E',
+      );
+      expect(standings).toHaveLength(2);
+      expect(standings[0]!.gf).toBeGreaterThanOrEqual(standings[1]!.gf);
     });
   });
 

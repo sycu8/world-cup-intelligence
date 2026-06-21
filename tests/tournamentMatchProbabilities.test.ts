@@ -116,4 +116,78 @@ describe('tournamentMatchProbabilities', () => {
     expect(payload.data[FIXTURE_MATCH.id]?.homeWin).toBeGreaterThan(0);
     expect(payload.meta.withProbability).toBe(1);
   });
+
+  it('buildTournamentMatchProbabilitiesPayload queues background fill after budget exceeded', async () => {
+    const matches = Array.from({ length: 3 }, (_, i) => ({
+      ...FIXTURE_MATCH,
+      id: `m-gap-${i}`,
+    }));
+    const kv = createMockKv();
+    const originalNow = Date.now;
+    let tick = 0;
+    Date.now = () => {
+      tick += 1;
+      return tick === 1 ? originalNow() : originalNow() + 10_000;
+    };
+    const env = createMockEnv({
+      KV: kv,
+      DB: createMockDb({
+        all: (sql) => {
+          if (sql.includes('FROM probability_snapshots')) return { results: [] };
+          if (sql.includes('FROM matches WHERE tournament_id')) return { results: matches };
+          return { results: [] };
+        },
+        first: (sql, binds) => {
+          if (sql.includes('FROM matches WHERE id') && binds[0] === FIXTURE_MATCH.id) return FIXTURE_MATCH;
+          if (sql.includes('FROM matches WHERE id')) return { ...FIXTURE_MATCH, id: binds[0] };
+          if (sql.includes('FROM teams WHERE id')) {
+            return binds[0] === FIXTURE_MATCH.home_team_id ? FIXTURE_TEAMS[0] : FIXTURE_TEAMS[1];
+          }
+          if (sql.includes('SELECT year FROM tournaments')) return { year: 2026 };
+          return null;
+        },
+        run: () => ({ success: true, meta: { changes: 1 } }),
+      }),
+    });
+    const payload = await buildTournamentMatchProbabilitiesPayload(env, WC2026_TOURNAMENT_ID, {
+      scheduleBackgroundFill: true,
+    });
+    expect(payload.meta.missingIds.length).toBeGreaterThan(0);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(kv.put).toHaveBeenCalledWith('tournament-prob-gap-fill', 'running', { expirationTtl: 600 });
+    Date.now = originalNow;
+  });
+
+  it('buildTournamentMatchProbabilitiesPayload records preview misses and gap-fill errors', async () => {
+    const matches = [{ ...FIXTURE_MATCH, id: 'm-miss' }];
+    const kv = createMockKv();
+    const env = createMockEnv({
+      KV: kv,
+      DB: createMockDb({
+        all: (sql) => {
+          if (sql.includes('FROM probability_snapshots')) return { results: [] };
+          if (sql.includes('FROM matches WHERE tournament_id')) return { results: matches };
+          return { results: [] };
+        },
+        first: (sql) => {
+          if (sql.includes('FROM matches WHERE id')) return null;
+          return null;
+        },
+      }),
+    });
+    const payload = await buildTournamentMatchProbabilitiesPayload(env, WC2026_TOURNAMENT_ID, {
+      scheduleBackgroundFill: true,
+    });
+    expect(payload.meta.missingIds).toContain('m-miss');
+    await new Promise((r) => setTimeout(r, 20));
+  });
+
+  it('persistMissingTournamentProbabilities continues after recompute errors', async () => {
+    const { recomputeMatchProbability } = await import('../src/services/recomputeMatch');
+    vi.mocked(recomputeMatchProbability).mockRejectedValueOnce(new Error('gap fill fail'));
+    const kv = createMockKv();
+    const env = createMockEnv({ KV: kv, DB: createMockDb({ first: () => null }) });
+    await persistMissingTournamentProbabilities(env, [FIXTURE_MATCH.id, 'm-2']);
+    expect(kv.delete).toHaveBeenCalledWith('tournament-prob-gap-fill');
+  });
 });

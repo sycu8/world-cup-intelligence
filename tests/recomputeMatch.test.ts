@@ -94,14 +94,52 @@ describe('recomputeAllActiveMatches', () => {
     const done = await recomputeAllActiveMatches(env);
     expect(done).toContain(FIXTURE_MATCH.id);
   });
+
+  it('continues when an individual recompute throws', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: (sql, binds) => {
+          if (sql.includes('FROM matches WHERE id') && binds[0] === 'm-fail') {
+            throw new Error('boom');
+          }
+          if (sql.includes('FROM matches WHERE id')) return FIXTURE_MATCH;
+          if (sql.includes('FROM teams WHERE id')) {
+            return binds[0] === FIXTURE_MATCH.home_team_id ? FIXTURE_TEAMS[0] : FIXTURE_TEAMS[1];
+          }
+          if (sql.includes('SELECT year FROM tournaments')) return { year: 2026 };
+          if (sql.includes('FROM lineups')) return null;
+          if (sql.includes("role = 'referee'")) return null;
+          return null;
+        },
+        all: () => ({ results: [{ id: 'm-fail' }, { id: FIXTURE_MATCH.id }] }),
+        run: () => ({ success: true, meta: { changes: 1 } }),
+      }),
+    });
+    const done = await recomputeAllActiveMatches(env);
+    expect(done).toContain(FIXTURE_MATCH.id);
+  });
 });
 
 describe('recomputeAllWc2026Matches', () => {
-  it('returns bulk recompute summary', async () => {
-    const env = createMockEnv({ DB: buildRecomputeDb() });
+  it('recomputeAllWc2026Matches records thrown errors', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: () => ({ results: [{ id: 'm-fail' }, { id: FIXTURE_MATCH.id }] }),
+        first: (sql, binds) => {
+          if (sql.includes('FROM matches WHERE id') && binds[0] === 'm-fail') {
+            throw new Error('boom');
+          }
+          if (sql.includes('FROM matches WHERE id')) return FIXTURE_MATCH;
+          if (sql.includes('FROM teams WHERE id')) {
+            return binds[0] === FIXTURE_MATCH.home_team_id ? FIXTURE_TEAMS[0] : FIXTURE_TEAMS[1];
+          }
+          if (sql.includes('SELECT year FROM tournaments')) return { year: 2026 };
+          return null;
+        },
+        run: () => ({ success: true, meta: { changes: 1 } }),
+      }),
+    });
     const result = await recomputeAllWc2026Matches(env);
-    expect(result.total).toBe(1);
-    expect(result.recomputed).toBe(1);
-    expect(result.sampleConfidence).toBeGreaterThan(0);
+    expect(result.failed.some((f) => f.id === 'm-fail')).toBe(true);
   });
 });

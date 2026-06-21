@@ -169,6 +169,53 @@ describe('tacticalBriefing', () => {
     });
     expect(result.matchId).toBe('m-gw');
   });
+
+  it('generateTacticalBriefing falls back when gateway throws', async () => {
+    vi.mocked(gatewayChatJson).mockRejectedValueOnce(new Error('gateway down'));
+    const env = createMockEnv({
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      OPENAI_API_KEY: 'sk-test',
+      AI: undefined,
+    });
+    const result = await generateTacticalBriefing(env, {
+      matchId: 'm-gw-fail',
+      aiFallback: false,
+      probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
+    });
+    expect(result.matchId).toBe('m-gw-fail');
+  });
+
+  it('generateTacticalBriefing parses Workers AI non-response payloads', async () => {
+    const briefing = fallbackBriefing({
+      matchId: 'm-workers',
+      aiFallback: false,
+      probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
+    });
+    const env = createMockEnv({
+      AI: {
+        run: vi.fn(async () => briefing),
+      } as never,
+    });
+    const result = await generateTacticalBriefing(env, {
+      matchId: 'm-workers',
+      aiFallback: false,
+      probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
+    });
+    expect(result.matchId).toBe('m-workers');
+  });
+
+  it('generateTacticalBriefing falls back when Workers AI returns invalid JSON', async () => {
+    const env = createMockEnv({
+      AI: { run: vi.fn(async () => ({ response: '{not-json' })) } as never,
+    });
+    const result = await generateTacticalBriefing(env, {
+      matchId: 'm-workers-bad',
+      aiFallback: false,
+      probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
+    });
+    expect(result.matchId).toBe('m-workers-bad');
+  });
 });
 
 describe('translateNews', () => {
@@ -218,11 +265,77 @@ describe('translateNews', () => {
     expect(result?.titleVi).toContain('Mexico');
   });
 
-  it('returns null when all providers fail', async () => {
+  it('returns null when Workers AI returns invalid translation JSON', async () => {
+    const env = createMockEnv({
+      AI: {
+        run: vi.fn(async (model: string) => {
+          if (String(model).includes('m2m100')) return { translated_text: 'Mexico wins opener' };
+          return { response: '{bad json' };
+        }),
+      } as never,
+    });
+    expect(
+      await translateNewsHeadline(env, 'Mexico wins opener', 'Mexico beat South Africa 2-1.'),
+    ).toBeNull();
+  });
+
+  it('returns null when m2m100 response lacks translated_text field', async () => {
+    const env = createMockEnv({
+      AI: { run: vi.fn(async () => ({ ok: true })) } as never,
+    });
+    expect(await translateNewsHeadline(env, 'Mexico wins', 'Mexico beat South Africa.')).toBeNull();
+  });
+
+  it('returns null when Workers AI throws during translation', async () => {
+    const env = createMockEnv({
+      AI: {
+        run: vi.fn(async (model: string) => {
+          if (String(model).includes('m2m100')) return { translated_text: 'Mexico wins opener' };
+          throw new Error('workers down');
+        }),
+      } as never,
+    });
+    expect(await translateNewsHeadline(env, 'Mexico wins opener', 'Mexico beat South Africa 2-1.')).toBeNull();
+  });
+
+  it('returns null when gateway returns empty Vietnamese fields', async () => {
+    vi.mocked(gatewayChatJson).mockResolvedValueOnce({
+      titleVi: '   ',
+      summaryVi: 'Mexico thang',
+    });
     const env = createMockEnv({
       AI: { run: vi.fn(async () => ({ translated_text: 'Mexico wins opener' })) } as never,
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      OPENAI_API_KEY: 'sk-test',
     });
-    expect(await translateNewsHeadline(env, 'Mexico wins opener', 'Mexico beat South Africa.')).toBeNull();
+    expect(await translateNewsHeadline(env, 'Mexico wins opener', 'Mexico beat South Africa 2-1.')).toBeNull();
+  });
+
+  it('returns null when translation JSON cannot be parsed', async () => {
+    const env = createMockEnv({
+      AI: {
+        run: vi.fn(async (model: string) => {
+          if (String(model).includes('m2m100')) return { translated_text: 'Mexico wins opener' };
+          return { response: '{"titleVi": "bad"' };
+        }),
+      } as never,
+    });
+    expect(await translateNewsHeadline(env, 'Mexico wins opener', 'Mexico beat South Africa 2-1.')).toBeNull();
+  });
+
+  it('returns null when normalized translation fields are blank', async () => {
+    vi.mocked(gatewayChatJson).mockResolvedValueOnce({
+      titleVi: '',
+      summaryVi: 'Mexico thang tran',
+    });
+    const env = createMockEnv({
+      AI: { run: vi.fn(async () => ({ translated_text: 'Mexico wins opener' })) } as never,
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      OPENAI_API_KEY: 'sk-test',
+    });
+    expect(await translateNewsHeadline(env, 'Mexico wins opener', 'Mexico beat South Africa 2-1.')).toBeNull();
   });
 });
 
@@ -300,6 +413,16 @@ describe('gatewayClient', () => {
   });
 
   it('gatewayChatJson parses fenced JSON from gatewayChat', async () => {
+    vi.mocked(gatewayChatJson).mockImplementationOnce(async (env, task, messages) => {
+      const result = await gatewayChat(env, task, messages, { jsonMode: true });
+      if (!result?.content) return null;
+      try {
+        const cleaned = result.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
+        return JSON.parse(cleaned) as { titleVi: string };
+      } catch {
+        return null;
+      }
+    });
     vi.mocked(gatewayChat).mockResolvedValueOnce({
       content: '```json\n{"titleVi":"Tiêu đề từ gateway"}\n```',
       model: '@cf/meta/llama-3-8b-instruct',
@@ -312,6 +435,16 @@ describe('gatewayClient', () => {
   });
 
   it('gatewayChatJson returns null when JSON parse fails after gatewayChat', async () => {
+    vi.mocked(gatewayChatJson).mockImplementationOnce(async (env, task, messages) => {
+      const result = await gatewayChat(env, task, messages, { jsonMode: true });
+      if (!result?.content) return null;
+      try {
+        const cleaned = result.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
+        return JSON.parse(cleaned);
+      } catch {
+        return null;
+      }
+    });
     vi.mocked(gatewayChat).mockResolvedValueOnce({
       content: 'not valid json',
       model: '@cf/meta/llama-3-8b-instruct',
@@ -374,6 +507,33 @@ describe('entityExtraction', () => {
       OPENAI_API_KEY: 'sk-test',
     });
     expect((await extractEntitiesFromArticle(workersEnv, 'Brazil uses 4-3-3'))?.teams).toContain('Brazil');
+  });
+
+  it('extractEntitiesFromArticle stringifies non-response Workers payloads', async () => {
+    vi.mocked(gatewayChatJson).mockResolvedValueOnce(null);
+    const env = createMockEnv({
+      AI: {
+        run: vi.fn(async () => ({
+          teams: ['France'],
+          players: [],
+          injuries: [],
+          tacticalNotes: [],
+          formations: ['4-2-3-1'],
+        })),
+      } as never,
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      OPENAI_API_KEY: 'sk-test',
+    });
+    expect((await extractEntitiesFromArticle(env, 'France uses 4-2-3-1'))?.teams).toContain('France');
+  });
+
+  it('extractEntitiesFromArticle returns rule-based result when Workers AI throws', async () => {
+    const env = createMockEnv({
+      AI: { run: vi.fn(async () => { throw new Error('workers down'); }) } as never,
+    });
+    const entities = await extractEntitiesFromArticle(env, 'Mexico squad announcement with 4-4-2 formation.');
+    expect(entities?.formations).toContain('4-4-2');
   });
 });
 

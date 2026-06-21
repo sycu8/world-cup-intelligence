@@ -209,6 +209,34 @@ describe('coverage target line gaps', () => {
     expect(affected).toContain('m-w26-r32-1');
   });
 
+  it('gatewayClient gatewayChatJson parses fenced JSON via fetch', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json({ choices: [{ message: { content: '```json\n{"ok":true}\n```' } }] }),
+    );
+    const { gatewayChatJson } = await import('../src/ai/gatewayClient');
+    const env = createMockEnv({
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      CF_AIG_TOKEN: 'token',
+    });
+    expect(await gatewayChatJson<{ ok: boolean }>(env, 'news_summary', [{ role: 'user', content: 'x' }])).toEqual({
+      ok: true,
+    });
+  });
+
+  it('gatewayClient gatewayChatJson returns null on malformed JSON body', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json({ choices: [{ message: { content: '{bad json' } }] }),
+    );
+    const { gatewayChatJson } = await import('../src/ai/gatewayClient');
+    const env = createMockEnv({
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      CF_AIG_TOKEN: 'token',
+    });
+    expect(await gatewayChatJson(env, 'news_summary', [{ role: 'user', content: 'x' }])).toBeNull();
+  });
+
   it('tournamentProgression returns early for non-completed matches', async () => {
     const env = createMockEnv({
       DB: createMockDb({

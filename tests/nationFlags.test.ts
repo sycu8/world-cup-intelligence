@@ -40,4 +40,12 @@ describe('nationFlags', () => {
     expect(flagImageUrl('')).toBe('');
     expect(resolveTeamFlagSlug({ countryCode: 'XX', teamName: 'Brazil' })).toBe('br');
   });
+
+  it('resolves GB partial names and hyphen slug emoji fallbacks', () => {
+    expect(resolveTeamFlagSlug({ countryCode: 'GB', teamName: 'Scot' })).toBe('gb-sct');
+    expect(resolveTeamFlagSlug({ countryCode: 'GB', teamName: 'English Lions' })).toBe('gb-eng');
+    expect(resolveTeamFlag({ countryCode: 'GB', teamName: 'Scot' })).toBe('🇬🇧');
+    expect(resolveTeamFlag({ teamName: 'Not A Real Nation ZZZ' })).toBe('');
+    expect(resolveTeamFlagSlug({ teamName: 'Not A Real Nation ZZZ' })).toBe('');
+  });
 });

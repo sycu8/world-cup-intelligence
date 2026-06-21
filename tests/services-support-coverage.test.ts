@@ -370,24 +370,78 @@ describe('newsThumbnailBackfill', () => {
     expect(await recompressNewsThumbnails(env, 5)).toBe(1);
   });
 
-  it('recompressNewsThumbnails skips missing head objects and small thumbs', async () => {
+  it('resolveNewsThumbSourceUrl falls back to RSS index when raw missing image', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: () => ({
+          source_url: 'https://www.theguardian.com/football/article',
+          content_r2_key: 'news/guardian/doc.json',
+        }),
+      }),
+      R2_RAW: {
+        get: vi.fn(async () => ({
+          text: async () => JSON.stringify({ imageUrl: null }),
+        })),
+      } as never,
+    });
+    expect(await resolveNewsThumbSourceUrl(env, 'doc-rss')).toContain('guardian.jpg');
+  });
+
+  it('recompressNewsThumbnails uses raw payload when RSS misses', async () => {
+    const { compressAndStoreNewsImage } = await import('../src/services/newsImagePipeline');
+    vi.mocked(compressAndStoreNewsImage).mockResolvedValueOnce('news/thumbs/doc-raw.webp');
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 500 })));
     const env = createMockEnv({
       DB: createMockDb({
         all: () => ({
           results: [
             {
-              id: 'doc-4',
-              source_url: 'https://www.theguardian.com/football/article',
-              content_r2_key: null,
-              thumbnail_r2_key: 'news/thumbs/doc-4.webp',
+              id: 'doc-raw',
+              source_url: 'https://unknown.example/article',
+              content_r2_key: 'news/raw/doc.json',
+              thumbnail_r2_key: 'news/thumbs/doc-raw.jpg',
+            },
+          ],
+        }),
+        run: () => ({ success: true }),
+      }),
+      R2_ARTIFACTS: {
+        head: vi.fn(async () => ({
+          httpMetadata: { contentType: 'image/jpeg' },
+          size: 90_000,
+        })),
+      } as never,
+      R2_RAW: {
+        get: vi.fn(async () => ({
+          text: async () => JSON.stringify({ imageUrl: 'https://cdn.example.com/from-raw.jpg' }),
+        })),
+      } as never,
+    });
+    expect(await recompressNewsThumbnails(env, 5)).toBe(1);
+  });
+
+  it('backfillNewsThumbnails tolerates RSS feed fetch exceptions', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new Error('rss down');
+    }));
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: () => ({
+          results: [
+            {
+              id: 'doc-rss-throw',
+              source_url: 'https://unknown.example/article',
+              content_r2_key: 'news/raw/doc.json',
             },
           ],
         }),
       }),
-      R2_ARTIFACTS: {
-        head: vi.fn(async () => null),
+      R2_RAW: {
+        get: vi.fn(async () => ({
+          text: async () => JSON.stringify({ imageUrl: 'https://cdn.example.com/fallback.jpg' }),
+        })),
       } as never,
     });
-    expect(await recompressNewsThumbnails(env, 5)).toBe(0);
+    expect(await backfillNewsThumbnails(env, 5)).toBe(1);
   });
 });

@@ -184,6 +184,34 @@ describe('scenarioPredictionLabels VI', () => {
     );
   });
 
+  it('handles comparison summary with missing alternative scenario', () => {
+    const single = [
+      {
+        ...sampleScenarioSet.scenarios[0],
+        isBaseline: true,
+      },
+    ];
+    expect(
+      translateComparisonSummary(
+        'Scenario likelihood remains more likely for baseline but early transition swing shifts home win probability.',
+        single,
+        'vi',
+        'USA',
+        'Mexico',
+      ),
+    ).toContain('đội chủ nhà');
+    expect(
+      translateComparisonSummary(
+        'Scenario likelihood is tightly balanced between controlled possession match and early transition swing.',
+        single,
+        'vi',
+        'USA',
+        'Mexico',
+      ),
+    ).toContain('kịch bản');
+    expect(translateScenarioRisk('Custom unknown risk line', 'vi')).toBe('Custom unknown risk line');
+  });
+
   it('returns EN catalog labels and driver fallbacks', () => {
     expect(predictionScenarioLabel('baseline_expected_flow', 'Fallback', 'en')).toContain('Controlled');
     expect(conditionLabel('Home team uses strongest available XI', 'en')).toBe(

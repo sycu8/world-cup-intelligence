@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactElement } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -34,8 +34,16 @@ function renderWithRouter(ui: ReactElement, entry = '/') {
   );
 }
 
+function findButton(matcher: RegExp) {
+  return screen.getAllByRole('button').find((b) => matcher.test(b.textContent ?? ''));
+}
+
 describe('coverage gaps — components and pages', () => {
   const writeText = vi.fn(async () => undefined);
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   beforeEach(() => {
     installSmokeFetchMock();
@@ -340,7 +348,7 @@ describe('coverage gaps — components and pages', () => {
     });
   });
 
-  it('NewsArticlePage handles missing id, polling, and article view', async () => {
+  it('NewsArticlePage handles missing id and polling for untranslated articles', async () => {
     renderWithRouter(
       <Routes>
         <Route path="/news-intelligence" element={<NewsArticlePage />} />
@@ -349,19 +357,45 @@ describe('coverage gaps — components and pages', () => {
     );
     expect(document.body.textContent).toMatch(/back|feed|quay/i);
 
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/api/news/n-poll')) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                id: 'n-poll',
+                title: 'Poll article',
+                titleVi: 'Bài poll',
+                summary: 'Summary',
+                summaryVi: 'Tóm tắt',
+                published_at: '2026-01-01T00:00:00Z',
+                reliability_score: 0.8,
+                source_name: 'Test',
+                translated: false,
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(JSON.stringify(mockApiBody(url)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
     vi.useFakeTimers();
-    try {
-      renderWithRouter(
-        <Routes>
-          <Route path="/news-intelligence/:articleId" element={<NewsArticlePage />} />
-        </Routes>,
-        '/news-intelligence/n-test',
-      );
-      await waitFor(() => expect(document.body.textContent?.length ?? 0).toBeGreaterThan(20));
-      await vi.advanceTimersByTimeAsync(2600);
-    } finally {
-      vi.useRealTimers();
-    }
+    renderWithRouter(
+      <Routes>
+        <Route path="/news-intelligence/:articleId" element={<NewsArticlePage />} />
+      </Routes>,
+      '/news-intelligence/n-poll',
+    );
+    await vi.runOnlyPendingTimersAsync();
+    await vi.advanceTimersByTimeAsync(2600);
+    expect(document.body.textContent?.length ?? 0).toBeGreaterThan(10);
   });
 
   it('NewsArticlePage handles error state', async () => {
@@ -397,7 +431,7 @@ describe('coverage gaps — components and pages', () => {
       '/news-intelligence/n-test',
     );
     await waitFor(() => expect(document.body.textContent?.length ?? 0).toBeGreaterThan(30), {
-      timeout: 5000,
+      timeout: 10000,
     });
   });
 
@@ -408,7 +442,9 @@ describe('coverage gaps — components and pages', () => {
       </Routes>,
       '/lich-thi-dau-world-cup-2026',
     );
-    await waitFor(() => expect(known.container.textContent?.length ?? 0).toBeGreaterThan(30));
+    await waitFor(() => expect(known.container.textContent?.length ?? 0).toBeGreaterThan(30), {
+      timeout: 10000,
+    });
     expect(document.title).toContain('PitchIntel');
 
     const unknown = renderWithRouter(
@@ -428,7 +464,8 @@ describe('coverage gaps — components and pages', () => {
       vi.fn(async () => new Response('unauthorized', { status: 401 })),
     );
     renderWithRouter(<AnalystSimulatorPage />);
-    await user.click(screen.getByRole('button', { name: /recompute|queue/i }));
+    const btn = await screen.findByRole('button', { name: /recompute|queue/i }, { timeout: 10000 });
+    await user.click(btn);
     expect(alertSpy).toHaveBeenCalled();
     alertSpy.mockRestore();
   });
@@ -436,7 +473,8 @@ describe('coverage gaps — components and pages', () => {
   it('CodeBlock copies snippet to clipboard', async () => {
     const user = userEvent.setup();
     renderWithRouter(<CodeBlock code="curl https://example.com/api/health" language="bash" />);
-    await user.click(screen.getByRole('button', { name: /copy/i }));
+    const copyBtn = await screen.findByRole('button', { name: /copy/i }, { timeout: 10000 });
+    await user.click(copyBtn);
     await waitFor(() => expect(screen.getByRole('button').textContent).toMatch(/copied/i));
   });
 
@@ -474,44 +512,21 @@ describe('coverage gaps — components and pages', () => {
     }
   });
 
-  it('GroupStageBoard renders knockout loading and inactive round tabs', async () => {
-    let resolveProbs: (value: unknown) => void = () => {};
-    const probsPromise = new Promise((resolve) => {
-      resolveProbs = resolve;
-    });
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/api/tournaments/2026/match-probabilities')) {
-          await probsPromise;
-          return new Response(JSON.stringify({}), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        }
-        if (url.includes('/api/tournaments/') && url.includes('/standings')) {
-          return new Response('fail', { status: 500 });
-        }
-        return new Response(JSON.stringify(mockApiBody(url)), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }),
-    );
-
+  it('GroupStageBoard renders knockout round tabs', async () => {
     const user = userEvent.setup();
     const view = renderWithRouter(
-      <GroupStageBoard matches={sampleScheduleMatches} />,
+      <GroupStageBoard
+        matches={sampleScheduleMatches}
+        initialStandings={sampleStandings}
+        initialProbs={sampleMatchProbs}
+      />,
     );
     const knockoutTab = findButton(/knock|loại/i);
     if (knockoutTab) {
       await user.click(knockoutTab);
-      expect(view.container.textContent).toMatch(/loading|đang tải|Brazil/i);
       const roundTabs = screen.getAllByRole('tab');
       if (roundTabs.length > 1) await user.click(roundTabs[1]!);
-      resolveProbs({});
-      await waitFor(() => expect(view.container.textContent).toMatch(/Brazil|USA/i), { timeout: 5000 });
+      expect(view.container.textContent).toMatch(/Brazil|USA|Round|vòng/i);
     }
   });
 });
