@@ -90,10 +90,20 @@ app.all('*', async (c) => {
 
   const slug = parseMatchPageSlug(new URL(c.req.url).pathname);
   if (slug) {
-    const match = await resolveMatchRef(c.env.DB, slug);
+    const htmlCacheKey = `cache:spa-match-html:${slug}`;
+    const cachedHtml = await c.env.KV.get(htmlCacheKey);
+    if (cachedHtml) {
+      headers.set('Content-Type', 'text/html; charset=utf-8');
+      return new Response(cachedHtml, { status: cached.status, headers });
+    }
+
+    const match = await resolveMatchRef(c.env.DB, slug, c.env.KV);
     if (match) {
       const html = injectMatchPageHtml(await cached.text(), match, origin);
       headers.set('Content-Type', 'text/html; charset=utf-8');
+      c.executionCtx.waitUntil(
+        c.env.KV.put(htmlCacheKey, html, { expirationTtl: 300 }).catch(() => undefined),
+      );
       return new Response(html, { status: cached.status, headers });
     }
   }

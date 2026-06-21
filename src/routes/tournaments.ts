@@ -44,7 +44,8 @@ tournamentRoutes.get('/:year/standings', async (c) => {
   const year = Number(c.req.param('year'));
   if (year !== 2026) return c.json({ error: 'Not found' }, 404);
   const { buildGroupStandingsPayload } = await import('../services/tournamentStandings');
-  const data = await buildGroupStandingsPayload(c.env);
+  const { getCachedJsonWithVersion } = await import('../services/payloadCache');
+  const data = await getCachedJsonWithVersion(c.env, 'standings', () => buildGroupStandingsPayload(c.env));
   return c.json({ data }, 200, { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=60' });
 });
 

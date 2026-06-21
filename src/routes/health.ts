@@ -3,35 +3,49 @@ import type { AppEnv } from '../env';
 import { isGatewayConfigured } from '../ai/gatewayClient';
 import { parseEnv } from '../env';
 import { NEWS_CRAWL_INTERVAL_SEC, NEWS_CRAWL_KV_KEY } from '../constants/pipeline';
+import { getCachedJson } from '../services/payloadCache';
 
 export const healthRoutes = new Hono<{ Bindings: AppEnv }>();
 
-healthRoutes.get('/', async (c) => {
-  const config = parseEnv(c.env);
+type HealthPayload = {
+  status: string;
+  environment: string;
+  dependencies: Record<string, string | boolean>;
+  pipeline: {
+    dataRefreshIntervalSec: number;
+    newsCrawlIntervalSec: number;
+    lastDataRefresh: string | null;
+    lastFifaSync: string | null;
+    lastNewsCrawl: string | null;
+  };
+  viewOnly: boolean;
+  timestamp: string;
+};
+
+async function buildHealthPayload(env: AppEnv): Promise<HealthPayload> {
+  const config = parseEnv(env);
   const isProduction = config.environment === 'production';
 
-  let dbOk = false;
-  try {
-    await c.env.DB.prepare('SELECT 1').first();
-    dbOk = true;
-  } catch {
-    dbOk = false;
-  }
-  const lastRefresh = await c.env.KV.get('meta:last_data_refresh');
-  const lastFifaSync = await c.env.KV.get('meta:last_fifa_sync');
-  const lastNewsCrawl = await c.env.KV.get(NEWS_CRAWL_KV_KEY);
+  const [dbResult, lastRefresh, lastFifaSync, lastNewsCrawl] = await Promise.all([
+    env.DB.prepare('SELECT 1 AS ok').first<{ ok: number }>().catch(() => null),
+    env.KV.get('meta:last_data_refresh'),
+    env.KV.get('meta:last_fifa_sync'),
+    env.KV.get(NEWS_CRAWL_KV_KEY),
+  ]);
+
+  const dbOk = dbResult?.ok === 1;
 
   const dependencies: Record<string, string | boolean> = {
     d1: dbOk ? 'up' : 'down',
     r2: 'bound',
-    workersAi: c.env.AI ? 'bound' : 'none',
+    workersAi: env.AI ? 'bound' : 'none',
   };
   if (!isProduction) {
-    dependencies.aiGateway = isGatewayConfigured(c.env) ? 'configured' : 'needs_openai_key';
+    dependencies.aiGateway = isGatewayConfigured(env) ? 'configured' : 'needs_openai_key';
     dependencies.openaiKeySet = !!config.openaiApiKey;
   }
 
-  return c.json({
+  return {
     status: dbOk ? 'healthy' : 'degraded',
     environment: config.environment,
     dependencies,
@@ -44,5 +58,12 @@ healthRoutes.get('/', async (c) => {
     },
     viewOnly: true,
     timestamp: new Date().toISOString(),
+  };
+}
+
+healthRoutes.get('/', async (c) => {
+  const payload = await getCachedJson(c.env, 'cache:health:v1', () => buildHealthPayload(c.env), 15);
+  return c.json(payload, 200, {
+    'Cache-Control': 'public, max-age=10, stale-while-revalidate=30',
   });
 });

@@ -20,7 +20,7 @@ import { getMatchThumbnailPng, getMatchThumbnailSvg } from '../services/matchThu
 export const matchRoutes = new Hono<{ Bindings: AppEnv }>();
 
 async function loadMatch(c: { env: AppEnv; req: { param: (k: string) => string } }) {
-  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
+  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'), c.env.KV);
   return resolved;
 }
 
@@ -61,9 +61,11 @@ matchRoutes.get('/:matchId', async (c) => {
 
   const cfg = parseEnv(c.env);
   if ((cfg.fifaLiveEnabled || !cfg.mockSources) && (await shouldSyncFifaMatch(c.env, resolved.id, resolved.status))) {
-    await syncFifaMatchByRef(c.env, resolved.id).catch(() => undefined);
-    const fresh = await loadMatch(c);
-    return c.json({ data: fresh ?? resolved });
+    c.executionCtx.waitUntil(
+      syncFifaMatchByRef(c.env, resolved.id)
+        .then(() => c.env.KV.delete(`cache:match-ref:${resolved.id}`))
+        .catch(() => undefined),
+    );
   }
 
   return c.json({ data: resolved });

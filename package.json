@@ -16,6 +16,7 @@
     "sync:fifa-schedule": "node scripts/fetch-fifa-wc2026-calendar.mjs && node scripts/generate-fifa-kickoff-migration.mjs && node scripts/generate-fifa-results-migration.mjs",
     "test": "vitest run",
     "test:scenarios": "node scripts/run-capability-scenarios.mjs",
+    "test:perf": "node scripts/measure-page-load.mjs",
     "lint": "eslint src app --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "deploy": "npm run deploy:uat",
