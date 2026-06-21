@@ -24,6 +24,8 @@ export async function refreshMatchData(env: AppEnv): Promise<RefreshMatchDataRes
     const fifa = await syncFifaWc2026Matches(env);
     await syncFifaLineupsForUpcomingMatches(env).catch(() => undefined);
     await env.KV.put('meta:last_data_refresh', nowIso(), { expirationTtl: 86400 });
+    const { warmPayloadCaches } = await import('../services/cacheWarm');
+    await warmPayloadCaches(env).catch(() => undefined);
     return { updatedIds: fifa.updatedIds, completedIds: fifa.completedIds };
   }
 
@@ -88,6 +90,8 @@ export async function refreshMatchData(env: AppEnv): Promise<RefreshMatchDataRes
   }
 
   await env.KV.put('meta:last_data_refresh', now, { expirationTtl: 86400 });
+  const { warmPayloadCaches } = await import('../services/cacheWarm');
+  await warmPayloadCaches(env).catch(() => undefined);
   logInfo('minute refresh complete', {
     updated: updatedIds.length,
     completed: completedIds.length,

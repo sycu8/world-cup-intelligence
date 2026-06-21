@@ -9,6 +9,7 @@ import { buildMatchFeaturesWithForm } from '../services/matchFeatures';
 import { generateTacticalBriefing } from '../ai/tacticalBriefing';
 import { parseEnv } from '../env';
 import { getCachedJson } from '../services/payloadCache';
+import { withPathCache } from '../services/workersPathCache';
 
 export const probabilityRoutes = new Hono<{ Bindings: AppEnv }>();
 
@@ -137,13 +138,22 @@ async function resolveProbability(
 
 probabilityRoutes.get('/:matchId/probability', async (c) => {
   const recompute = c.req.query('recompute') === '1';
-  const resolved = await resolveProbability(c, c.req.param('matchId'), recompute);
-  if (!resolved) return c.json({ error: 'Not found' }, 404);
-  return c.json(
-    { data: enrichProbabilityPayload(resolved.data as Record<string, unknown>) },
-    200,
-    { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=120' },
-  );
+  const matchRef = c.req.param('matchId');
+  if (recompute) {
+    const resolved = await resolveProbability(c, matchRef, true);
+    if (!resolved) return c.json({ error: 'Not found' }, 404);
+    return c.json({ data: enrichProbabilityPayload(resolved.data as Record<string, unknown>) });
+  }
+
+  return withPathCache(`api:probability:${matchRef}`, 30, async () => {
+    const resolved = await resolveProbability(c, matchRef, false);
+    if (!resolved) return c.json({ error: 'Not found' }, 404);
+    return c.json(
+      { data: enrichProbabilityPayload(resolved.data as Record<string, unknown>) },
+      200,
+      { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=120' },
+    );
+  });
 });
 
 probabilityRoutes.get('/:matchId/scoreline', async (c) => {

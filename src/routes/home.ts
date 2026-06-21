@@ -7,6 +7,7 @@ import { persistMissingTournamentProbabilities } from '../services/tournamentMat
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import * as matchesRepo from '../db/repositories/matchesRepo';
 import * as probabilityRepo from '../db/repositories/probabilityRepo';
+import { withPathCache } from '../services/workersPathCache';
 
 export const homeRoutes = new Hono<{ Bindings: AppEnv }>();
 
@@ -29,17 +30,19 @@ homeRoutes.get('/', async (c) => {
   );
 
   const tournament = c.req.query('tournament') ?? 't-2026';
-  const data = await getCachedJsonWithVersion(c.env, `home:${tournament}`, () =>
-    buildHomePayloadData(c.env, tournament),
-  );
+  return withPathCache(`api:home:${tournament}`, 30, async () => {
+    const data = await getCachedJsonWithVersion(c.env, `home:${tournament}`, () =>
+      buildHomePayloadData(c.env, tournament),
+    );
 
-  c.executionCtx.waitUntil(
-    missingProbabilityIds(c.env)
-      .then((ids) => (ids.length ? persistMissingTournamentProbabilities(c.env, ids) : undefined))
-      .catch(() => undefined),
-  );
+    c.executionCtx.waitUntil(
+      missingProbabilityIds(c.env)
+        .then((ids) => (ids.length ? persistMissingTournamentProbabilities(c.env, ids) : undefined))
+        .catch(() => undefined),
+    );
 
-  return c.json({ data }, 200, {
-    'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+    return c.json({ data }, 200, {
+      'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+    });
   });
 });

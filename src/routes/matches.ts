@@ -14,6 +14,7 @@ import { getMatchRecap } from '../services/matchRecap';
 import { getMatchStaff } from '../services/matchStaff';
 import { parseEnv } from '../env';
 import { shouldSyncFifaMatch, syncFifaMatchByRef } from '../ingestion/fifa/fifaLiveSync';
+import { withPathCache } from '../services/workersPathCache';
 import * as teamsRepo from '../db/repositories/teamsRepo';
 import { getMatchThumbnailPng, getMatchThumbnailSvg } from '../services/matchThumbnail';
 
@@ -56,19 +57,24 @@ matchRoutes.get('/:matchId/thumbnail', async (c) => {
 });
 
 matchRoutes.get('/:matchId', async (c) => {
-  const resolved = await loadMatch(c);
-  if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const matchRef = c.req.param('matchId');
+  return withPathCache(`api:match:${matchRef}`, 20, async () => {
+    const resolved = await loadMatch(c);
+    if (!resolved) return c.json({ error: 'Not found' }, 404);
 
-  const cfg = parseEnv(c.env);
-  if ((cfg.fifaLiveEnabled || !cfg.mockSources) && (await shouldSyncFifaMatch(c.env, resolved.id, resolved.status))) {
-    c.executionCtx.waitUntil(
-      syncFifaMatchByRef(c.env, resolved.id)
-        .then(() => c.env.KV.delete(`cache:match-ref:${resolved.id}`))
-        .catch(() => undefined),
-    );
-  }
+    const cfg = parseEnv(c.env);
+    if ((cfg.fifaLiveEnabled || !cfg.mockSources) && (await shouldSyncFifaMatch(c.env, resolved.id, resolved.status))) {
+      c.executionCtx.waitUntil(
+        syncFifaMatchByRef(c.env, resolved.id)
+          .then(() => c.env.KV.delete(`cache:match-ref:${resolved.id}`))
+          .catch(() => undefined),
+      );
+    }
 
-  return c.json({ data: resolved });
+    return c.json({ data: resolved }, 200, {
+      'Cache-Control': 'public, max-age=15, stale-while-revalidate=30',
+    });
+  });
 });
 
 matchRoutes.get('/:matchId/events', async (c) => {
