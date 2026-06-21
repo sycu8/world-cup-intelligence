@@ -159,7 +159,7 @@ export function groupTeamWorldCupMeetings(
   }
 
   return [...byOpponent.values()].sort(
-    (a, b) => (b.meetings[0]?.tournament_year | 0) - (a.meetings[0]?.tournament_year | 0),
+    (a, b) => (b.meetings[0]?.tournament_year ?? 0) - (a.meetings[0]?.tournament_year ?? 0),
   );
 }
 
