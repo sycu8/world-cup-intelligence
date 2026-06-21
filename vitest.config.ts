@@ -13,9 +13,16 @@ export default defineConfig({
     environment: 'happy-dom',
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json-summary', 'html'],
+      tempDirectory: './coverage/.tmp',
       include: ['src/**/*.ts', 'app/**/*.{ts,tsx}'],
       exclude: [
         'src/**/*.d.ts',

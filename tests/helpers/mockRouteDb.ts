@@ -29,6 +29,17 @@ export type RouteDbFixtures = {
     payload_json: string;
     created_at: string;
   }>;
+  includeProbabilitySnapshots?: boolean;
+  coach?: {
+    id: string;
+    name: string;
+    nationality: string;
+    wc_appearances: number;
+    tenure_years: number;
+    tactical_rating: number;
+    discipline_index: number;
+  } | null;
+  emptySearchResults?: boolean;
 };
 
 const DEFAULT_FIXTURES: RouteDbFixtures = {
@@ -48,6 +59,17 @@ const DEFAULT_FIXTURES: RouteDbFixtures = {
       created_at: '2026-01-01T12:00:00Z',
     },
   ],
+  includeProbabilitySnapshots: true,
+  coach: {
+    id: 'coach-1',
+    name: 'Test Coach',
+    nationality: 'MEX',
+    wc_appearances: 2,
+    tenure_years: 4,
+    tactical_rating: 0.75,
+    discipline_index: 0.5,
+  },
+  emptySearchResults: false,
 };
 
 function teamById(teams: RouteDbFixtures['teams'], id: unknown) {
@@ -113,12 +135,32 @@ function handleFirst(sql: string, binds: unknown[], fixtures: RouteDbFixtures): 
     return { n: 1 };
   }
 
+  if (sql.includes('FROM team_coaches tc')) {
+    return fixtures.coach ?? null;
+  }
+
+  if (sql.includes('FROM api_clients WHERE api_key_hash')) {
+    return null;
+  }
+
+  if (sql.includes('SELECT max_id FROM api_feed_events')) {
+    return { max_id: fixtures.feedEvents.at(-1)?.id ?? 0 };
+  }
+
+  if (sql.includes('FROM source_documents') && sql.includes('WHERE id NOT IN')) {
+    return { n: Math.max(0, fixtures.news.length - 1) };
+  }
+
+  if (sql.includes('FROM source_documents') && sql.includes('COUNT(*) AS n') && !sql.includes('NOT IN')) {
+    return { n: fixtures.news.length };
+  }
+
   if (sql.includes('FROM source_documents') && sql.includes('WHERE sd.id = ?')) {
     return binds[0] === fixtures.news[0]?.id ? fixtures.news[0] : null;
   }
 
   if (sql.includes('SELECT thumbnail_url FROM source_documents WHERE id = ?')) {
-    return { thumbnail_url: null };
+    return { thumbnail_url: 'https://example.com/thumb.jpg' };
   }
 
   if (sql.includes('SELECT COUNT(*) AS n FROM source_documents')) {
@@ -156,6 +198,20 @@ function handleAll(sql: string, binds: unknown[], fixtures: RouteDbFixtures): { 
     };
   }
 
+  if (sql.includes('FROM matches m') && sql.includes('JOIN teams ht') && sql.includes('LIKE ?')) {
+    if (fixtures.emptySearchResults) return { results: undefined as unknown as [] };
+    return {
+      results: [
+        {
+          id: fixtures.match.id,
+          stage: fixtures.match.stage,
+          home: fixtures.match.home_name,
+          away: fixtures.match.away_name,
+        },
+      ],
+    };
+  }
+
   if (sql.includes('FROM matches m') && sql.includes('JOIN teams ht')) {
     if (sql.includes("m.status = 'live'")) return { results: [] };
     if (sql.includes('kickoff_utc > ?')) return { results: [fixtures.match] };
@@ -185,7 +241,16 @@ function handleAll(sql: string, binds: unknown[], fixtures: RouteDbFixtures): { 
     };
   }
 
+  if (sql.includes('FROM match_events WHERE match_id = ?') && !sql.includes('player_id')) {
+    return { results: [] };
+  }
+
+  if (sql.includes('FROM match_officials WHERE match_id')) {
+    return { results: [] };
+  }
+
   if (sql.includes('FROM probability_snapshots ps')) {
+    if (fixtures.includeProbabilitySnapshots === false) return { results: [] };
     return {
       results: [
         {
@@ -221,7 +286,9 @@ function handleAll(sql: string, binds: unknown[], fixtures: RouteDbFixtures): { 
   }
 
   if (sql.includes('FROM match_events e') && sql.includes('player_id = ?')) {
-    return { results: [] };
+    return {
+      results: [{ id: 'ev-1', match_id: fixtures.match.id, player_id: binds[0], minute: 45, event_type: 'goal' }],
+    };
   }
 
   if (sql.includes('FROM squad_players sp')) {
@@ -237,10 +304,18 @@ function handleAll(sql: string, binds: unknown[], fixtures: RouteDbFixtures): { 
   }
 
   if (sql.includes('FROM api_feed_events')) {
+    if (sql.includes('WHERE id >')) return { results: fixtures.feedEvents };
     return { results: fixtures.feedEvents };
   }
 
+  if (sql.includes('FROM api_clients ORDER BY')) {
+    return {
+      results: [{ id: 'client-1', name: 'Test', enabled: 1, created_at: '2026-01-01T00:00:00Z' }],
+    };
+  }
+
   if (sql.includes('FROM teams t') && sql.includes('JOIN matches m') && sql.includes('LIKE ?')) {
+    if (fixtures.emptySearchResults) return { results: undefined as unknown as [] };
     return {
       results: fixtures.teams
         .filter((t) => t.name.toLowerCase().includes(String(binds[1]).replace(/%/g, '').toLowerCase()))
@@ -249,12 +324,14 @@ function handleAll(sql: string, binds: unknown[], fixtures: RouteDbFixtures): { 
   }
 
   if (sql.includes('FROM players p') && sql.includes('LIKE ?')) {
+    if (fixtures.emptySearchResults) return { results: undefined as unknown as [] };
     return {
       results: [{ id: fixtures.player.id, name: fixtures.player.name }],
     };
   }
 
   if (sql.includes('ht.name as home') || sql.includes('ht.name AS home')) {
+    if (fixtures.emptySearchResults) return { results: undefined as unknown as [] };
     return {
       results: [
         {
@@ -278,16 +355,23 @@ export function createRouteTestDb(fixtures: Partial<RouteDbFixtures> = {}) {
     news: fixtures.news ?? DEFAULT_FIXTURES.news,
     sources: fixtures.sources ?? DEFAULT_FIXTURES.sources,
     feedEvents: fixtures.feedEvents ?? DEFAULT_FIXTURES.feedEvents,
+    includeProbabilitySnapshots:
+      fixtures.includeProbabilitySnapshots ?? DEFAULT_FIXTURES.includeProbabilitySnapshots,
+    coach: fixtures.coach !== undefined ? fixtures.coach : DEFAULT_FIXTURES.coach,
+    emptySearchResults: fixtures.emptySearchResults ?? DEFAULT_FIXTURES.emptySearchResults,
   };
 
   return createMockDb({
     first: (sql, binds) => handleFirst(sql, binds, data),
     all: (sql, binds) => handleAll(sql, binds, data),
-    run: () => ({ success: true, meta: { last_row_id: 2 } }),
+    run: () => ({ success: true, meta: { last_row_id: 2, changes: 1 } }),
   });
 }
 
-export function createRouteTestEnv(overrides: Partial<AppEnv> = {}): AppEnv {
+export function createRouteTestEnv(
+  overrides: Partial<AppEnv> = {},
+  dbFixtures: Partial<RouteDbFixtures> = {},
+): AppEnv {
   const now = new Date().toISOString();
   const kv = createMockKv({
     'meta:last_data_refresh': now,
@@ -306,7 +390,7 @@ export function createRouteTestEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     VECTORIZE_FALLBACK_MODE: 'true',
     CORS_ORIGINS: 'http://localhost:5173',
     KV: kv,
-    DB: createRouteTestDb(),
+    DB: createRouteTestDb(dbFixtures),
     R2_ARTIFACTS: {
       head: async () => null,
       get: async () => null,
@@ -319,7 +403,7 @@ export function createRouteTestEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     } as unknown as AppEnv['MODEL_QUEUE'],
     MATCH_ROOM: {
       idFromName: () => ({ toString: () => 'room-id' }),
-      get: () => ({ fetch: async () => new Response(null, { status: 101 }) }),
+      get: () => ({ fetch: async () => new Response('upgraded', { status: 200 }) }),
     } as unknown as AppEnv['MATCH_ROOM'],
     ...overrides,
   });

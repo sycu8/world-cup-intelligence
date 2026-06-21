@@ -4,7 +4,7 @@ import {
   persistMissingTournamentProbabilities,
 } from '../src/services/tournamentMatchProbabilities';
 import { createMockDb, createMockEnv, createMockKv } from './helpers/mockEnv';
-import { FIXTURE_MATCH, FIXTURE_SNAPSHOT } from './helpers/fixtures';
+import { FIXTURE_MATCH, FIXTURE_SNAPSHOT, FIXTURE_TEAMS } from './helpers/fixtures';
 import { WC2026_TOURNAMENT_ID } from '../src/constants/tournament';
 
 vi.mock('../src/services/recomputeMatch', () => ({
@@ -70,5 +70,50 @@ describe('tournamentMatchProbabilities', () => {
     const env = createMockEnv({ KV: kv, DB: createMockDb() });
     await persistMissingTournamentProbabilities(env, [FIXTURE_MATCH.id]);
     expect(kv.delete).not.toHaveBeenCalled();
+  });
+
+  it('persistMissingTournamentProbabilities recomputes missing matches', async () => {
+    const kv = createMockKv();
+    const env = createMockEnv({
+      KV: kv,
+      DB: createMockDb({
+        first: (sql) => {
+          if (sql.includes('FROM matches WHERE id')) return FIXTURE_MATCH;
+          if (sql.includes('FROM teams WHERE id')) return FIXTURE_TEAMS[0];
+          if (sql.includes('SELECT year FROM tournaments')) return { year: 2026 };
+          return null;
+        },
+        all: () => ({ results: [] }),
+        run: () => ({ success: true, meta: { changes: 1 } }),
+      }),
+    });
+    await persistMissingTournamentProbabilities(env, [FIXTURE_MATCH.id]);
+    expect(kv.delete).toHaveBeenCalledWith('tournament-prob-gap-fill');
+  });
+
+  it('buildTournamentMatchProbabilitiesPayload fills missing inline within budget', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: (sql) => {
+          if (sql.includes('FROM probability_snapshots')) return { results: [] };
+          if (sql.includes('FROM matches WHERE tournament_id')) return { results: [FIXTURE_MATCH] };
+          return { results: [] };
+        },
+        first: (sql, binds) => {
+          if (sql.includes('FROM matches WHERE id')) return FIXTURE_MATCH;
+          if (sql.includes('FROM teams WHERE id')) {
+            return binds[0] === FIXTURE_MATCH.home_team_id ? FIXTURE_TEAMS[0] : FIXTURE_TEAMS[1];
+          }
+          if (sql.includes('SELECT year FROM tournaments')) return { year: 2026 };
+          return null;
+        },
+        run: () => ({ success: true, meta: { changes: 1 } }),
+      }),
+    });
+    const payload = await buildTournamentMatchProbabilitiesPayload(env, WC2026_TOURNAMENT_ID, {
+      scheduleBackgroundFill: false,
+    });
+    expect(payload.data[FIXTURE_MATCH.id]?.homeWin).toBeGreaterThan(0);
+    expect(payload.meta.withProbability).toBe(1);
   });
 });

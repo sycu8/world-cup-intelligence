@@ -1,6 +1,18 @@
-import { createRef } from 'react';
+import { createRef, createElement } from 'react';
 import type { ScenarioItem } from '../../app/lib/api';
 import { API_DOC_SECTIONS } from '../../app/lib/apiDocsContent';
+import {
+  sampleHistoryMatch,
+  sampleH2HSummary,
+  sampleMatchProbs,
+  samplePitchMap,
+  sampleProbability,
+  sampleRecentWc,
+  sampleScenarioSet,
+  sampleScheduleMatches,
+  sampleStandings,
+  SMOKE_MATCH_ID,
+} from './smokeFixtures';
 
 const sampleEndpoint =
   API_DOC_SECTIONS.find((s) => s.endpoints?.length)?.endpoints?.[0] ?? {
@@ -67,7 +79,22 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
   DataKindBadge: { kind: 'predicted' },
   DataKindMark: { kind: 'actual' },
   DataKindLegend: {},
-  EditorialArticleLayout: { title: 'Test', children: 'Body' },
+  EditorialArticleLayout: {
+    title: 'Test Article',
+    subtitle: 'Subtitle',
+    children: 'Article body content',
+    sidebar: createElement('div', null, 'Sidebar'),
+    meta: createElement('span', null, 'Meta'),
+    stickyContext: {
+      home: 'USA',
+      away: 'Mexico',
+      score: '1-1',
+      status: 'live',
+      probLine: '42% / 28% / 30%',
+    },
+    takeaways: ['Takeaway one', 'Takeaway two'],
+    kicker: 'Analysis',
+  },
   EndpointCard: {
     endpoint: sampleEndpoint,
     origin: 'https://example.com',
@@ -75,8 +102,12 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
   EventTrajectoryLayer: { events: [] },
   FavoriteButton: { active: false, onToggle: () => {}, label: 'Favorite' },
   FeaturedMatchHero: { match: sampleMatch },
-  FavoritesPanel: { matches: [], teams: [] },
-  GroupStageBoard: { matches: [] },
+  FavoritesPanel: { matches: sampleScheduleMatches, teams: [{ id: 't-usa', name: 'USA', short_name: 'USA', country_code: 'US' }] },
+  GroupStageBoard: {
+    matches: sampleScheduleMatches,
+    initialStandings: sampleStandings,
+    initialProbs: sampleMatchProbs,
+  },
   GroupStandingsGrid: {},
   HomeNewsPreview: {},
   HomePageSkeleton: {},
@@ -99,7 +130,7 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
     },
     loading: false,
   },
-  MatchAnalyticsPanel: { matchId: 'm-test', homeWin: 0.4, awayWin: 0.3 },
+  MatchAnalyticsPanel: { matchId: SMOKE_MATCH_ID, homeWin: 0.4, awayWin: 0.3 },
   MatchHeader: {
     home: 'USA',
     away: 'Mexico',
@@ -110,13 +141,15 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
   MatchHistoryPanel: {
     homeName: 'USA',
     awayName: 'Mexico',
-    history: [],
-    summary: { meetings: 0, homeWins: 0, awayWins: 0, draws: 0 },
+    history: [sampleHistoryMatch],
+    summary: sampleH2HSummary,
+    homeRecentWc: [sampleRecentWc],
+    awayRecentWc: [{ ...sampleRecentWc, result: 'L' as const, teamScore: 0, opponentScore: 2 }],
   },
   MatchKickoffCountdown: { kickoffUtc: '2026-06-30T00:00:00Z', status: 'scheduled' },
   MatchKickoffDisplay: { kickoffUtc: '2026-06-30T00:00:00Z', status: 'scheduled' },
   MatchLineupSidePanel: { side: sampleLineupSide, label: 'Home' },
-  MatchLiveStatsPanel: { matchId: 'm-test', homeLabel: 'USA', awayLabel: 'Mexico' },
+  MatchLiveStatsPanel: { matchId: SMOKE_MATCH_ID, homeLabel: 'USA', awayLabel: 'Mexico', live: true },
   MatchPageGuideStrip: {},
   MatchPredictionSummary: {
     homeWin: 0.4,
@@ -126,9 +159,12 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
     awayLabel: 'Mexico',
   },
   MatchPreviewAnalysisPanel: { preview: null, loading: true },
-  MatchRecapPanel: { matchId: 'm-test', homeLabel: 'USA', awayLabel: 'Mexico' },
+  MatchRecapPanel: { matchId: SMOKE_MATCH_ID, homeLabel: 'USA', awayLabel: 'Mexico' },
   MatchResultScore: { homeScore: 1, awayScore: 0, status: 'completed' },
-  MatchScheduleCalendar: { byDate: {}, matches: [] },
+  MatchScheduleCalendar: {
+    byDate: { '2026-06-11': sampleScheduleMatches.filter((m) => m.kickoff_utc.startsWith('2026-06-11')) },
+    matches: sampleScheduleMatches,
+  },
   MatchSectionNav: {
     active: 'overview',
     onSelect: () => {},
@@ -141,7 +177,7 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
       scenarios: createRef<HTMLElement>(),
     },
   },
-  MatchStaffPanel: { matchId: 'm-test', homeLabel: 'USA', awayLabel: 'Mexico' },
+  MatchStaffPanel: { matchId: SMOKE_MATCH_ID, homeLabel: 'USA', awayLabel: 'Mexico' },
   MatchStickyScoreBar: {
     home: 'USA',
     away: 'Mexico',
@@ -184,7 +220,7 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
   },
   NewsPagination: { page: 1, totalPages: 3, onPageChange: () => {} },
   NewsThumbnail: { article: sampleArticle },
-  PitchMap: { data: null, loading: false },
+  PitchMap: { data: samplePitchMap, loading: false, homeLabel: 'USA', awayLabel: 'Mexico' },
   PitchPlayerLayer: { players: [], side: 'home' },
   PlatformSnapshot: {
     dashboard: {
@@ -217,7 +253,7 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
   },
   PredictedActualScores: { homeScore: 1, awayScore: 0, status: 'completed' },
   ProbabilityDeltaBadge: { delta: 0.05 },
-  ProbabilityMovementPanel: { matchId: 'm-test', prob: null },
+  ProbabilityMovementPanel: { matchId: SMOKE_MATCH_ID, prob: sampleProbability, currentMinute: 55 },
   ProbabilityStrip: { homeWin: 0.4, draw: 0.3, awayWin: 0.3 },
   ScenarioCard: { scenario: sampleScenario },
   ScenarioComparisonCard: {
@@ -268,8 +304,17 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
       updatedAt: '2026-01-01T00:00:00Z',
     },
   },
-  ScenarioLikelihoodPanel: { data: null, loading: true },
-  ScenarioPredictionPanel: { data: null, loading: true },
+  ScenarioLikelihoodPanel: {
+    data: {
+      matchId: SMOKE_MATCH_ID,
+      scenarios: [
+        { scenarioType: 'upset', probability: 0.2, confidence: 0.7, explanationFactors: ['form'] },
+      ],
+      disclaimer: 'Test',
+    },
+    loading: false,
+  },
+  ScenarioPredictionPanel: { data: sampleScenarioSet, loading: false },
   ScenarioProbabilityBar: { label: 'Likelihood', value: 0.5 },
   ScenarioRealtimeTimeline: { updatedAt: '2026-01-01T00:00:00Z' },
   ScorelineMatrix: { distribution: { '1-0': 0.15, '1-1': 0.12 } },
@@ -303,12 +348,51 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
     away: { name: 'Mexico', countryCode: 'MX' },
   },
   TeamSystemPanel: { home: null, away: null, loading: true },
-  TeamsDirectory: { teams: [] },
-  TeamWorldCupH2HPanel: { teamName: 'USA', opponents: [], totalMeetings: 0 },
-  TournamentSchedulePanel: { byDate: {}, matches: [] },
+  TeamsDirectory: {
+    teams: [
+      { id: 't-usa', name: 'USA', short_name: 'USA', country_code: 'US', fifa_ranking: 12 },
+      { id: 't-mex', name: 'Mexico', short_name: 'MEX', country_code: 'MX', fifa_ranking: 15 },
+      { id: 't-can', name: 'Canada', short_name: 'CAN', country_code: 'CA', fifa_ranking: 45 },
+    ],
+  },
+  TeamWorldCupH2HPanel: {
+    teamName: 'USA',
+    totalMeetings: 3,
+    opponents: [
+      {
+        opponentId: 't-mex',
+        opponentName: 'Mexico',
+        opponentShort: 'MEX',
+        meetings: [sampleHistoryMatch],
+        wins: 1,
+        draws: 1,
+        losses: 1,
+        goalsFor: 4,
+        goalsAgainst: 3,
+      },
+    ],
+  },
+  TournamentSchedulePanel: {
+    byDate: { '2026-06-11': sampleScheduleMatches.filter((m) => m.kickoff_utc.startsWith('2026-06-11')) },
+    matches: sampleScheduleMatches,
+    probs: sampleMatchProbs,
+    totalExpected: 104,
+  },
   ViewModeToggle: { mode: 'tactical', onChange: () => {} },
   WorldCupCountdown: { targetUtc: '2026-06-11T14:00:00Z', title: 'WC 2026' },
 };
 
 /** Components that need nested Routes (Outlet or route hooks). */
 export const ROUTE_WRAPPED_COMPONENTS = new Set(['AppShell']);
+
+/** Components that fetch on mount and need waitFor in smoke renders. */
+export const ASYNC_SMOKE_COMPONENTS = new Set([
+  'GroupStandingsGrid',
+  'BracketPanel',
+  'MatchLiveStatsPanel',
+  'MatchRecapPanel',
+  'MatchStaffPanel',
+  'TeamSystemPanel',
+  'ProbabilityMovementPanel',
+  'MatchAnalyticsPanel',
+]);

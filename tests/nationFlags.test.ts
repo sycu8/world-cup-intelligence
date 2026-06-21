@@ -29,5 +29,15 @@ describe('nationFlags', () => {
     expect(resolveTeamFlag({ countryCode: 'JP' })).toBe('🇯🇵');
     expect(resolveTeamFlag({ teamName: 'Brazil' })).toBe('🇧🇷');
     expect(resolveTeamFlag({ countryCode: 'XX' })).toBe('');
+    expect(resolveTeamFlag({ countryCode: 'GB', teamName: 'Scotland' })).toBe('🇬🇧');
+    expect(resolveTeamFlag({ countryCode: 'GB', teamName: 'England' })).toBe('🇬🇧');
+    expect(resolveTeamFlag({ teamName: 'Unknown Nation XYZ' })).toBe('');
+  });
+
+  it('handles invalid ISO and empty slugs', () => {
+    expect(isoToFlagEmoji('TBD')).toBe('');
+    expect(isoToFlagEmoji('X')).toBe('');
+    expect(flagImageUrl('')).toBe('');
+    expect(resolveTeamFlagSlug({ countryCode: 'XX', teamName: 'Brazil' })).toBe('br');
   });
 });

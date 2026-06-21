@@ -24,6 +24,23 @@ describe('matchThumbnail', () => {
     );
   });
 
+  it('maps knockout stage label when group code absent', () => {
+    const input = matchToThumbnailInput({
+      id: 'm-ko',
+      slug: 'vong-16-mexico-vs-brazil',
+      home_name: 'Mexico',
+      away_name: 'Brazil',
+      home_country_code: 'MX',
+      away_country_code: 'BR',
+      home_score: null,
+      away_score: null,
+      status: 'scheduled',
+      stage: 'R16',
+      group_code: null,
+    } as never);
+    expect(input.stageLabel).toBe('R16');
+  });
+
   it('maps match row to thumbnail input', () => {
     const input = matchToThumbnailInput({
       id: 'm-w26-ga-1v2',
@@ -57,6 +74,17 @@ describe('matchThumbnail', () => {
     expect(svg).toContain('South Africa');
     expect(svg).toContain('2 – 0');
     expect(svg.startsWith('<?xml')).toBe(true);
+  });
+
+  it('shows score line for finished matches', () => {
+    const svg = buildMatchThumbnailSvg({
+      homeName: 'Mexico',
+      awayName: 'South Africa',
+      homeScore: 1,
+      awayScore: 1,
+      status: 'finished',
+    });
+    expect(svg).toContain('1 – 1');
   });
 
   it('defines png og image path for social preview', () => {

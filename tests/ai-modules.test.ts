@@ -125,6 +125,50 @@ describe('tacticalBriefing', () => {
     expect(result.summary).toBeTruthy();
     expect(env.KV.put).toHaveBeenCalled();
   });
+
+  it('getCachedBriefing returns null for invalid cache payload', async () => {
+    const env = createMockEnv({ KV: createMockKv({ 'briefing:vi3:m-1': 'not-json' }) });
+    expect(await getCachedBriefing(env, 'm-1')).toBeNull();
+  });
+
+  it('generateTacticalBriefing returns cached briefing without recomputing', async () => {
+    const briefing = fallbackBriefing({
+      matchId: 'm-cached',
+      aiFallback: true,
+      probability: { homeWinProb: 0.4, drawProb: 0.3, awayWinProb: 0.3 },
+    });
+    const env = createMockEnv({
+      KV: createMockKv({ 'briefing:vi3:m-cached': JSON.stringify(briefing) }),
+    });
+    const result = await generateTacticalBriefing(env, {
+      matchId: 'm-cached',
+      aiFallback: false,
+      probability: {},
+    });
+    expect(result.matchId).toBe('m-cached');
+  });
+
+  it('generateTacticalBriefing uses gateway when configured', async () => {
+    vi.mocked(gatewayChatJson).mockResolvedValueOnce({
+      ...fallbackBriefing({
+        matchId: 'm-gw',
+        aiFallback: false,
+        probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
+      }),
+      matchId: 'm-gw',
+    });
+    const env = createMockEnv({
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      OPENAI_API_KEY: 'sk-test',
+    });
+    const result = await generateTacticalBriefing(env, {
+      matchId: 'm-gw',
+      aiFallback: false,
+      probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
+    });
+    expect(result.matchId).toBe('m-gw');
+  });
 });
 
 describe('translateNews', () => {
@@ -142,6 +186,43 @@ describe('translateNews', () => {
     );
     expect(result?.titleVi).toContain('Mỹ');
     expect(aiRun).toHaveBeenCalled();
+  });
+
+  it('uses Workers AI llama models when m2m100 fails', async () => {
+    const aiRun = vi.fn(async (model: string) => {
+      if (model.includes('m2m100')) return { translated_text: 'USA wins friendly' };
+      return {
+        response: JSON.stringify({
+          titleVi: 'Hoa Kỳ thắng trận giao hữu',
+          summaryVi: 'Đội tuyển Hoa Kỳ đánh bại Mexico trong trận giao hữu tối thứ Sáu.',
+        }),
+      };
+    });
+    const env = createMockEnv({ AI: { run: aiRun } as never });
+    const result = await translateNewsHeadline(env, 'USA wins friendly', 'The United States beat Mexico.');
+    expect(result?.titleVi).toContain('Hoa Kỳ');
+  });
+
+  it('uses gateway when Workers AI paths fail', async () => {
+    vi.mocked(gatewayChatJson).mockResolvedValueOnce({
+      titleVi: 'Mexico giành chiến thắng',
+      summaryVi: 'Mexico đã thắng trận mở màn World Cup với tỷ số 2-1 trước đối thủ.',
+    });
+    const env = createMockEnv({
+      AI: { run: vi.fn(async () => ({ translated_text: 'Mexico wins opener' })) } as never,
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      OPENAI_API_KEY: 'sk-test',
+    });
+    const result = await translateNewsHeadline(env, 'Mexico wins opener', 'Mexico beat South Africa 2-1.');
+    expect(result?.titleVi).toContain('Mexico');
+  });
+
+  it('returns null when all providers fail', async () => {
+    const env = createMockEnv({
+      AI: { run: vi.fn(async () => ({ translated_text: 'Mexico wins opener' })) } as never,
+    });
+    expect(await translateNewsHeadline(env, 'Mexico wins opener', 'Mexico beat South Africa.')).toBeNull();
   });
 });
 
@@ -198,6 +279,46 @@ describe('gatewayClient', () => {
     ]);
     expect(parsed?.titleVi).toBe('Tiêu đề');
   });
+
+  it('gatewayChat returns null when gateway disabled', async () => {
+    expect(await gatewayChat(createMockEnv(), 'news_summary', [{ role: 'user', content: 'x' }])).toBeNull();
+  });
+
+  it('gatewayChat handles HTTP errors and fetch failures', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('bad gateway', { status: 502 })));
+    const env = createMockEnv({
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      CF_AIG_TOKEN: 'token',
+    });
+    expect(await gatewayChat(env, 'news_summary', [{ role: 'user', content: 'x' }])).toBeNull();
+
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new Error('network down');
+    }));
+    expect(await gatewayChat(env, 'news_summary', [{ role: 'user', content: 'x' }])).toBeNull();
+  });
+
+  it('gatewayChatJson parses fenced JSON from gatewayChat', async () => {
+    vi.mocked(gatewayChat).mockResolvedValueOnce({
+      content: '```json\n{"titleVi":"Tiêu đề từ gateway"}\n```',
+      model: '@cf/meta/llama-3-8b-instruct',
+      provider: 'workers',
+    });
+    const parsed = await gatewayChatJson<{ titleVi: string }>(createMockEnv(), 'news_summary', [
+      { role: 'user', content: 'x' },
+    ]);
+    expect(parsed?.titleVi).toBe('Tiêu đề từ gateway');
+  });
+
+  it('gatewayChatJson returns null when JSON parse fails after gatewayChat', async () => {
+    vi.mocked(gatewayChat).mockResolvedValueOnce({
+      content: 'not valid json',
+      model: '@cf/meta/llama-3-8b-instruct',
+      provider: 'workers',
+    });
+    expect(await gatewayChatJson(createMockEnv(), 'news_summary', [{ role: 'user', content: 'x' }])).toBeNull();
+  });
 });
 
 describe('entityExtraction', () => {
@@ -218,6 +339,60 @@ describe('entityExtraction', () => {
       'Mexico squad announcement with 4-4-2 formation.',
     );
     expect(entities?.teams.length).toBeGreaterThan(0);
+  });
+
+  it('extractEntitiesFromArticle uses gateway and Workers AI paths', async () => {
+    vi.mocked(gatewayChatJson).mockResolvedValueOnce({
+      teams: ['Mexico'],
+      players: ['Player A'],
+      injuries: [],
+      tacticalNotes: ['lineup'],
+      formations: ['4-4-2'],
+    });
+    const gatewayEnv = createMockEnv({
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      OPENAI_API_KEY: 'sk-test',
+    });
+    expect((await extractEntitiesFromArticle(gatewayEnv, 'Mexico lineup 4-4-2'))?.teams).toContain('Mexico');
+
+    vi.mocked(gatewayChatJson).mockResolvedValueOnce(null);
+    const workersEnv = createMockEnv({
+      AI: {
+        run: vi.fn(async () => ({
+          response: JSON.stringify({
+            teams: ['Brazil'],
+            players: [],
+            injuries: [],
+            tacticalNotes: [],
+            formations: ['4-3-3'],
+          }),
+        })),
+      } as never,
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      OPENAI_API_KEY: 'sk-test',
+    });
+    expect((await extractEntitiesFromArticle(workersEnv, 'Brazil uses 4-3-3'))?.teams).toContain('Brazil');
+  });
+});
+
+describe('explainModelVsMarket extensions', () => {
+  it('explainModelVsMarket uses default summary when gateway omits summary', async () => {
+    vi.mocked(gatewayChatJson).mockResolvedValueOnce({});
+    const env = createMockEnv({
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      OPENAI_API_KEY: 'sk-test',
+    });
+    const result = await explainModelVsMarket(env, {
+      matchId: 'm-1',
+      model: { home: 0.4, draw: 0.3, away: 0.3 },
+      market: { home: 0.35, draw: 0.3, away: 0.35 },
+      edge: { home: 0.05, draw: 0, away: -0.05 },
+      sourceReliability: 0.8,
+    });
+    expect(result.summary).toContain('differ');
   });
 });
 
@@ -309,6 +484,50 @@ describe('explain modules', () => {
     });
     expect(result.disclaimer).toContain('not betting advice');
     expect(result.keyDifferences).toHaveLength(3);
+  });
+
+  it('explainModelVsMarket uses gateway summary when configured', async () => {
+    vi.mocked(gatewayChatJson).mockResolvedValueOnce({ summary: 'Model leans home despite market draw bias.' });
+    const env = createMockEnv({
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      OPENAI_API_KEY: 'sk-test',
+    });
+    const result = await explainModelVsMarket(env, {
+      matchId: 'm-1',
+      model: { home: 0.5, draw: 0.25, away: 0.25 },
+      market: { home: 0.45, draw: 0.3, away: 0.25 },
+      edge: { home: 0.05, draw: -0.05, away: 0 },
+      volatilityScore: 0.05,
+      sourceId: 'mkt-manual',
+      sourceName: 'Manual',
+      sourceReliability: 0.7,
+      retrievedAt: '2026-06-01T00:00:00Z',
+      disclaimer: MARKET_DISCLAIMER,
+    });
+    expect(result.summary).toContain('Model leans home');
+  });
+
+  it('explainModelVsMarket falls back when gateway throws', async () => {
+    vi.mocked(gatewayChatJson).mockRejectedValueOnce(new Error('gateway down'));
+    const env = createMockEnv({
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      OPENAI_API_KEY: 'sk-test',
+    });
+    const result = await explainModelVsMarket(env, {
+      matchId: 'm-1',
+      model: { home: 0.5, draw: 0.25, away: 0.25 },
+      market: { home: 0.45, draw: 0.3, away: 0.25 },
+      edge: { home: 0.05, draw: -0.05, away: 0 },
+      volatilityScore: 0.05,
+      sourceId: 'mkt-manual',
+      sourceName: 'Manual',
+      sourceReliability: 0.7,
+      retrievedAt: '2026-06-01T00:00:00Z',
+      disclaimer: MARKET_DISCLAIMER,
+    });
+    expect(result.summary).toContain('differ');
   });
 
   it('explainScenarioLikelihood builds highlights', async () => {

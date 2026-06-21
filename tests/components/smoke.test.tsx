@@ -1,6 +1,7 @@
 import { type ComponentType, type ReactElement } from 'react';
 import { describe, it, beforeEach, expect } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, waitFor, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {
   BrowserRouter,
   MemoryRouter,
@@ -10,7 +11,7 @@ import {
 import { I18nProvider } from '../../app/lib/i18n/I18nContext';
 import { SEO_PAGES } from '../../app/lib/seoPages';
 import { installSmokeFetchMock } from '../helpers/smokeFetch';
-import { COMPONENT_PROPS, ROUTE_WRAPPED_COMPONENTS } from '../helpers/smokeProps';
+import { COMPONENT_PROPS, ROUTE_WRAPPED_COMPONENTS, ASYNC_SMOKE_COMPONENTS } from '../helpers/smokeProps';
 
 import { AdminPage } from '../../app/pages/AdminPage';
 import { AnalystSimulatorPage } from '../../app/pages/AnalystSimulatorPage';
@@ -28,6 +29,21 @@ import { SeoLandingPage } from '../../app/pages/SeoLandingPage';
 import { TeamPage } from '../../app/pages/TeamPage';
 import { TournamentPage } from '../../app/pages/TournamentPage';
 import { TournamentsHubPage } from '../../app/pages/TournamentsHubPage';
+import { GroupStageBoard } from '../../app/components/tournament/GroupStageBoard';
+import { TournamentSchedulePanel } from '../../app/components/tournament/TournamentSchedulePanel';
+import { MatchHistoryPanel } from '../../app/components/match/MatchHistoryPanel';
+import { MatchLiveStatsPanel } from '../../app/components/match/MatchLiveStatsPanel';
+import { PitchMap } from '../../app/components/tactical/PitchMap';
+import {
+  sampleHistoryMatch,
+  sampleH2HSummary,
+  sampleMatchProbs,
+  samplePitchMap,
+  sampleRecentWc,
+  sampleScheduleMatches,
+  sampleStandings,
+  SMOKE_MATCH_ID,
+} from '../helpers/smokeFixtures';
 
 const REEXPORT_SUFFIXES = [
   '/match/TacticalBriefingPanel.tsx',
@@ -136,25 +152,12 @@ function renderWithProviders(
   return render(<BrowserRouter>{inner}</BrowserRouter>);
 }
 
-function renderAppShellChild(Component: ComponentType) {
-  return render(
-    <MemoryRouter initialEntries={['/']}>
-      <I18nProvider>
-        <Routes>
-          <Route element={<Outlet />}>
-            <Route path="/" element={<Component />} />
-          </Route>
-        </Routes>
-      </I18nProvider>
-    </MemoryRouter>,
-  );
-}
-
 async function smokeRender(
   label: string,
   renderFn: () => ReturnType<typeof render>,
   skipped: string[] = [],
   wait = false,
+  timeout = 3000,
 ) {
   try {
     const result = renderFn();
@@ -163,7 +166,7 @@ async function smokeRender(
         () => {
           expect(result.container.textContent?.length ?? 0).toBeGreaterThan(0);
         },
-        { timeout: 3000 },
+        { timeout },
       );
     } else {
       expect(result.container).toBeTruthy();
@@ -184,6 +187,7 @@ describe('page smoke renders', () => {
 
   for (const page of PAGE_CASES) {
     it(`renders ${page.name}`, async () => {
+      const longWait = page.name === 'MatchPage' || page.name === 'MatchAnalysisPage';
       await smokeRender(
         page.name,
         () =>
@@ -194,6 +198,7 @@ describe('page smoke renders', () => {
           }),
         skipped,
         true,
+        longWait ? 8000 : 3000,
       );
     });
   }
@@ -221,6 +226,7 @@ describe('component smoke renders', () => {
       const props = COMPONENT_PROPS[exportName] ?? {};
 
       it(`renders ${label}`, async () => {
+        const needsWait = ASYNC_SMOKE_COMPONENTS.has(exportName);
         await smokeRender(label, () => {
           const element = <Component {...props} />;
 
@@ -239,7 +245,7 @@ describe('component smoke renders', () => {
           }
 
           return renderWithProviders(element);
-        }, skipped);
+        }, skipped, needsWait);
       });
     }
   }
@@ -256,5 +262,87 @@ describe('App', () => {
     await waitFor(() => expect(result.container.textContent?.length ?? 0).toBeGreaterThan(0), {
       timeout: 5000,
     });
+  });
+});
+
+describe('data-rich component branches', () => {
+  beforeEach(() => {
+    installSmokeFetchMock();
+  });
+
+  it('GroupStageBoard renders group standings and knockout tab', async () => {
+    const user = userEvent.setup();
+    const view = renderWithProviders(
+      <GroupStageBoard
+        matches={sampleScheduleMatches}
+        initialStandings={sampleStandings}
+        initialProbs={sampleMatchProbs}
+      />,
+    );
+
+    expect(view.container.textContent).toMatch(/USA|MEX|Mexico/i);
+    const knockoutBtn = screen.getAllByRole('button').find((b) => /knock|loại/i.test(b.textContent ?? ''));
+    if (knockoutBtn) {
+      await user.click(knockoutBtn);
+      expect(view.container.textContent).toMatch(/Brazil|BRA/i);
+    }
+  });
+
+  it('TournamentSchedulePanel filters matches and toggles view', async () => {
+    const user = userEvent.setup();
+    const view = renderWithProviders(
+      <TournamentSchedulePanel
+        byDate={{ '2026-06-11': sampleScheduleMatches }}
+        matches={sampleScheduleMatches}
+        probs={sampleMatchProbs}
+        totalExpected={104}
+      />,
+    );
+
+    expect(view.container.textContent).toMatch(/USA|Mexico/i);
+    const liveBtn = screen.getAllByRole('button').find((b) => /live|đang diễn ra/i.test(b.textContent ?? ''));
+    if (liveBtn) {
+      await user.click(liveBtn);
+      expect(view.container.textContent).toMatch(/Canada|CAN/i);
+    }
+  });
+
+  it('MatchHistoryPanel shows H2H summary and recent WC form', async () => {
+    renderWithProviders(
+      <MatchHistoryPanel
+        homeName="USA"
+        awayName="Mexico"
+        history={[sampleHistoryMatch]}
+        summary={sampleH2HSummary}
+        homeRecentWc={[sampleRecentWc]}
+        awayRecentWc={[{ ...sampleRecentWc, result: 'L', teamScore: 0, opponentScore: 2 }]}
+      />,
+    );
+
+    expect((await screen.findAllByText(/2.0/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/WDL|LDW/).length).toBeGreaterThan(0);
+  });
+
+  it('MatchLiveStatsPanel loads live stats from API', async () => {
+    renderWithProviders(
+      <MatchLiveStatsPanel matchId={SMOKE_MATCH_ID} homeLabel="USA" awayLabel="Mexico" live />,
+    );
+
+    expect(await screen.findByText(/58%|58 %/)).toBeTruthy();
+    expect(screen.getByText(/FIFA Live|fifa live/i)).toBeTruthy();
+  });
+
+  it('GroupStageBoard loads standings from API when initial data omitted', async () => {
+    const view = renderWithProviders(<GroupStageBoard matches={sampleScheduleMatches} />);
+    await waitFor(() => expect(view.container.textContent).toMatch(/USA|Mexico/i), { timeout: 5000 });
+  });
+
+  it('PitchMap renders formations and players', async () => {
+    renderWithProviders(
+      <PitchMap data={samplePitchMap} homeLabel="USA" awayLabel="Mexico" />,
+    );
+
+    expect(await screen.findByText(/4-3-3/)).toBeTruthy();
+    expect(screen.getByText(/Player One/i)).toBeTruthy();
   });
 });

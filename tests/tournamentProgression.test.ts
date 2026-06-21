@@ -1,13 +1,24 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   BEST_THIRD_R32_SLOTS,
+  applyBestThirdQualifiers,
+  areAllGroupsComplete,
+  collectThirdPlaceCandidates,
   computeGroupStandings,
   computeGroupStandingsFromMatchRows,
-  collectThirdPlaceCandidates,
-  areAllGroupsComplete,
+  processMatchCompletion,
 } from '../src/services/tournamentProgression';
 import { createMockDb, createMockEnv } from './helpers/mockEnv';
+import { FIXTURE_MATCH } from './helpers/fixtures';
 import { WC2026_TOURNAMENT_ID } from '../src/constants/tournament';
+
+vi.mock('../src/services/bulkRecomputeRunner', () => ({
+  scheduleRecomputeAfterDataChange: vi.fn(async () => undefined),
+}));
+
+vi.mock('../src/services/teamRatingRefresh', () => ({
+  refreshTeamRatingsFromForm: vi.fn(async () => undefined),
+}));
 
 describe('computeGroupStandingsFromMatchRows', () => {
   const rows = [
@@ -119,5 +130,67 @@ describe('tournamentProgression async helpers', () => {
 
   it('exports best-third R32 slot mapping', () => {
     expect(BEST_THIRD_R32_SLOTS[0].matchId).toBe('m-w26-r32-13');
+  });
+
+  it('areAllGroupsComplete returns true when every group finished', async () => {
+    const db = createMockDb({
+      first: () => ({ total: 6, done: 6 }),
+    });
+    expect(await areAllGroupsComplete(db)).toBe(true);
+  });
+
+  it('applyBestThirdQualifiers no-ops when groups are incomplete', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: () => ({ total: 6, done: 3 }),
+      }),
+    });
+    expect(await applyBestThirdQualifiers(env)).toEqual([]);
+  });
+
+  it('processMatchCompletion advances knockout winners', async () => {
+    const completedMatch = {
+      ...FIXTURE_MATCH,
+      status: 'completed',
+      home_score: 2,
+      away_score: 1,
+      stage: 'R16',
+      group_code: null,
+    };
+    const runCalls: string[] = [];
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: (sql) => {
+          if (sql.includes('FROM matches WHERE id')) return completedMatch;
+          if (sql.includes('AS team_id FROM matches')) return { team_id: 'team-placeholder' };
+          return null;
+        },
+        all: (sql) => {
+          if (sql.includes('source_match_id = ?')) {
+            return {
+              results: [
+                {
+                  id: 'link-ko',
+                  source_match_id: completedMatch.id,
+                  target_match_id: 'm-w26-qf-1',
+                  target_slot: 'home',
+                  rule_type: 'winner',
+                  rule_json: null,
+                },
+              ],
+            };
+          }
+          return { results: [] };
+        },
+        run: (sql) => {
+          runCalls.push(sql);
+          return { success: true };
+        },
+      }),
+    });
+
+    const affected = await processMatchCompletion(env, completedMatch.id);
+    expect(affected).toContain('m-w26-qf-1');
+    expect(runCalls.some((sql) => sql.includes('UPDATE matches SET'))).toBe(true);
   });
 });

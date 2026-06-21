@@ -110,10 +110,45 @@ describe('marketSignalService', () => {
     expect(result?.sourceName).toBe('Manual');
   });
 
+  it('buildModelVsMarket returns null without snapshot or odds', async () => {
+    const { getLatestSnapshot } = await import('../src/db/repositories/probabilityRepo');
+    vi.mocked(getLatestSnapshot).mockResolvedValueOnce(null);
+    expect(await buildModelVsMarket(createMockEnv(), 'm-1')).toBeNull();
+
+    vi.mocked(getLatestSnapshot).mockResolvedValueOnce({
+      home_win_prob: 0.5,
+      draw_prob: 0.25,
+      away_win_prob: 0.25,
+    } as never);
+    const { getLatestMarketOdds } = await import('../src/db/repositories/marketRepo');
+    vi.mocked(getLatestMarketOdds).mockResolvedValueOnce([]);
+    expect(await buildModelVsMarket(createMockEnv(), 'm-1')).toBeNull();
+  });
+
   it('getMarketSignalsPayload builds from odds when no cached signal', async () => {
     const payload = await getMarketSignalsPayload(createMockEnv(), 'm-1');
     expect(payload.signals?.matchId).toBe('m-1');
     expect(payload.oddsSnapshots).toHaveLength(3);
     expect(payload.disclaimer).toContain('not betting advice');
+  });
+
+  it('getMarketSignalsPayload reads cached market signal analysis', async () => {
+    const { getLatestMarketSignal } = await import('../src/db/repositories/marketRepo');
+    vi.mocked(getLatestMarketSignal).mockResolvedValueOnce({
+      model_home_prob: 0.5,
+      model_draw_prob: 0.25,
+      model_away_prob: 0.25,
+      market_home_prob: 0.45,
+      market_draw_prob: 0.3,
+      market_away_prob: 0.25,
+      edge_home: 0.05,
+      edge_draw: -0.05,
+      edge_away: 0,
+      volatility_score: 0.05,
+      created_at: '2026-06-01T00:00:00Z',
+    });
+    const payload = await getMarketSignalsPayload(createMockEnv(), 'm-1');
+    expect(payload.signals?.edge.home).toBeCloseTo(0.05);
+    expect(payload.signals?.updatedAt).toBe('2026-06-01T00:00:00Z');
   });
 });
