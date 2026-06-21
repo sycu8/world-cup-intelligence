@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { blendFormWithBase } from '../src/services/teamFormStats';
+import { describe, expect, it, vi } from 'vitest';
+import { blendFormWithBase, getTeamFormSnapshot } from '../src/services/teamFormStats';
+import { createMockDb } from './helpers/mockEnv';
 import { resolveTeamId } from '../src/data/teamNameMap';
 import {
   parseStatsbombMatches,
@@ -12,6 +13,59 @@ describe('teamFormStats', () => {
   it('blendFormWithBase weights form into base', () => {
     expect(blendFormWithBase(1.0, 2.0, 0.5)).toBe(1.5);
     expect(blendFormWithBase(1.0, undefined)).toBe(1.0);
+  });
+
+  it('getTeamFormSnapshot aggregates completed matches', async () => {
+    const db = createMockDb({
+      all: () => ({
+        results: [
+          {
+            home_team_id: 'team-w26-a1',
+            away_team_id: 'team-w26-a2',
+            home_score: 2,
+            away_score: 1,
+            home_xg: 1.5,
+            away_xg: 0.8,
+          },
+          {
+            home_team_id: 'team-w26-b1',
+            away_team_id: 'team-w26-a1',
+            home_score: 0,
+            away_score: 1,
+            home_xg: 0.4,
+            away_xg: 1.1,
+          },
+        ],
+      }),
+    });
+    const form = await getTeamFormSnapshot(db, 'team-w26-a1', 6, 't-2026');
+    expect(form?.matchesPlayed).toBe(2);
+    expect(form?.pointsPerGame).toBe(3);
+    expect(form?.recentForm).toBeGreaterThan(0);
+  });
+
+  it('falls back to all tournaments when tournament-scoped query empty', async () => {
+    let calls = 0;
+    const db = createMockDb({
+      all: () => {
+        calls += 1;
+        if (calls === 1) return { results: [] };
+        return {
+          results: [
+            {
+              home_team_id: 'team-arg',
+              away_team_id: 'team-fra',
+              home_score: 1,
+              away_score: 1,
+              home_xg: 1,
+              away_xg: 1,
+            },
+          ],
+        };
+      },
+    });
+    const form = await getTeamFormSnapshot(db, 'team-arg', 6, 't-2026');
+    expect(form?.matchesPlayed).toBe(1);
   });
 });
 

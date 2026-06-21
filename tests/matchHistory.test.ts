@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getHeadToHead,
+  getTeamRecentWorldCupMatches,
+  getTeamWorldCupHeadToHead,
+  getWorldCupHeadToHeadBetween,
   groupTeamWorldCupMeetings,
   mapMatchesToTeamPerspective,
+  resolveTeamIdsForWcHistory,
   summarizePairFromPerspective,
   type HeadToHeadMatch,
 } from '../src/services/matchHistory';
+import { createMockDb, createMockEnv } from './helpers/mockEnv';
 
 function meeting(
   id: string,
@@ -102,5 +108,88 @@ describe('mapMatchesToTeamPerspective', () => {
       result: 'W',
       isHome: false,
     });
+  });
+});
+
+describe('resolveTeamIdsForWcHistory', () => {
+  it('expands alias ids by country code and legacy name map', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: () => ({ id: 'team-w26-a1', name: 'Mexico', country_code: 'MEX' }),
+        all: () => ({ results: [{ id: 'team-mex' }, { id: 'team-w26-a1' }] }),
+      }),
+    });
+    const ids = await resolveTeamIdsForWcHistory(env, 'team-w26-a1');
+    expect(ids).toContain('team-mex');
+    expect(ids).toContain('team-w26-a1');
+  });
+});
+
+describe('getHeadToHead async loaders', () => {
+  const historyRow = (id: string, homeId: string, awayId: string, year: number): HeadToHeadMatch =>
+    meeting(id, homeId, awayId, 2, 1, year);
+
+  it('getWorldCupHeadToHeadBetween excludes current match id', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: () => ({
+          results: [historyRow('old-1', 'team-arg', 'team-fra', 2018)],
+        }),
+      }),
+    });
+    const rows = await getWorldCupHeadToHeadBetween(env, 'team-arg', 'team-fra', 'current-match');
+    expect(rows).toHaveLength(1);
+  });
+
+  it('getTeamWorldCupHeadToHead groups opponents', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: () => ({ id: 'team-arg' }),
+        all: () => ({
+          results: [
+            historyRow('1', 'team-arg', 'team-fra', 2018),
+            historyRow('2', 'team-arg', 'team-mex', 2006),
+          ],
+        }),
+      }),
+    });
+    const payload = await getTeamWorldCupHeadToHead(env, 'team-arg');
+    expect(payload?.opponents).toHaveLength(2);
+    expect(payload?.totalMeetings).toBe(2);
+  });
+
+  it('getHeadToHead returns summary for WC2026 fixture', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: (sql) => {
+          if (sql.includes('WHERE m.id = ?')) {
+            return {
+              ...meeting('current', 'team-w26-a1', 'team-w26-a2', 0, 0, 2026),
+              home_team_id: 'team-w26-a1',
+              away_team_id: 'team-w26-a2',
+            };
+          }
+          if (sql.includes('country_code')) return { country_code: 'MEX' };
+          return null;
+        },
+        all: () => ({ results: [] }),
+      }),
+    });
+    const h2h = await getHeadToHead(env, 'current');
+    expect(h2h?.summary.totalMatches).toBe(0);
+    expect(h2h?.current?.id).toBe('current');
+  });
+
+  it('getTeamRecentWorldCupMatches maps team perspective', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: () => ({ id: 'team-mex', name: 'Mexico', country_code: 'MEX' }),
+        all: () => ({
+          results: [historyRow('1', 'team-mex', 'team-bra', 2014)],
+        }),
+      }),
+    });
+    const recent = await getTeamRecentWorldCupMatches(env, 'team-mex', 3);
+    expect(recent[0].result).toBeDefined();
   });
 });
