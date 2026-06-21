@@ -220,7 +220,7 @@ export async function updateScenariosFromRealtimeEvent(
   let scenarios = await matchPredictionScenarioRepo.listActiveScenariosForMatch(env.DB, input.matchId);
   if (scenarios.length < 2) {
     const generated = await generateMatchScenarios(env, input.matchId);
-    scenarios = generated?.scenarios ?? [];
+    if (generated) scenarios = generated.scenarios;
   }
 
   const result = applyRealtimeEventToScenarios(context, scenarios, input);

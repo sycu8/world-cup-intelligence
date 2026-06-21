@@ -7,12 +7,15 @@ import {
 } from '../src/services/matchThumbnail';
 import { injectMatchPageHtml } from '../src/services/spaMatchMeta';
 import { parseMatchPageSlug } from '../src/utils/matchPath';
-import { resolveTeamFlagSlug } from '../src/lib/teamFlags';
+import { resolveTeamFlagSlug, flagCdnUrl } from '../src/lib/teamFlags';
 
 describe('matchThumbnail', () => {
   it('resolves Mexico and South Africa flag slugs', () => {
     expect(resolveTeamFlagSlug({ countryCode: 'MX', teamName: 'Mexico' })).toBe('mx');
     expect(resolveTeamFlagSlug({ countryCode: 'ZA', teamName: 'South Africa' })).toBe('za');
+    expect(resolveTeamFlagSlug({ teamName: null })).toBe('');
+    expect(resolveTeamFlagSlug({ teamName: 'england' })).toBe('gb-eng');
+    expect(flagCdnUrl('')).toBe('');
   });
 
   it('builds public thumbnail paths from slug', () => {
@@ -22,6 +25,23 @@ describe('matchThumbnail', () => {
     expect(matchOgImagePublicPath('vong-bang-a-mexico-vs-south-africa')).toBe(
       '/api/matches/vong-bang-a-mexico-vs-south-africa/thumbnail.png',
     );
+  });
+
+  it('maps knockout stage label when group code absent', () => {
+    const input = matchToThumbnailInput({
+      id: 'm-ko',
+      slug: 'vong-16-mexico-vs-brazil',
+      home_name: 'Mexico',
+      away_name: 'Brazil',
+      home_country_code: 'MX',
+      away_country_code: 'BR',
+      home_score: null,
+      away_score: null,
+      status: 'scheduled',
+      stage: 'R16',
+      group_code: null,
+    } as never);
+    expect(input.stageLabel).toBe('R16');
   });
 
   it('maps match row to thumbnail input', () => {
@@ -57,6 +77,17 @@ describe('matchThumbnail', () => {
     expect(svg).toContain('South Africa');
     expect(svg).toContain('2 – 0');
     expect(svg.startsWith('<?xml')).toBe(true);
+  });
+
+  it('shows score line for finished matches', () => {
+    const svg = buildMatchThumbnailSvg({
+      homeName: 'Mexico',
+      awayName: 'South Africa',
+      homeScore: 1,
+      awayScore: 1,
+      status: 'finished',
+    });
+    expect(svg).toContain('1 – 1');
   });
 
   it('defines png og image path for social preview', () => {

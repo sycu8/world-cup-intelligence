@@ -1,10 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  formatKickoffDate,
+  formatKickoffDateLong,
   formatKickoffTime,
   getViewerLocale,
+  getViewerTimezone,
+  isVietnamTimezone,
   kickoffDisplayParts,
   localDateKey,
   SCHEDULE_TZ,
+  timezoneShortLabel,
   VIETNAM_TZ,
 } from '../app/lib/matchKickoffDisplay';
 
@@ -35,5 +40,54 @@ describe('matchKickoffDisplay', () => {
 
   it('falls back when device locale is unavailable', () => {
     expect(getViewerLocale('vi-VN')).toBeTruthy();
+  });
+
+  it('formats long dates and detects Vietnam timezone', () => {
+    const kickoff = '2026-06-11T19:00:00Z';
+    expect(formatKickoffDateLong(kickoff, VIETNAM_TZ, 'en-US')).toMatch(/Jun/);
+    expect(formatKickoffDate(kickoff, VIETNAM_TZ, 'vi-VN', { weekday: 'short' })).toBeTruthy();
+    expect(isVietnamTimezone(VIETNAM_TZ)).toBe(true);
+    expect(isVietnamTimezone('UTC')).toBe(false);
+  });
+
+  it('builds kickoff display parts with VN reference for non-VN viewers', () => {
+    const kickoff = '2026-06-11T19:00:00Z';
+    const foreign = kickoffDisplayParts(kickoff, 'America/New_York', 'en-US');
+    expect(foreign.showVnReference).toBe(true);
+    expect(foreign.vnTime).toBeTruthy();
+
+    const local = kickoffDisplayParts(kickoff, VIETNAM_TZ, 'vi-VN');
+    expect(local.showVnReference).toBe(false);
+    expect(local.vnTime).toBeUndefined();
+  });
+
+  it('returns timezone short label and falls back when Intl fails', () => {
+    expect(timezoneShortLabel(VIETNAM_TZ, 'en-US')).toBeTruthy();
+
+    const original = Intl.DateTimeFormat;
+    vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(() => {
+      throw new Error('Intl unavailable');
+    });
+    expect(getViewerTimezone()).toBe(VIETNAM_TZ);
+    Intl.DateTimeFormat = original;
+  });
+
+  it('falls back to short timezone name when offset parts are missing', () => {
+    const original = Intl.DateTimeFormat;
+    vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function MockDtf(
+      this: Intl.DateTimeFormat,
+      locale?: string | string[],
+      options?: Intl.DateTimeFormatOptions,
+    ) {
+      const real = new original(locale, options);
+      if (options?.timeZoneName === 'shortOffset') {
+        return {
+          formatToParts: () => [{ type: 'literal', value: '' }],
+        } as Intl.DateTimeFormat;
+      }
+      return real;
+    });
+    expect(timezoneShortLabel(VIETNAM_TZ, 'en-US')).toBeTruthy();
+    Intl.DateTimeFormat = original;
   });
 });

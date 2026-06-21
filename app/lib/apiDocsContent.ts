@@ -38,7 +38,7 @@ export const API_DOC_SECTIONS: ApiDocSection[] = [
     content: [
       'Base URL: `{origin}/api` — replace `{origin}` with your deployment host.',
       'Human-readable docs: this page. Machine-readable: OpenAPI, API catalog, and raw Markdown.',
-      'No authentication required for public read endpoints. Partner integrations use API keys and webhooks.',
+      'Partner integrations: [GitHub repository](https://github.com/sycu8/world-cup-intelligence) for source and webhooks.',
     ],
   },
   {
@@ -158,6 +158,7 @@ setInterval(async () => {
         method: 'DELETE',
         path: '/api/v1/webhooks/:id',
         title: 'Remove webhook',
+        description: 'Deletes a webhook subscription by id.',
         auth: 'api-key',
       },
       {

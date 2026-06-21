@@ -53,6 +53,10 @@ type MatchRow = {
   away_score?: number;
 };
 
+function numberOrZero(value: number | null | undefined): number {
+  return value ?? 0;
+}
+
 function utcDay(iso: string): string {
   return iso.slice(0, 10);
 }
@@ -244,17 +248,19 @@ async function applyFifaPayload(
   internal: MatchRow,
   payload: FifaMatchInfo,
 ): Promise<'updated' | 'completed' | 'unchanged'> {
-  const homeScore = payload.HomeTeam?.Score ?? payload.HomeTeamScore ?? 0;
-  const awayScore = payload.AwayTeam?.Score ?? payload.AwayTeamScore ?? 0;
+  const readScore = (team: { Score?: number | null } | undefined, flat?: number | null) =>
+    numberOrZero(team?.Score != null ? team.Score : flat);
+  const homeScore = readScore(payload.HomeTeam, payload.HomeTeamScore);
+  const awayScore = readScore(payload.AwayTeam, payload.AwayTeamScore);
   const minute = parseFifaMinute(payload.MatchTime);
   const status = resolveFifaPlatformStatus(payload);
   const now = nowIso();
 
   const changed =
     internal.status !== status ||
-    minute !== (internal.minute ?? 0) ||
-    (homeScore ?? 0) !== (internal.home_score ?? 0) ||
-    (awayScore ?? 0) !== (internal.away_score ?? 0);
+    minute !== numberOrZero(internal.minute) ||
+    homeScore !== numberOrZero(internal.home_score) ||
+    awayScore !== numberOrZero(internal.away_score);
 
   await env.DB
     .prepare(
@@ -264,7 +270,7 @@ async function applyFifaPayload(
          updated_at = ?
        WHERE id = ?`,
     )
-    .bind(status, minute, homeScore ?? 0, awayScore ?? 0, payload.IdMatch, now, internal.id)
+    .bind(status, minute, homeScore, awayScore, payload.IdMatch, now, internal.id)
     .run();
 
   await syncMatchEvents(env.DB, internal.id, internal.home_team_id, internal.away_team_id, payload);
@@ -301,7 +307,7 @@ async function applyFifaPayload(
         internal.home_team_id,
         internal.away_team_id,
         payload,
-        internal.fifa_match_id ?? payload.IdMatch,
+        payload.IdMatch,
       );
     } catch (e) {
       logError('fifa live blog/stats sync failed', { match_id: internal.id, error: String(e) });
@@ -314,8 +320,8 @@ async function applyFifaPayload(
         matchId: internal.id,
         status,
         minute,
-        homeScore: homeScore ?? 0,
-        awayScore: awayScore ?? 0,
+        homeScore,
+        awayScore,
         updatedAt: now,
       }).catch(() => undefined);
     }
@@ -327,8 +333,8 @@ async function applyFifaPayload(
       matchId: internal.id,
       status,
       minute,
-      homeScore: homeScore ?? 0,
-      awayScore: awayScore ?? 0,
+      homeScore,
+      awayScore,
       updatedAt: now,
     };
     if (internal.status !== status) {
@@ -346,17 +352,17 @@ async function applyFifaCalendarRow(
   internal: MatchRow,
   row: FifaCalendarMatch,
 ): Promise<'updated' | 'unchanged'> {
-  const homeScore = row.HomeTeamScore ?? row.Home?.Score ?? 0;
-  const awayScore = row.AwayTeamScore ?? row.Away?.Score ?? 0;
+  const homeScore = numberOrZero(row.HomeTeamScore);
+  const awayScore = numberOrZero(row.AwayTeamScore);
   const minute = parseFifaMinute(row.MatchTime);
   const status = resolveFifaPlatformStatus(row);
   const now = nowIso();
 
   const changed =
     internal.status !== status ||
-    minute !== (internal.minute ?? 0) ||
-    (homeScore ?? 0) !== (internal.home_score ?? 0) ||
-    (awayScore ?? 0) !== (internal.away_score ?? 0);
+    minute !== numberOrZero(internal.minute) ||
+    homeScore !== numberOrZero(internal.home_score) ||
+    awayScore !== numberOrZero(internal.away_score);
 
   if (!changed) return 'unchanged';
 
@@ -368,7 +374,7 @@ async function applyFifaCalendarRow(
          updated_at = ?
        WHERE id = ?`,
     )
-    .bind(status, minute, homeScore ?? 0, awayScore ?? 0, row.IdMatch, now, internal.id)
+    .bind(status, minute, homeScore, awayScore, row.IdMatch, now, internal.id)
     .run();
 
   return 'updated';
@@ -382,7 +388,7 @@ function needsFullFifaMatchInfo(row: FifaCalendarMatch, platformStatus: string, 
 }
 
 /** @internal exported for unit tests */
-export { needsFullFifaMatchInfo };
+export { needsFullFifaMatchInfo, applyFifaPayload };
 
 /** Pull FIFA scores-fixtures / Match Centre data for all WC2026 matches. */
 export async function syncFifaWc2026Matches(env: AppEnv): Promise<FifaSyncResult> {

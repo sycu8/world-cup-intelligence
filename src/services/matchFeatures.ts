@@ -98,7 +98,7 @@ async function loadLineupFeaturesForTeam(
 
   if (!lineup) return undefined;
 
-  const { results } = await db
+  const { results = [] } = await db
     .prepare(
       `SELECT lp.is_starter, lp.position_slot, lp.role, p.position
        FROM lineup_players lp
@@ -115,7 +115,7 @@ async function loadLineupFeaturesForTeam(
 
   return buildLineupFeaturesFromPlayers(
     lineup.formation,
-    results ?? [],
+    results,
     lineup.is_official === 1,
   );
 }

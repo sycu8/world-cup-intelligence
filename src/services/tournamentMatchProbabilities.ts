@@ -104,9 +104,9 @@ export async function persistMissingTournamentProbabilities(
 export async function buildTournamentMatchProbabilitiesPayload(
   env: AppEnv,
   tournamentId: string,
-  options: { scheduleBackgroundFill?: boolean; inlineFill?: boolean } = {},
+  options: { scheduleBackgroundFill?: boolean; skipInlineFill?: boolean } = {},
 ): Promise<TournamentMatchProbabilitiesPayload> {
-  const { scheduleBackgroundFill = true, inlineFill = true } = options;
+  const { scheduleBackgroundFill = true, skipInlineFill = false } = options;
 
   const [rows, matches] = await Promise.all([
     probabilityRepo.listLatestSnapshotsForTournament(env.DB, tournamentId),
@@ -130,9 +130,8 @@ export async function buildTournamentMatchProbabilitiesPayload(
     };
   }
 
-  if (!inlineFill) {
-    const pending = missing.length;
-    if (scheduleBackgroundFill) {
+  if (skipInlineFill) {
+    if (scheduleBackgroundFill && missing.length > 0) {
       void persistMissingTournamentProbabilities(env, missing);
     }
     return {
@@ -140,7 +139,7 @@ export async function buildTournamentMatchProbabilitiesPayload(
       meta: {
         total: matches.length,
         withProbability: Object.keys(data).length,
-        pending,
+        pending: missing.length,
         missingIds: missing,
       },
     };

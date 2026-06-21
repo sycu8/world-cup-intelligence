@@ -8,6 +8,8 @@ import { computeProbability } from '../models/probability/engine';
 import { buildMatchFeaturesWithForm } from '../services/matchFeatures';
 import { generateTacticalBriefing, getCachedBriefing, fallbackBriefing } from '../ai/tacticalBriefing';
 import { parseEnv } from '../env';
+import { getCachedJson } from '../services/payloadCache';
+import { withPathCache } from '../services/workersPathCache';
 
 export const probabilityRoutes = new Hono<{ Bindings: AppEnv }>();
 
@@ -87,32 +89,38 @@ async function resolveProbability(
   ref: string,
   recompute = false,
 ) {
-  const resolved = await resolveMatchRef(c.env.DB, ref);
+  const resolved = await resolveMatchRef(c.env.DB, ref, c.env.KV);
   if (!resolved) return null;
   const match = resolved;
   const matchId = resolved.id;
   if (!recompute) {
     const snap = await probabilityRepo.getLatestSnapshot(c.env.DB, matchId);
     if (snap && snapshotIsComplete(snap)) {
-      return {
-        fromSnapshot: true,
-        data: {
-          matchId,
-          homeWinProb: snap.home_win_prob,
-          drawProb: snap.draw_prob,
-          awayWinProb: snap.away_win_prob,
-          expectedHomeGoals: snap.expected_home_goals,
-          expectedAwayGoals: snap.expected_away_goals,
-          mostLikelyScore: snap.most_likely_score,
-          scorelineDistribution: parseDistributionJson(snap.scoreline_json)!,
-          intervalDistribution: parseIntervalJson(snap.interval_json)!,
-          confidence: snap.confidence,
-          modelVersion: snap.model_version,
-          updatedAt: snap.created_at ?? null,
-          topScorelines: topScorelinesFromDistribution(parseDistributionJson(snap.scoreline_json)),
-          drivers: parseExplanationDrivers(snap.explanation_json),
-        } as Record<string, unknown>,
-      };
+      const cacheKey = `cache:prob:${matchId}:${snap.id}`;
+      return getCachedJson(
+        c.env,
+        cacheKey,
+        async () => ({
+          fromSnapshot: true,
+          data: {
+            matchId,
+            homeWinProb: snap.home_win_prob,
+            drawProb: snap.draw_prob,
+            awayWinProb: snap.away_win_prob,
+            expectedHomeGoals: snap.expected_home_goals,
+            expectedAwayGoals: snap.expected_away_goals,
+            mostLikelyScore: snap.most_likely_score,
+            scorelineDistribution: parseDistributionJson(snap.scoreline_json)!,
+            intervalDistribution: parseIntervalJson(snap.interval_json)!,
+            confidence: snap.confidence,
+            modelVersion: snap.model_version,
+            updatedAt: snap.created_at ?? null,
+            topScorelines: topScorelinesFromDistribution(parseDistributionJson(snap.scoreline_json)),
+            drivers: parseExplanationDrivers(snap.explanation_json),
+          } as Record<string, unknown>,
+        }),
+        120,
+      );
     }
   }
   const home = await teamsRepo.getTeam(c.env.DB, match.home_team_id);
@@ -130,9 +138,22 @@ async function resolveProbability(
 
 probabilityRoutes.get('/:matchId/probability', async (c) => {
   const recompute = c.req.query('recompute') === '1';
-  const resolved = await resolveProbability(c, c.req.param('matchId'), recompute);
-  if (!resolved) return c.json({ error: 'Not found' }, 404);
-  return c.json({ data: enrichProbabilityPayload(resolved.data as Record<string, unknown>) });
+  const matchRef = c.req.param('matchId');
+  if (recompute) {
+    const resolved = await resolveProbability(c, matchRef, true);
+    if (!resolved) return c.json({ error: 'Not found' }, 404);
+    return c.json({ data: enrichProbabilityPayload(resolved.data as Record<string, unknown>) });
+  }
+
+  return withPathCache(`api:probability:${matchRef}`, 30, async () => {
+    const resolved = await resolveProbability(c, matchRef, false);
+    if (!resolved) return c.json({ error: 'Not found' }, 404);
+    return c.json(
+      { data: enrichProbabilityPayload(resolved.data as Record<string, unknown>) },
+      200,
+      { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=120' },
+    );
+  });
 });
 
 probabilityRoutes.get('/:matchId/scoreline', async (c) => {

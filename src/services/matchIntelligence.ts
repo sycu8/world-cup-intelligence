@@ -6,7 +6,7 @@ export { getMarketSignalsPayload, buildModelVsMarket } from '../market/services/
 import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import type { TeamSystemProfile } from '../models/probability/teamSystemStrength';
 
-function mapTeamSystemRow(row: Record<string, unknown> | null, fallback?: TeamSystemProfile) {
+export function mapTeamSystemRow(row: Record<string, unknown> | null, fallback?: TeamSystemProfile) {
   if (!row && fallback) {
     return {
       teamId: fallback.teamId,

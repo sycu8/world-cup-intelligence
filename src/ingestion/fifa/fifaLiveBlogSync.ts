@@ -30,6 +30,14 @@ type TeamStatPatch = {
   passAccuracy: number | null;
 };
 
+function numberOrZero(value: number | null | undefined): number {
+  return value ?? 0;
+}
+
+function timelineEventCount(timeline: FifaTimelinePayload | null): number {
+  return timeline?.Event?.length ?? 0;
+}
+
 async function upsertTeamMatchStats(
   db: D1Database,
   matchId: string,
@@ -86,8 +94,8 @@ async function upsertTeamMatchStats(
       matchId,
       teamId,
       patch.possession ?? 0,
-      patch.shots ?? 0,
-      patch.shotsOnTarget ?? 0,
+      numberOrZero(patch.shots),
+      numberOrZero(patch.shotsOnTarget),
       patch.passes ?? 0,
       patch.passAccuracy ?? 0,
       ts,
@@ -126,7 +134,9 @@ async function tryEspnStatsFallback(
   ]);
   if (!matchRow?.kickoff_utc) return false;
 
-  const byId = new Map((teamRows.results ?? []).map((t) => [t.id, t.name]));
+  const teamList = teamRows.results;
+  if (!teamList?.length) return false;
+  const byId = new Map(teamList.map((t) => [t.id, t.name]));
   const homeName = byId.get(homeTeamId);
   const awayName = byId.get(awayTeamId);
   if (!homeName || !awayName) return false;
@@ -250,7 +260,7 @@ export async function syncFifaMatchBlogAndStats(
   logInfo('fifa blog sync done', {
     match_id: internalMatchId,
     fifa_match_id: fifaMatchId,
-    timeline_events: timeline?.Event?.length ?? 0,
+    timeline_events: timelineEventCount(timeline),
     commentary,
     statsUpdated,
     recapUpdated,
@@ -376,7 +386,7 @@ export async function backfillIncompleteFifaMatchStats(env: AppEnv, limit = 4): 
   }
 
   if (synced > 0) {
-    logInfo('fifa stats backfill batch', { synced, candidates: results?.length ?? 0 });
+    logInfo('fifa stats backfill batch', { synced, candidates: results.length });
   }
   return synced;
 }

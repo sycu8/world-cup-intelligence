@@ -5,6 +5,7 @@
 - **Mặc định** (`npm run deploy`) chỉ deploy lên **UAT**.
 - **Production** (`npm run deploy:production`) chỉ chạy sau khi bạn xác nhận UAT đạt.
 - UAT dùng **D1, KV, R2, Queues riêng** — không dùng chung production.
+- **GitHub Actions** (workflow `Deploy Cloudflare`): chọn target `uat` hoặc `production` — migrations D1 chạy **trước** deploy.
 
 ## URL
 
@@ -29,21 +30,26 @@ Chỉ cho phép email admin (thay `<your-email>` bằng địa chỉ thật — 
 
 ```bash
 npm run typecheck
-npm run test
+npm test
+npm run test:scenarios    # 22 capability checks (default: production URL)
+BASE_URL=https://wc-tactical-uat.sycu-lee.workers.dev npm run test:scenarios
 npm run build
 npm run db:migrate:uat      # migration D1 UAT
 npm run deploy:uat          # deploy Worker + assets lên UAT
+npm run db:migrate:production
 npm run deploy:production   # production — chỉ sau khi UAT pass
 ```
 
 ## Checklist nghiệm thu UAT
 
 - [ ] Trang UAT mở được (đăng nhập Access nếu đã bật)
-- [ ] Production `wcstat.orangecloud.vn` không đổi
+- [ ] Production `wcstat.orangecloud.vn` không đổi (khi chỉ deploy UAT)
 - [ ] `/api/health` trả `environment: uat`
+- [ ] `npm run test:scenarios` pass với `BASE_URL` UAT (điều chỉnh S01/S17 nếu UAT không bật API key)
 - [ ] Trang trận: tab mobile, thanh tỉ số dính, nhãn tiếng Việt
 - [ ] `/api/matches/{slug}/stats` trả JSON hoặc trạng thái trống rõ ràng
-- [ ] `/api/matches/{slug}/probability` có `updatedAt`, `topScorelines`
+- [ ] `/api/matches/{slug}/probability` có `mostLikelyScore`, W/D/L
+- [ ] Kickoff UTC khớp `scripts/wc2026-fifa-kickoffs.json` (sau migration `0031`)
 - [ ] Trang SEO (`/lich-thi-dau-world-cup-2026`, …) hiển thị đúng
 - [ ] `/sitemap.xml` có đường dẫn SEO
 - [ ] Chuyển Tiếng Việt / English trên tin vẫn hoạt động

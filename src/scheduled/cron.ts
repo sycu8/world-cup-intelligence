@@ -12,6 +12,9 @@ export async function handleScheduledCron(
   if (cron === '* * * * *' || cron === 'every-minute') {
     const job: IngestJob = { type: 'refresh_minute', idempotencyKey: crypto.randomUUID() };
     await env.INGEST_QUEUE?.send(job);
+    const warm = import('../services/cacheWarm').then(({ warmPayloadCaches }) => warmPayloadCaches(env));
+    if (ctx) ctx.waitUntil(warm.catch(() => undefined));
+    else await warm.catch(() => undefined);
     logInfo('scheduled minute refresh enqueued');
     return;
   }

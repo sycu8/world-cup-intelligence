@@ -14,3 +14,5 @@ dist/**/.dev.vars
 tmp-*
 scripts/probe-*.mjs
 scripts/verify-*.mjs
+reports/
+coverage/

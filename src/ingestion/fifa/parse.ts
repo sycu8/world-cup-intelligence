@@ -72,3 +72,6 @@ function minutePeriod(minute: number): string {
   if (minute <= 90) return '2H';
   return 'ET';
 }
+
+/** @internal exported for unit tests */
+export { minutePeriod };

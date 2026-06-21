@@ -152,9 +152,7 @@ export function legacyFactorLabel(text: string, mode: DisplayMode): string {
   return translateKeyDriver(text, mode);
 }
 
-function translateScenarioLikelihoodLine(line: string, mode: DisplayMode): string {
-  if (mode === 'en') return line;
-
+function translateScenarioLikelihoodLine(line: string, _mode: DisplayMode): string {
   const likelihood = line.match(
     /^Scenario likelihood ([\d.]+)% with model confidence ([\d.]+)%\.$/,
   );

@@ -9,6 +9,7 @@ import {
   buildTournamentMatchProbabilitiesPayload,
   persistMissingTournamentProbabilities,
 } from '../services/tournamentMatchProbabilities';
+import { withPathCache } from '../services/workersPathCache';
 
 export const tournamentRoutes = new Hono<{ Bindings: AppEnv }>();
 
@@ -43,9 +44,12 @@ tournamentRoutes.get('/:year/teams', async (c) => {
 tournamentRoutes.get('/:year/standings', async (c) => {
   const year = Number(c.req.param('year'));
   if (year !== 2026) return c.json({ error: 'Not found' }, 404);
-  const { buildGroupStandingsPayload } = await import('../services/tournamentStandings');
-  const data = await buildGroupStandingsPayload(c.env);
-  return c.json({ data }, 200, { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=60' });
+  return withPathCache('api:standings:2026', 30, async () => {
+    const { buildGroupStandingsPayload } = await import('../services/tournamentStandings');
+    const { getCachedJsonWithVersion } = await import('../services/payloadCache');
+    const data = await getCachedJsonWithVersion(c.env, 'standings', () => buildGroupStandingsPayload(c.env));
+    return c.json({ data }, 200, { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=60' });
+  });
 });
 
 tournamentRoutes.get('/:year/match-probabilities', async (c) => {
@@ -53,7 +57,7 @@ tournamentRoutes.get('/:year/match-probabilities', async (c) => {
   if (year !== 2026) return c.json({ error: 'Not found' }, 404);
   const payload = await buildTournamentMatchProbabilitiesPayload(c.env, WC2026_TOURNAMENT_ID, {
     scheduleBackgroundFill: false,
-    inlineFill: false,
+    skipInlineFill: true,
   });
   if (payload.meta.missingIds.length > 0) {
     c.executionCtx.waitUntil(
