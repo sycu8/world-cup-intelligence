@@ -40,7 +40,7 @@ BASE_URL=https://wcstat.orangecloud.vn node scripts/run-capability-scenarios.mjs
 | S14 | Knockout bracket | Non-empty bracket payload |
 | S15 | News feed | ≥1 article or hot item |
 | S16 | Site discovery | robots, sitemap, api-catalog |
-| S17 | Public API security | 401 without key; error hints at API key |
+| S17 | Public API security | 401 without key; error body hints API key |
 | S18 | Preview & hints | Both endpoints 200 |
 | S19 | SPA shell | `/` serves React root |
 | S20 | Unit tests | `npm test` zero failures |

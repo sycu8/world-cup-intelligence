@@ -2,7 +2,7 @@
 
 Cycle per item: **Plan → Code+Test → Feedback → Supplement → Deploy → Test+Fix+Redeploy**
 
-**Production:** [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) · Deploy gần nhất: `1ee886ef-a027-440d-8aab-9d81a093aec7`
+**Production:** [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) · Verify deploy via Cloudflare Dashboard or `GET /api/health`.
 
 | ID | Item | Phase | Status |
 |----|------|-------|--------|
@@ -13,9 +13,72 @@ Cycle per item: **Plan → Code+Test → Feedback → Supplement → Deploy → 
 | R3 | Squad 23 players/team | 3 | ⚠️ 42 team names (0018); players pending |
 | R8 | Historical WC seed 48 teams | 3 | ✅ Names + ISO (0018/0019); H2H via StatsBomb |
 | R2 | Scenario backtest 2018/2022 | 4 | ✅ Done |
-| R4 | Real match data adapter | 4 | ✅ Done (mock + stub) |
+| R4 | Real match data adapter | 4 | ✅ FIFA Match Centre + mock fallback |
 | R9 | Full EN/VI i18n + scenario VI copy | 5 | ✅ Done |
 | R10 | ISO country codes fix (0019) | 5 | ✅ Done |
+| R11 | FIFA kickoff UTC + results (0031/0032) | 6 | ✅ Done |
+| R12 | Public API v1 (feed, webhooks, SSE) | 6 | ✅ Done (0030) |
+| R13 | Capability scenario suite (22 checks) | 6 | ✅ Done |
+| R14 | FIFA lineup pre-kickoff sync | 6 | ✅ Done |
+| R15 | CI migrations before deploy | 6 | ✅ Done |
+
+---
+
+## R11 — FIFA kickoff & results from Match Centre
+
+**Plan**
+- Replace VN-only kickoff source with FIFA Match Centre API for all 104 fixtures
+- `scripts/wc2026-fifa-kickoffs.json` + migration `0031_fifa_kickoff_times.sql`
+- Backfill completed FT scores: `0032_fifa_completed_results.sql`
+- `npm run sync:fifa-schedule` to regenerate from live FIFA calendar
+
+**Acceptance**
+- `kickoffUtcForFifaNumber(1..104)` without error (`wc2026VnKickoffs.test.ts`)
+- Production matches have `fifa_match_id` aligned with JSON
+- Scenario S04–S08 pass
+
+---
+
+## R12 — Public API v1
+
+**Plan**
+- `GET /api/v1/feed`, `/matches`, `/matches/:ref/snapshot`, `/stream`
+- Webhooks with HMAC signing; admin `POST /api/admin/api-clients`
+- `PUBLIC_API_REQUIRE_KEY=true` on production
+
+**Acceptance**
+- Unauthenticated `/api/v1/matches` → 401 on production
+- Docs in `app/lib/apiDocsContent.ts` + `/docs/api`
+
+---
+
+## R13 — Capability scenario suite
+
+**Plan**
+- 22 pass/fail scenarios covering health, schedule, FIFA, probability, stats, scenarios, news, discovery, Public API, SPA, unit tests, typecheck
+- `npm run test:scenarios` → `reports/capability-scenarios.json`
+
+**Acceptance**
+- 22/22 PASS against production (see `docs/CAPABILITY_SCENARIOS.md`)
+
+---
+
+## R14 — FIFA lineup pre-kickoff
+
+**Plan**
+- `shouldSyncFifaLineupForKickoff` — from 10 min before kickoff through live
+- `syncFifaLineupsForUpcomingMatches` in minute cron
+- Official XI via `applyOfficialLineupToMatch` when FIFA match sheet has 11 starters
+
+**Acceptance**
+- `tests/fifaLineupSync.test.ts` pass; scenario S22 pass
+
+---
+
+## R15 — CI migrations before deploy
+
+**Plan**
+- `.github/workflows/deploy.yml`: `db:migrate:uat` / `db:migrate:production` before respective deploy steps
 
 ---
 
@@ -36,7 +99,7 @@ Cycle per item: **Plan → Code+Test → Feedback → Supplement → Deploy → 
 ## R7 — Group standings on web
 
 **Plan**
-- `GET /api/tournament/2026/standings` — 12 groups, team names, P/W/D/L/GF/GA/GD/Pts
+- `GET /api/tournaments/2026/standings` — 12 groups, team names, P/W/D/L/GF/GA/GD/Pts
 - Tab **Bảng xếp hạng** on `/matches` + poll 30s
 - Reuse `computeGroupStandings` from `tournamentProgression.ts`
 
@@ -54,7 +117,7 @@ Cycle per item: **Plan → Code+Test → Feedback → Supplement → Deploy → 
 ## R6 — Bracket visualization UI
 
 **Plan**
-- `GET /api/tournament/2026/bracket` — tree from `match_bracket_links` + match rows + slugs
+- `GET /api/tournaments/2026/bracket` — tree from `match_bracket_links` + match rows + slugs
 - Tab **Nhánh đấu** on `/matches` — R32 → Final, link to match slug
 
 ---
@@ -96,8 +159,8 @@ Cycle per item: **Plan → Code+Test → Feedback → Supplement → Deploy → 
 ## R4 — Real match data
 
 **Plan**
-- `MatchDataProvider` interface; `MockMatchDataProvider` (current) + `FootballDataProvider` stub
-- Env `MOCK_SOURCES=false` switches provider; normalize to existing D1 match update path
+- `MatchDataProvider` interface; `MockMatchDataProvider` + FIFA `syncFifaWc2026Matches`
+- Production: `FIFA_LIVE_ENABLED=true` → FIFA Match Centre; mock when disabled
 
 ---
 
@@ -107,11 +170,9 @@ Cycle per item: **Plan → Code+Test → Feedback → Supplement → Deploy → 
 - Centralize UI strings in `app/lib/i18n/locales.ts` (VI default, EN toggle on header)
 - Stage/group labels in `stageLabels.ts` (*Bảng A*, *Vòng 1/16*, *gặp* vs *vs*)
 - Localize scenario panel backend copy in `scenarioPredictionLabels.ts` (*Xác suất kịch bản*, drivers, comparison)
-- aria-labels, team page labels, route fallback loading text
 
 **Delivered**
 - All main routes and panels; tests `scenarioPredictionLabels.test.ts`
-- Deploy: `1ee886ef-a027-440d-8aab-9d81a093aec7`
 
 ---
 
@@ -133,5 +194,4 @@ Cycle per item: **Plan → Code+Test → Feedback → Supplement → Deploy → 
 | Item | Notes |
 |------|--------|
 | Squad 23/team | Seed `squad_players` for all 48 teams |
-| Live data provider | Wire Football-Data or official API when licensed |
 | Vietnamese team names | Optional display layer separate from DB English names |

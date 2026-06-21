@@ -8,21 +8,15 @@
 
 ## Cập nhật mới (06/2026)
 
-Phiên bản đã deploy lên **Production** ([wcstat.orangecloud.vn](https://wcstat.orangecloud.vn)) — Worker `bff73993-…`.
-
-### Minh chứng trên web (Mexico 2–0 South Africa)
-
-| | |
-|---|---|
-| **Trang trận — tỉ số FT, recap, dự đoán** | ![Trang trận WC 2026](docs/screenshots/01-match-page-overview.png) |
-| **Thống kê trận đấu** — layout cân đối, bar kiểm soát bóng, nguồn FIFA/Opta | ![Thống kê trận](docs/screenshots/02-match-live-stats.png) |
-| **Xác suất thắng/hòa/thua** — không còn dấu `~` trước số dự đoán | ![Xác suất mô hình](docs/screenshots/03-probability-no-tilde.png) |
-| **Sơ đồ sân** — đội hình thực tế, điểm cầu thủ, vector di chuyển | ![Pitch map](docs/screenshots/04-pitch-map.png) |
-
-Demo live: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-bang-a-mexico-vs-south-africa)
+Phiên bản production ([wcstat.orangecloud.vn](https://wcstat.orangecloud.vn)) — xác minh deployment qua Cloudflare Dashboard hoặc `GET /api/health` (`lastFifaSync`, `lastDataRefresh`).
 
 | Hạng mục | Thay đổi |
 |----------|----------|
+| **FIFA lịch & kết quả** | Kickoff UTC + `fifa_match_id` cho 104 trận từ FIFA Match Centre (`0031`); backfill kết quả FT (`0032`); script `npm run sync:fifa-schedule`. |
+| **FIFA live sync** | Cron mỗi phút: tỉ số, sự kiện, possession, lineup pre-kickoff; blog/stats qua `fifaLiveBlogSync`; ESPN fallback khi thiếu stats. |
+| **Public API v1** | `GET /api/v1/feed`, snapshot, SSE stream, webhooks — `X-API-Key` bắt buộc trên production (`0030`). |
+| **Capability scenarios** | 22 scenario pass/fail — `npm run test:scenarios` → `docs/CAPABILITY_SCENARIOS.md`. |
+| **CI deploy** | GitHub Actions chạy D1 migrations **trước** deploy (UAT + production). |
 | **Trang trận** | Sửa crash thiếu import `MatchAnalyticsPanel`; trang hiển thị đầy đủ sau khi API trả dữ liệu. |
 | **Thống kê trận (`MatchLiveStatsPanel`)** | Layout 3 cột căn giữa, bar possession, highlight số cao hơn; footer nguồn/cập nhật căn giữa. |
 | **Nhãn dự đoán** | Bỏ dấu `~` trên xác suất/xG/tỉ số dự đoán; giữ `●` (thực tế) và `≈` (giả lập). Component `DataKindBadge` / `DataKindMark`. |
@@ -30,13 +24,14 @@ Demo live: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-b
 | **Recap & staff** | Tóm tắt trận FIFA (`MatchRecapPanel`), HLV/trọng tài (`MatchStaffPanel`, migration `0025`). |
 | **News → trận** | Pipeline FIFA WC2026 + RSS mở rộng; dịch VI, publish, ảnh hưởng dự đoán khi tin liên quan trận (`newsMatchImpact`, migration `0029`). |
 | **FIFA live sync** | Lineup/stats/events từ FIFA Match Centre; Mexico–SA seed + lịch sử WC (`0023`–`0027`). |
-| **Deploy an toàn** | `scripts/wrangler-with-env.mjs` đọc token từ `cf-deploy.token` (gitignored); GitHub Actions dùng `CLOUDFLARE_API_TOKEN` secret. |
+| **Deploy an toàn** | `scripts/wrangler-with-env.mjs` + GitHub Actions `CLOUDFLARE_API_TOKEN`; migrations trước deploy. |
 | **Bảng đấu — xác suất trận** | Trận đã phân tích hiện **C · H · K** (% mô hình); trận chưa có hiện **«Chưa có»**. API gap-fill (xem [Thuật toán gap-fill](#gap-fill-xác-suất-bảng-đấu)). |
 | **Mobile UX trang trận** | Thanh tỉ số dính, điều hướng section (`MatchSectionNav`), panel dự đoán/tóm tắt/analytics. |
 | **SEO tiếng Việt** | 8 landing page + `sitemap.xml`. |
 | **UAT tách biệt** | `npm run deploy:uat` / `deploy:production` — [docs/UAT.md](./docs/UAT.md). |
 
-Chụp lại screenshot sau deploy: `node scripts/capture-screenshots.mjs` (cần `playwright` tạm thời hoặc `npx playwright`).
+Chụp lại screenshot sau deploy: `node scripts/capture-screenshots.mjs`.  
+Demo trận đã có dữ liệu FIFA: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-bang-a-mexico-vs-south-africa).
 
 ---
 
@@ -57,7 +52,7 @@ Chụp lại screenshot sau deploy: `node scripts/capture-screenshots.mjs` (cầ
 
 ### Trung tâm trận đấu (`/matches`)
 - Hub 4 tab: **Lịch thi đấu** · **Bảng xếp hạng** · **Yêu thích** · **Đội**
-- Lịch đầy đủ **104 trận** WC 2026 (72 vòng bảng + 32 knockout) — lịch chính thức FIFA + giờ kickoff VN
+- Lịch đầy đủ **104 trận** WC 2026 — kickoff UTC từ **FIFA Match Centre** (`scripts/wc2026-fifa-kickoffs.json`, migration `0031`)
 - Tỉ số **LIVE** và **FT** trên lịch, làm mới mỗi 30 giây
 - Lọc lịch: tất cả / vòng bảng / knockout; xuất **.ics** (Google Calendar / Apple Calendar)
 - **Yêu thích** — lưu trận/đội trên localStorage, panel riêng
@@ -85,13 +80,12 @@ Mỗi trận có URL dạng **`vòng-đội-a-vs-đội-b`** (ASCII, không dấ
 - Logic: `src/utils/matchSlug.ts`, `src/services/matchRef.ts`
 
 ### Pipeline sau trận (backend)
-Sau mỗi trận kết thúc (cron mỗi phút):
-1. Cập nhật tỉ số & `status = completed` trên D1
-2. **Tiến vòng knockout** — đội thắng vào R16 → Tứ kết → Bán kết → Chung kết / tranh hạng 3
-3. **Xếp hạng bảng** — khi hết 6 trận/bảng, top 2 vào Vòng 1/16 (bảng A–L)
-4. **Tính lại xác suất** toàn bộ 104 trận (`recomputeAllWc2026Matches`)
+Cron mỗi phút (`refresh_minute`), khi `FIFA_LIVE_ENABLED=true` (production):
+1. **FIFA Match Centre** — `syncFifaWc2026Matches`: kickoff, tỉ số live/FT, `fifa_match_id`, events, possession
+2. **Lineup pre-kickoff** — `syncFifaLineupsForUpcomingMatches` (từ 10 phút trước giờ đá)
+3. Trận kết thúc → **tiến vòng knockout** + **xếp hạng bảng** + bulk recompute (KV flag / queue)
 
-> Hiện dùng mock ingest (tỉ số theo thời gian kickoff). Sẵn sàng thay bằng API dữ liệu thật trong `src/ingestion/matchDataRefresh.ts`.
+Fallback khi tắt FIFA live (`MOCK_SOURCES=true`): mock ticks qua `MatchDataProvider` trong `matchDataRefresh.ts`.
 
 ### Chi tiết trận (`/matches/:slug`)
 - **Mobile-first:** thanh tỉ số dính khi cuộn, tab section (Tổng quan / Thống kê / Dự đoán / Đà trận / Chiến thuật / Kịch bản)
@@ -163,7 +157,7 @@ Mỗi trận có **≥ 2 kịch bản phân tích** (baseline + alternative), do
 - Xác suất, hệ thống đội, **hai kịch bản quan trọng nhất**, thị trường, lịch sử đối đầu WC — cập nhật real-time
 
 ### Bài viết / News Intelligence (`/news-intelligence`)
-- RSS từ **BBC**, **The Guardian**, **FIFA**, **Reuters**, **AP**, **Sky Sports** (crawl mỗi 15 phút)
+- RSS từ **10 nguồn** (BBC, Guardian, FIFA News, Reuters, AP, Sky, ESPN, GOAL, FourFourTwo, CONCACAF) + **FIFA WC2026 news page** (`FifaWc2026NewsAdapter`)
 - Danh sách tin + thẻ nóng
 - **Mỗi bài một trang riêng** (`/news-intelligence/:articleId`)
 - Nút **Tiếng Việt | English** trên từng bài (dịch AI: m2m100 + gateway, lưu D1)
@@ -205,7 +199,7 @@ Homepage trả `Link` headers (RFC 8288) qua Worker + `_headers` — api-catalog
 | Lớp | Vai trò |
 |-----|---------|
 | **Data Truth** | D1, R2 raw, provenance nguồn |
-| **Probability** | Engine Poisson (`wc-prob-v2`) — số liệu do engine, không do AI |
+| **Probability** | Engine Poisson + Dixon–Coles (`wc-prob-v4`) — số liệu do engine, không do AI |
 | **Intelligence** | Cloudflare AI Gateway + OpenAI — chỉ giải thích / tóm tắt |
 
 ---
@@ -214,7 +208,7 @@ Homepage trả `Link` headers (RFC 8288) qua Worker + `_headers` — api-catalog
 
 PitchIntel tách rõ **engine thống kê** (tạo số) và **lớp AI** (chỉ diễn giải). Mọi W/D/L, xG, scoreline trên UI đều từ `src/models/probability/`.
 
-### 1. Core engine (`computeProbability`, `MODEL_VERSION = wc-prob-v2`)
+### 1. Core engine (`computeProbability`, `MODEL_VERSION = wc-prob-v4`)
 
 **Input** (`MatchFeatureInput`): Elo, FIFA ranking, phong độ gần (`teamFormStats`), xG for/against, chỉ số collective (possession, PPDA, set-piece, …), đội hình (`lineupModifier`), phút/tỉ số hiện tại (`gameStateModifier`).
 
@@ -229,7 +223,7 @@ PitchIntel tách rõ **engine thống kê** (tạo số) và **lớp AI** (chỉ
 
    `BASE_GOAL_RATE = 1.35`.
 
-2. **Ma trận tỉ số** — `buildScorelineMatrix(λ_home, λ_away)` (Poisson độc lập, ma trận 0–5 bàn).
+2. **Ma trận tỉ số** — `buildScorelineMatrix(λ_home, λ_away)` (Poisson + **Dixon–Coles** điều chỉnh tỉ số thấp, ma trận 0–6 bàn).
 
 3. **W/D/L** — `aggregateWdl(matrix)` cộng xác suất các ô thắng/hòa/thua.
 
@@ -275,20 +269,22 @@ Trên nền snapshot baseline, `scenarioEngine` chọn feature subset theo loạ
 ## Kiến trúc
 
 ```
-Cron (* * * * *) ──► INGEST_QUEUE ──► officialLineupSync (squad → trận)
-                                      ├── matchDataRefresh (live + FT)
+Cron (* * * * *) ──► INGEST_QUEUE ──► FIFA Match Centre sync (scores, events, lineups)
+                                      ├── ESPN stats fallback (incomplete FIFA stats)
+                                      ├── officialLineupSync (squad → trận)
                                       ├── tournamentProgression
                                       └── bulk recompute (KV flag / 104 trận)
 
 MODEL_QUEUE ──► recomputeMatch ──► generateMatchScenarios
               ├── SCENARIO_RECOMPUTE (live events)
-              └── SCENARIO_BACKTEST (stub)
+              └── SCENARIO_BACKTEST
 
-Cron (*/15 * * * *) ──► crawl_news ──► RSS (6 nguồn) ──► D1 + dịch VI
+Cron (*/15 * * * *) ──► crawl_news ──► RSS + FIFA WC2026 page ──► D1 + dịch VI
 
 Cron (0 3 * * 1) ──► StatsBomb open-data pull (WC 2018/2022)
 
 React SPA (Vite) ──► Hono API on Workers ──► D1 / KV / R2 / Queues / AI
+                      ├── Public API v1 (/api/v1/*)
                       └── useMatchLiveData (poll 15–30s)
 ```
 
@@ -329,7 +325,9 @@ npx wrangler dev --remote --port 8787
 | `npm run dev` | Frontend Vite |
 | `npm run dev:uat` | Wrangler dev (UAT bindings) |
 | `npm run build` | Build client + Worker |
-| `npm run test` | Vitest |
+| `npm run test` | Vitest (unit) |
+| `npm run test:scenarios` | 22 capability scenarios (pass/fail + `reports/capability-scenarios.json`) |
+| `npm run sync:fifa-schedule` | Fetch FIFA calendar → generate kickoff/results migrations |
 | `npm run pull:statsbomb` | Pull StatsBomb open-data → D1 + R2 |
 | `npm run typecheck` | TypeScript |
 | `npm run deploy` | **UAT** — `npm run deploy:uat` (default) |
@@ -400,6 +398,22 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 | `GET /api/news` | Danh sách tin (paginate, hot) |
 | `GET /api/news/:docId` | Một bài (+ dịch VI on-demand) |
 | `GET /api/analysis/:ref` | Phân tích đa biến (`ref` = slug hoặc `m-*`) |
+| `GET /api/tournaments/2026/bracket` | Nhánh knockout (R32 → Final) |
+
+### Public API v1 (partner integrations)
+
+Production yêu cầu header `X-API-Key: pi_live_…` (`PUBLIC_API_REQUIRE_KEY=true`). UAT có thể cho phép anonymous.
+
+| Endpoint | Mô tả |
+|----------|--------|
+| `GET /api/v1/` | Tài liệu tích hợp (feed, webhooks, SSE) |
+| `GET /api/v1/feed?cursor=` | Poll sự kiện live (score, commentary, …) |
+| `GET /api/v1/matches` | Danh sách trận + kickoff |
+| `GET /api/v1/matches/:ref/snapshot` | Trạng thái trận đầy đủ một lần gọi |
+| `GET /api/v1/stream?cursor=` | Server-Sent Events |
+| `POST /api/v1/webhooks` | Đăng ký webhook (signed delivery) |
+
+Tạo API client: `POST /api/admin/api-clients` (admin token). Chi tiết: `/docs/api` → mục **Public API v1**.
 
 **Admin** (cần header `X-Admin-Token` = secret `ADMIN_TOKEN`):
 
@@ -414,6 +428,9 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 | `POST /api/admin/recompute-scenarios/:matchId` | Queue SCENARIO_RECOMPUTE |
 | `POST /api/admin/matches/:matchId/scenarios/:scenarioId/archive` | Archive kịch bản |
 | `POST /api/admin/ingest` | Queue bulk ingest (StatsBomb + news) |
+| `POST /api/admin/api-clients` | Tạo Public API key (`pi_live_…`, hiển thị một lần) |
+| `GET /api/admin/api-clients` | Liệt kê API clients |
+| `DELETE /api/admin/api-clients/:id` | Thu hồi client |
 | `GET /api/admin/sources` | Health nguồn dữ liệu (public GET) |
 
 ---
@@ -421,18 +438,21 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 ## Kiểm tra chất lượng
 
 ```bash
-npm run typecheck   # ✓ pass
-npm test            # ✓ 116 tests, 35 files
+npm run typecheck
+npm test                  # Vitest unit suite
+npm run test:scenarios    # 22 capability scenarios vs production (pass/fail)
 ```
 
-**Deploy gần nhất (06/2026):**
+Bộ scenario: [docs/CAPABILITY_SCENARIOS.md](./docs/CAPABILITY_SCENARIOS.md) — health, schedule, FIFA sync, probability, stats, scenarios, news, Public API auth, typecheck.
 
-| Môi trường | URL | Worker version |
-|------------|-----|----------------|
-| Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) | `bff73993-489e-4108-9fa0-02c812074c92` |
-| UAT | [wc-tactical-uat.sycu-lee.workers.dev](https://wc-tactical-uat.sycu-lee.workers.dev) | *(chạy `npm run deploy:uat` để cập nhật)* |
+**Deploy (GitHub Actions):** workflow `Deploy Cloudflare` — chọn `uat` hoặc `production`; migrations D1 chạy trước deploy.
 
-**Đã kiểm tra:**
+| Môi trường | URL |
+|------------|-----|
+| Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) |
+| UAT | [wc-tactical-uat.sycu-lee.workers.dev](https://wc-tactical-uat.sycu-lee.workers.dev) |
+
+**Đã kiểm tra (unit + scenarios):**
 - Xác suất & snapshot engine
 - Dịch tin tức (VI detection, backfill, m2m100)
 - RSS images & publishers (6 feeds)
@@ -447,13 +467,17 @@ npm test            # ✓ 116 tests, 35 files
 - **Nation ISO codes** (`nationIsoCodes.mjs`, migration 0019 — sửa mã quốc gia sai từ name-prefix)
 - **Scenario VI labels** (`scenarioPredictionLabels.test.ts`)
 - **FIFA official draw 2026** — 48 đội, 104 trận, 16 sân (`fifaOfficialDraw.test.ts`, migration `0020`)
-- **Giờ kickoff VN** — 104 trận từ lịch Thể Thao 247 (`wc2026VnKickoffs.test.ts`, migration `0021`)
+- **FIFA kickoff reference** — 104 fixtures (`wc2026VnKickoffs.test.ts`, `wc2026-fifa-kickoffs.json`)
 - **Cờ quốc gia PNG** (`nationFlags.test.ts`, `TeamNameWithFlag`)
 - **Hiển thị giờ thi đấu** (`matchKickoffDisplay.test.ts`)
 - **Yêu thích & xuất lịch** (`favorites.test.ts`, `calendarExport.test.ts`)
 - **Bảng vòng bảng API** (`tournamentStandings.test.ts`)
 - **Sitemap discovery** — trang SEO VI + slug trận (`siteDiscovery.test.ts`)
 - **Tournament probability gap-fill** (`tournamentMatchProbabilities.ts`)
+- **FIFA kickoff/results sync** (`wc2026-fifa-kickoffs.json`, migrations `0031`–`0032`, `fifaLiveSync.ts`)
+- **FIFA lineup pre-kickoff** (`fifaLineupSync.test.ts`)
+- **Public API v1** (`publicApi.test.ts`, scenario S17)
+- **Capability scenario suite** (`scripts/run-capability-scenarios.mjs`, 22/22 pass)
 
 ---
 
@@ -469,12 +493,13 @@ src/
   routes/      Hono API (tournaments, matches, probability, health, …)
   services/    recompute, tournamentMatchProbabilities, matchStats, siteDiscovery, …
   utils/       matchSlug (URL slug builder)
-  models/      probability engine (wc-prob-v2), scenarios/
+  models/      probability engine (wc-prob-v4), scenarios/
+  ingestion/   fifa/, espn/, adapters/ (RSS, FIFA news)
   queues/      ingest + model consumers
   scheduled/   cron
-docs/          UAT.md, ROADMAP_EXECUTION.md
-migrations/    D1 SQL (0001–0021)
-scripts/       smoke-uat.ps1, fifa-wc2026-official-data, …
+docs/          UAT.md, CAPABILITY_SCENARIOS.md, ROADMAP_EXECUTION.md
+migrations/    D1 SQL (0001–0032)
+scripts/       run-capability-scenarios.mjs, sync:fifa-schedule, smoke-*.ps1, …
 tests/         Vitest
 ```
 
@@ -485,15 +510,22 @@ tests/         Vitest
 | Migration | Nội dung |
 |-----------|----------|
 | `0020_fifa_official_draw_2026.sql` | Bốc thăm chính thức FIFA — 48 đội, 104 trận, 16 sân, bracket knockout |
-| `0021_vn_kickoff_times.sql` | Cập nhật `kickoff_utc` theo giờ VN (nguồn: Thể Thao 247) |
+| `0021_vn_kickoff_times.sql` | Kickoff UTC (nguồn VN — superseded bởi `0031` trên production) |
+| `0026_fifa_match_ids.sql` | Liên kết `fifa_match_id` ban đầu |
+| `0031_fifa_kickoff_times.sql` | **104 kickoff UTC** từ FIFA Match Centre API |
+| `0032_fifa_completed_results.sql` | Backfill FT cho các trận đã đá (FIFA scores-fixtures) |
 
-Script tái tạo dữ liệu:
+Script tái tạo / cập nhật lịch FIFA:
 
 ```bash
-node scripts/fifa-wc2026-official-data.mjs      # payload lịch FIFA
-node scripts/generate-fifa-official-migration.mjs
-node scripts/generate-vn-kickoff-migration.mjs  # từ wc2026-vn-kickoffs.json
+npm run sync:fifa-schedule
+# hoặc từng bước:
+node scripts/fetch-fifa-wc2026-calendar.mjs
+node scripts/generate-fifa-kickoff-migration.mjs
+node scripts/generate-fifa-results-migration.mjs
 ```
+
+Dữ liệu tham chiếu: `scripts/wc2026-fifa-kickoffs.json` (104 fixtures, `kickoffUtc`, `fifaMatchId`, completed scores).
 
 ---
 
@@ -539,6 +571,11 @@ Migration `0013_wc_historical_h2h.sql` seed các kỳ WC (1930–2022) và trậ
 - [x] **UAT tách biệt production** — bindings riêng, `docs/UAT.md`, deploy UAT-first
 - [x] **Mobile UX trang trận** — sticky score bar, section nav, prediction/live/analytics panels
 - [x] **Gap-fill xác suất bảng đấu** — `tournamentMatchProbabilities` + nhãn «Chưa có» / C·H·K
+- [x] **FIFA Match Centre live sync** — scores, events, lineups, blog/stats; ESPN fallback
+- [x] **Kickoff UTC từ FIFA** — migration `0031` + `wc2026-fifa-kickoffs.json`
+- [x] **Public API v1** — feed, snapshot, SSE, webhooks + admin API clients
+- [x] **Capability scenario suite** — 22 pass/fail checks (`npm run test:scenarios`)
+- [x] **CI migrations-before-deploy** — `.github/workflows/deploy.yml`
 - [x] **SEO landing VI** — 8 trang + sitemap; API stats + probability enrichment
 - [x] **i18n VI-first sync** — Đà trận, Vòng loại trực tiếp, Tỉ số khả dĩ nhất
 
@@ -547,7 +584,6 @@ Chi tiết thực thi từng hạng mục: [docs/ROADMAP_EXECUTION.md](./docs/RO
 ### Tiếp theo (gợi ý)
 
 - [ ] Squad 23 cầu thủ/đội (seed `squad_players` đầy đủ cho 48 đội)
-- [ ] Provider dữ liệu trận thật (Football-Data / API chính thức) thay mock cron
 - [ ] Tên đội tiếng Việt (tùy chọn, tách khỏi tên EN trong DB)
 
 ---
