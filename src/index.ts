@@ -31,6 +31,8 @@ import { getPathCachedResponse, putPathCachedResponse } from './services/workers
 import { parseMatchPageSlug } from './utils/matchPath';
 import { resolveMatchRef } from './services/matchRef';
 import { injectMatchPageHtml } from './services/spaMatchMeta';
+import { findSeoPageByPath } from './services/seoPages';
+import { injectHomeHtml, injectSeoLandingHtml, findHubPageSpec, injectHubPageHtml } from './services/spaSeoMeta';
 
 const app = new Hono<{ Bindings: AppEnv }>();
 
@@ -74,9 +76,11 @@ app.get('/', async (c) => {
   const origin = siteOrigin(c.req.url);
   const asset = await c.env.ASSETS.fetch(c.req.raw);
   const cached = withStaticAssetCacheHeaders(c.req.raw, asset);
+  const html = injectHomeHtml(await cached.text(), origin);
   const headers = new Headers(cached.headers);
+  headers.set('Content-Type', 'text/html; charset=utf-8');
   headers.set('Link', buildLinkHeaderValue(origin));
-  const response = new Response(cached.body, { status: cached.status, headers });
+  const response = new Response(html, { status: cached.status, headers });
   c.executionCtx.waitUntil(putPathCachedResponse('spa:/', response.clone(), 60));
   return response;
 });
@@ -123,6 +127,24 @@ app.all('*', async (c) => {
       );
       return response;
     }
+  }
+
+  const seoPage = findSeoPageByPath(pathname);
+  if (seoPage) {
+    const html = injectSeoLandingHtml(await cached.text(), seoPage, origin);
+    headers.set('Content-Type', 'text/html; charset=utf-8');
+    const response = new Response(html, { status: cached.status, headers });
+    c.executionCtx.waitUntil(putPathCachedResponse(pathCacheKey, response.clone(), 60));
+    return response;
+  }
+
+  const hubPage = findHubPageSpec(pathname);
+  if (hubPage) {
+    const html = injectHubPageHtml(await cached.text(), hubPage, origin);
+    headers.set('Content-Type', 'text/html; charset=utf-8');
+    const response = new Response(html, { status: cached.status, headers });
+    c.executionCtx.waitUntil(putPathCachedResponse(pathCacheKey, response.clone(), 60));
+    return response;
   }
 
   const response = new Response(cached.body, { status: cached.status, headers });

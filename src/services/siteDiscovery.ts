@@ -1,6 +1,7 @@
 import type { AppEnv } from '../env';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import { buildMatchSlug } from '../utils/matchSlug';
+import { SEO_PAGES, SEO_PAGE_PATHS } from './seoPages';
 
 export function siteOrigin(url: string): string {
   return new URL(url).origin;
@@ -45,6 +46,7 @@ Disallow: /admin
 ${aiBotBlock(disallowAdmin)}
 
 Sitemap: ${origin}/sitemap.xml
+Llms-Txt: ${origin}/llms.txt
 `;
 }
 
@@ -57,46 +59,47 @@ type SitemapEntry = {
 
 const SITEMAP_STATIC_PATHS = ['/', '/matches', '/guide', '/news-intelligence'] as const;
 
-/** Vietnamese SEO landing pages (mirror app/lib/seoPages.ts) */
-const SITEMAP_SEO_PATHS = [
-  '/lich-thi-dau-world-cup-2026',
-  '/ti-so-truc-tiep-world-cup-2026',
-  '/bang-xep-hang-world-cup-2026',
-  '/ket-qua-world-cup-2026',
-  '/du-doan-world-cup-2026',
-  '/phan-tich-world-cup-2026',
-  '/vong-bang-world-cup-2026',
-  '/vong-knockout-world-cup-2026',
-] as const;
+/** Vietnamese SEO landing pages (mirror src/services/seoPages.ts) */
+const SITEMAP_SEO_PATHS = SEO_PAGE_PATHS;
 
 export async function buildSitemapXml(env: AppEnv, origin: string): Promise<string> {
   const now = new Date().toISOString().slice(0, 10);
 
-  const [matchesResult, teamsResult, newsResult] = await Promise.all([
-    env.DB.prepare(
-      `SELECT m.id, m.kickoff_utc, m.stage, m.group_code, ht.name AS home_name, at.name AS away_name
+  type MatchRow = {
+    id: string;
+    kickoff_utc: string;
+    stage: string | null;
+    group_code: string | null;
+    home_name: string;
+    away_name: string;
+  };
+
+  let matchesResult: { results?: MatchRow[] } = { results: [] };
+  let teamsResult: { results?: { id: string }[] } = { results: [] };
+  let newsResult: { results?: { id: string; published_at: string }[] } = { results: [] };
+
+  try {
+    [matchesResult, teamsResult, newsResult] = await Promise.all([
+      env.DB.prepare(
+        `SELECT m.id, m.kickoff_utc, m.stage, m.group_code, ht.name AS home_name, at.name AS away_name
        FROM matches m
        JOIN teams ht ON ht.id = m.home_team_id
        JOIN teams at ON at.id = m.away_team_id
        WHERE m.tournament_id = ?
        ORDER BY m.kickoff_utc`,
-    )
-      .bind(WC2026_TOURNAMENT_ID)
-      .all<{
+      )
+        .bind(WC2026_TOURNAMENT_ID)
+        .all<MatchRow>(),
+      env.DB.prepare(`SELECT id FROM teams WHERE id LIKE 'team-w26-%' ORDER BY name`).all<{
         id: string;
-        kickoff_utc: string;
-        stage: string | null;
-        group_code: string | null;
-        home_name: string;
-        away_name: string;
       }>(),
-    env.DB.prepare(`SELECT id FROM teams WHERE id LIKE 'team-w26-%' ORDER BY name`).all<{
-      id: string;
-    }>(),
-    env.DB.prepare(
-      `SELECT id, published_at FROM source_documents ORDER BY published_at DESC LIMIT 1000`,
-    ).all<{ id: string; published_at: string }>(),
-  ]);
+      env.DB.prepare(
+        `SELECT id, published_at FROM source_documents ORDER BY published_at DESC LIMIT 1000`,
+      ).all<{ id: string; published_at: string }>(),
+    ]);
+  } catch {
+    // Static + SEO URLs still publish when D1 is unavailable (local dev / cold start).
+  }
 
   const urls: SitemapEntry[] = [
     ...SITEMAP_STATIC_PATHS.map((path) => ({
@@ -515,6 +518,49 @@ export function buildDnsAidManifest(origin: string): object {
   };
 }
 
+export function buildLlmsTxt(origin: string): string {
+  const lines = [
+    '# PitchIntel',
+    '',
+    '> World Cup 2026 tactical probability, schedule, standings, and news intelligence — Vietnamese-first.',
+    '',
+    'PitchIntel answers questions about WC 2026 fixtures, live scores, standings, predictions, and sourced news analysis.',
+    '',
+    '## Canonical pages',
+    '',
+    `- Home: ${origin}/`,
+    `- Match schedule: ${origin}/matches`,
+    `- Probability guide: ${origin}/guide`,
+    `- News intelligence: ${origin}/news-intelligence`,
+    '',
+    '## Vietnamese query landing pages',
+    '',
+    ...SEO_PAGES.map(
+      (p) => `- ${p.titleVi}: ${origin}${p.path} — ${p.answerVi}`,
+    ),
+    '',
+    '## Machine-readable',
+    '',
+    `- Sitemap: ${origin}/sitemap.xml`,
+    `- Robots: ${origin}/robots.txt`,
+    `- OpenAPI: ${origin}/.well-known/openapi.json`,
+    `- API catalog: ${origin}/.well-known/api-catalog`,
+    `- Agent auth: ${origin}/auth.md`,
+    `- Agent skills: ${origin}/.well-known/agent-skills/index.json`,
+    '',
+    '## Data sources',
+    '',
+    '- Match schedule and results: FIFA official data',
+    '- Probabilities: PitchIntel internal model (see /guide)',
+    '- News: RSS and FIFA sources with publisher attribution on each article',
+    '',
+    '## Contact',
+    '',
+    '- GitHub: https://github.com/sycu8/world-cup-intelligence',
+  ];
+  return `${lines.join('\n')}\n`;
+}
+
 export function buildLinkHeaderValue(origin: string): string {
   return [
     `<${origin}/.well-known/api-catalog>; rel="api-catalog"`,
@@ -522,6 +568,7 @@ export function buildLinkHeaderValue(origin: string): string {
     `<${origin}/docs/api>; rel="service-doc"; type="text/html"`,
     `<${origin}/docs/api.md>; rel="service-doc"; type="text/markdown"`,
     `<${origin}/auth.md>; rel="describedby"; type="text/markdown"`,
+    `<${origin}/llms.txt>; rel="describedby"; type="text/plain"`,
     `<${origin}/.well-known/oauth-protected-resource>; rel="oauth-protected-resource"; type="application/json"`,
     `<${origin}/sitemap.xml>; rel="sitemap"; type="application/xml"`,
     `<${origin}/.well-known/agent-skills/index.json>; rel="describedby"; type="application/json"`,

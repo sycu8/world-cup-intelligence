@@ -5,6 +5,15 @@ import { jsonRoute, requestRoute } from '../helpers/routeHarness';
 const hostHeaders = { Host: 'wc.example.com' };
 
 describe('discovery routes coverage', () => {
+  it('GET /llms.txt returns plain text summary', async () => {
+    const res = await requestRoute(discoveryRoutes, '/llms.txt', { headers: hostHeaders });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('text/plain');
+    const text = await res.text();
+    expect(text).toContain('PitchIntel');
+    expect(text).toContain('/sitemap.xml');
+  });
+
   it('GET /sitemap.xml returns XML', async () => {
     const res = await requestRoute(discoveryRoutes, '/sitemap.xml', { headers: hostHeaders });
     expect(res.status).toBe(200);
