@@ -6,6 +6,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, 'src'),
       '@app': path.resolve(__dirname, 'app'),
+      'cloudflare:workers': path.resolve(__dirname, 'tests/stubs/cloudflare-workers.ts'),
     },
   },
   test: {
