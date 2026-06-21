@@ -222,6 +222,14 @@ export type LocaleKey =
   | 'probStrip.subtitle'
   | 'probStrip.subtitleSim'
   | 'home.snapshot'
+  | 'home.predictionAccuracy.title'
+  | 'home.predictionAccuracy.subtitle'
+  | 'home.predictionAccuracy.favoriteHit'
+  | 'home.predictionAccuracy.scorelineHit'
+  | 'home.predictionAccuracy.evaluated'
+  | 'home.predictionAccuracy.upcomingTitle'
+  | 'home.predictionAccuracy.upcomingCoverage'
+  | 'home.predictionAccuracy.disclaimer'
   | 'home.cohosts'
   | 'home.matches'
   | 'home.groups'
@@ -907,6 +915,38 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'Analyst simulator adjustment',
   },
   'home.snapshot': { vi: 'Tổng quan World Cup 2026', en: 'World Cup 2026 snapshot' },
+  'home.predictionAccuracy.title': {
+    vi: 'Độ chính xác dự đoán (tới hiện tại)',
+    en: 'Prediction accuracy (to date)',
+  },
+  'home.predictionAccuracy.subtitle': {
+    vi: 'Dự đoán trước trận có khớp với kết quả thật không?',
+    en: 'How our pre-match picks matched what actually happened.',
+  },
+  'home.predictionAccuracy.favoriteHit': {
+    vi: 'Đúng cửa mạnh · {n}/{total}',
+    en: 'Favorite correct · {n}/{total}',
+  },
+  'home.predictionAccuracy.scorelineHit': {
+    vi: 'Đúng tỉ số khả dĩ nhất',
+    en: 'Top scoreline correct',
+  },
+  'home.predictionAccuracy.evaluated': {
+    vi: 'Trận đã đánh giá',
+    en: 'Matches evaluated',
+  },
+  'home.predictionAccuracy.upcomingTitle': {
+    vi: 'Trận tiếp theo',
+    en: 'Upcoming fixtures',
+  },
+  'home.predictionAccuracy.upcomingCoverage': {
+    vi: '{with}/{total} trận đã có xác suất mô hình',
+    en: '{with}/{total} fixtures with model probabilities',
+  },
+  'home.predictionAccuracy.disclaimer': {
+    vi: 'Cửa mạnh = đội có xác suất thắng/hòa/thua cao nhất trước trận. Không phải khuyến nghị cược.',
+    en: 'Favorite = highest pre-match H/D/A probability. Not betting advice.',
+  },
   'home.cohosts': { vi: 'Đồng chủ: ', en: 'Co-hosts: ' },
   'home.matches': { vi: 'Trận', en: 'Matches' },
   'home.groups': { vi: 'Bảng', en: 'Groups' },
