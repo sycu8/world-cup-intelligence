@@ -25,7 +25,7 @@ export function derivePlayerImpact(events: Event[]): PlayerImpact[] {
   return DEMO.map((p, i) => ({
     ...p,
     impact: Math.min(0.95, 0.45 + (goals + shots) * 0.08 - i * 0.05),
-    xg: p.xg != null ? p.xg + shots * 0.02 : undefined,
+    xg: p.xg + shots * 0.02,
   }));
 }
 

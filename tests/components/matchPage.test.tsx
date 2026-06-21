@@ -152,4 +152,289 @@ describe('MatchPage integration', () => {
 
     expect(view.container.textContent).toMatch(/USA|Mexico/i);
   });
+
+  it('renders editorial view with preview, briefing, and analysis panels', async () => {
+    const user = userEvent.setup();
+    const view = render(
+      <MemoryRouter initialEntries={['/matches/usa-vs-mexico']}>
+        <I18nProvider>
+          <Routes>
+            <Route path="/matches/:matchId" element={<MatchPage />} />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(view.container.textContent).toMatch(/USA|Mexico/i), { timeout: 8000 });
+
+    const editorialBtn = screen.getAllByRole('button').find((b) => /editorial|đọc bài/i.test(b.textContent ?? ''));
+    expect(editorialBtn).toBeTruthy();
+    await user.click(editorialBtn!);
+
+    await waitFor(() => {
+      expect(view.container.textContent).toMatch(/editorial|đọc bài|preview|phân tích|analysis|briefing|chiến thuật/i);
+    }, { timeout: 8000 });
+
+    const tacticalBtn = screen.getAllByRole('button').find((b) => /tactical|chiến thuật/i.test(b.textContent ?? ''));
+    if (tacticalBtn) await user.click(tacticalBtn);
+    expect(view.container.textContent).toMatch(/USA|Mexico/i);
+  });
+
+  it('shows uppercase status label for postponed matches', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.match(/\/api\/matches\/usa-vs-mexico$/)) {
+          return new Response(
+            JSON.stringify({
+              data: { ...mockApiBody(url).data, status: 'postponed' },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(JSON.stringify(mockApiBody(url)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+    const { user, view } = await renderMatch('usa-vs-mexico');
+    await waitFor(() => expect(view.container.textContent).toMatch(/USA|Mexico/i), { timeout: 8000 });
+    const editorialBtn = screen.getAllByRole('button').find((b) => /editorial|đọc bài/i.test(b.textContent ?? ''));
+    if (editorialBtn) await user.click(editorialBtn);
+    expect(view.container.textContent).toMatch(/POSTPONED|postponed/i);
+  });
+
+  it('uses history fallbacks when world cup fields and names are missing', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.match(/\/api\/matches\/usa-vs-mexico\/history$/)) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                history: [
+                  {
+                    id: 'hist-1',
+                    kickoff_utc: '2022-11-21T16:00:00Z',
+                    stage: 'Group',
+                    home_team_id: 't-usa',
+                    away_team_id: 't-mex',
+                    home_name: 'USA',
+                    away_name: 'Mexico',
+                    home_score: 1,
+                    away_score: 1,
+                  },
+                ],
+                summary: {
+                  totalMatches: 1,
+                  homeTeamWins: 0,
+                  awayTeamWins: 0,
+                  draws: 1,
+                  avgGoalsHome: 1,
+                  avgGoalsAway: 1,
+                  recentFormHome: 'D',
+                  recentFormAway: 'D',
+                },
+                current: {
+                  id: 'current',
+                  kickoff_utc: '2026-06-11T19:00:00Z',
+                  stage: 'Group',
+                  home_team_id: 't-usa',
+                  away_team_id: 't-mex',
+                  home_name: null,
+                  away_name: null,
+                  home_score: 0,
+                  away_score: 0,
+                },
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(JSON.stringify(mockApiBody(url)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    const { view } = await renderMatch('usa-vs-mexico');
+    await waitFor(() => expect(view.container.textContent).toMatch(/USA|Mexico/i), { timeout: 8000 });
+    expect(view.container.textContent).toMatch(/W-D-L|USA|Mexico|history|lịch sử/i);
+  });
+
+  it('falls back to match names and raw match id for the analysis link when slug and team system are missing', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.match(/\/api\/matches\/no-slug-match\/history$/)) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                history: [],
+                worldCupHistory: [],
+                summary: null,
+                worldCupSummary: null,
+                current: null,
+                homeRecentWc: [],
+                awayRecentWc: [],
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (url.match(/\/api\/matches\/no-slug-match\/team-system$/)) {
+          return new Response('down', { status: 500 });
+        }
+        if (url.match(/\/api\/matches\/no-slug-match$/)) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                ...mockApiBody('/api/matches/usa-vs-mexico').data,
+                id: 'm-no-slug',
+                slug: null,
+                home_name: 'United States',
+                away_name: 'Mexico',
+                status: 'scheduled',
+                minute: null,
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(JSON.stringify(mockApiBody(url)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    const { view } = await renderMatch('no-slug-match');
+    await waitFor(() => expect(view.container.textContent).toMatch(/United States|Mexico/i), {
+      timeout: 8000,
+    });
+    const articleLink = Array.from(view.container.querySelectorAll('a')).find((a) =>
+      a.getAttribute('href')?.includes('/analysis'),
+    );
+    expect(articleLink?.getAttribute('href')).toContain('/matches/no-slug-match/analysis');
+  });
+
+  it('uses hint takeaways in editorial mode when preview, briefing, and probability are unavailable', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (
+          url.match(/\/api\/matches\/usa-vs-mexico\/(tactical-briefing|preview|probability)$/) ||
+          url.match(/\/api\/analysis\/usa-vs-mexico$/)
+        ) {
+          return new Response('down', { status: 500 });
+        }
+        return new Response(JSON.stringify(mockApiBody(url)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    const { user, view } = await renderMatch('usa-vs-mexico');
+    await waitFor(() => expect(view.container.textContent).toMatch(/USA|Mexico/i), { timeout: 8000 });
+    const editorialBtn = screen.getAllByRole('button').find((b) => /editorial|đọc bài/i.test(b.textContent ?? ''));
+    expect(editorialBtn).toBeTruthy();
+    await user.click(editorialBtn!);
+    await waitFor(() => expect(view.container.textContent).toMatch(/Hint|Gợi ý/i), { timeout: 8000 });
+  }, 10000);
+
+  it('uses English hint text in editorial fallback mode', async () => {
+    window.localStorage.setItem('wc-display-mode', 'en');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (
+          url.match(/\/api\/matches\/usa-vs-mexico\/(tactical-briefing|preview|probability)$/) ||
+          url.match(/\/api\/analysis\/usa-vs-mexico$/)
+        ) {
+          return new Response('down', { status: 500 });
+        }
+        return new Response(JSON.stringify(mockApiBody(url)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    const { user, view } = await renderMatch('usa-vs-mexico');
+    await waitFor(() => expect(view.container.textContent).toMatch(/USA|Mexico/i), { timeout: 8000 });
+    const editorialBtn = screen.getAllByRole('button').find((b) => /editorial|read article/i.test(b.textContent ?? ''));
+    expect(editorialBtn).toBeTruthy();
+    await user.click(editorialBtn!);
+    await waitFor(() => expect(view.container.textContent).toMatch(/Hint/i), { timeout: 8000 });
+  }, 10000);
+
+  it('renders without a route param and shows the loading state', async () => {
+    const view = render(
+      <MemoryRouter initialEntries={['/matches']}>
+        <I18nProvider>
+          <Routes>
+            <Route path="/matches" element={<MatchPage />} />
+          </Routes>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(view.container.textContent).toMatch(/loading|đang tải/i), { timeout: 5000 });
+  });
+
+  it('uses the route param when the loaded match record has no id or slug', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.match(/\/api\/matches\/route-id-fallback\/history$/)) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                history: [],
+                worldCupHistory: [],
+                summary: null,
+                worldCupSummary: null,
+                current: null,
+                homeRecentWc: [],
+                awayRecentWc: [],
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (url.match(/\/api\/matches\/route-id-fallback$/)) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                ...((mockApiBody('/api/matches/usa-vs-mexico') as { data: Record<string, unknown> }).data),
+                id: undefined,
+                slug: undefined,
+                home_name: 'USA',
+                away_name: 'Mexico',
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(JSON.stringify(mockApiBody(url)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    const { view } = await renderMatch('route-id-fallback');
+    await waitFor(() => expect(view.container.textContent).toMatch(/USA|Mexico/i), { timeout: 8000 });
+    const articleLink = Array.from(view.container.querySelectorAll('a')).find((a) =>
+      a.getAttribute('href')?.includes('/analysis'),
+    );
+    expect(articleLink?.getAttribute('href')).toContain('/matches/route-id-fallback/analysis');
+  });
 });

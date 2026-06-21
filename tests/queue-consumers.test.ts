@@ -141,6 +141,49 @@ describe('handleIngestBatch', () => {
     expect(scheduleRecomputeAfterDataChange).toHaveBeenCalled();
   });
 
+  it('source_ingest schedules recompute when only teamsUpdated changes', async () => {
+    const { ingestStatsbombWorldCup } = await import('../src/ingestion/statsbombIngest');
+    vi.mocked(ingestStatsbombWorldCup).mockResolvedValueOnce({ matchesInserted: 0, teamsUpdated: 3 });
+    const { scheduleRecomputeAfterDataChange } = await import('../src/services/bulkRecomputeRunner');
+    await handleIngestBatch(
+      createMockMessageBatch([
+        { body: { type: 'source_ingest', sourceId: 'statsbomb', idempotencyKey: 'k5b' } },
+      ]),
+      createMockEnv(),
+    );
+    expect(scheduleRecomputeAfterDataChange).toHaveBeenCalled();
+  });
+
+  it('refresh_minute breaks early when bulk recompute is pending', async () => {
+    const { runBulkRecomputeIfPending } = await import('../src/services/bulkRecomputeRunner');
+    vi.mocked(runBulkRecomputeIfPending).mockResolvedValueOnce(true);
+    const send = vi.fn();
+    await handleIngestBatch(
+      createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'k5c' } }]),
+      createMockEnv({ MODEL_QUEUE: { send } as never }),
+    );
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('refresh_minute loads default match ids when refresh returns empty', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    vi.mocked(refreshMatchData).mockResolvedValueOnce({ updatedIds: [], completedIds: [] });
+    const send = vi.fn();
+    await handleIngestBatch(
+      createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'k5d' } }]),
+      createMockEnv({
+        MODEL_QUEUE: { send } as never,
+        DB: createMockDb({
+          all: (sql) => {
+            if (sql.includes('FROM matches')) return {};
+            return { results: [] };
+          },
+        }),
+      }),
+    );
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it('webhook_deliver calls deliverWebhook', async () => {
     const { deliverWebhook } = await import('../src/services/publicApi/webhooks');
     await handleIngestBatch(
@@ -205,6 +248,33 @@ describe('handleModelBatch', () => {
       createMockEnv(),
     );
     expect(broadcastScenarioUpdate).toHaveBeenCalled();
+  });
+
+  it('LIVE_RECOMPUTE generates eventId when omitted', async () => {
+    const { updateScenariosFromRealtimeEvent } = await import('../src/services/matchScenarioService');
+    vi.mocked(updateScenariosFromRealtimeEvent).mockResolvedValueOnce(null);
+    const { broadcastScenarioUpdate } = await import('../src/services/matchScenarioService');
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'LIVE_RECOMPUTE', matchId: 'm-1' } }]),
+      createMockEnv(),
+    );
+    expect(updateScenariosFromRealtimeEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ matchId: 'm-1', eventId: expect.any(String) }),
+    );
+    expect(broadcastScenarioUpdate).not.toHaveBeenCalled();
+  });
+
+  it('SCENARIO_RECOMPUTE skips broadcast when update returns null', async () => {
+    const { updateScenariosFromRealtimeEvent, broadcastScenarioUpdate } = await import(
+      '../src/services/matchScenarioService'
+    );
+    vi.mocked(updateScenariosFromRealtimeEvent).mockResolvedValueOnce(null);
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'SCENARIO_RECOMPUTE', matchId: 'm-1' } }]),
+      createMockEnv(),
+    );
+    expect(broadcastScenarioUpdate).not.toHaveBeenCalled();
   });
 
   it('SCENARIO_BACKTEST runs backtest runner', async () => {

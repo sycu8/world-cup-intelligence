@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">47.05% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>8/17</span>
+                <span class='fraction'>17/17</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/2</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">47.05% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>8/17</span>
+                <span class='fraction'>17/17</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -81,22 +81,22 @@
 <a name='L16'></a><a href='#L16'>16</a>
 <a name='L17'></a><a href='#L17'>17</a>
 <a name='L18'></a><a href='#L18'>18</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export function gameStateModifier(
   minute: number,
   homeScore: number,
@@ -104,16 +104,16 @@
 ): { home: number; away: number } {
   const remaining = Math.max(1, 90 - minute) / 90;
   const diff = homeScore - awayScore;
-  if (diff === 0) return { home: 1, away: 1 <span class="branch-0 cbranch-no" title="branch not covered" >};</span>
-<span class="cstat-no" title="statement not covered" >  if (diff &gt; 0) {</span>
-<span class="cstat-no" title="statement not covered" >    const leadBoost = 1 + (diff * 0.04 * (1 - remaining));</span>
-<span class="cstat-no" title="statement not covered" >    const trailPenalty = 1 - diff * 0.06 * remaining;</span>
-<span class="cstat-no" title="statement not covered" >    return { home: leadBoost, away: Math.max(0.7, trailPenalty) };</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
-<span class="cstat-no" title="statement not covered" >  const awayLead = 1 + (-diff * 0.04 * (1 - remaining));</span>
-<span class="cstat-no" title="statement not covered" >  const homeTrail = 1 - (-diff) * 0.06 * remaining;</span>
-<span class="cstat-no" title="statement not covered" >  return { home: Math.max(0.7, homeTrail), away: awayLead };</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+  if (diff === 0) return { home: 1, away: 1 };
+  if (diff &gt; 0) {
+    const leadBoost = 1 + (diff * 0.04 * (1 - remaining));
+    const trailPenalty = 1 - diff * 0.06 * remaining;
+    return { home: leadBoost, away: Math.max(0.7, trailPenalty) };
+  }
+  const awayLead = 1 + (-diff * 0.04 * (1 - remaining));
+  const homeTrail = 1 - (-diff) * 0.06 * remaining;
+  return { home: Math.max(0.7, homeTrail), away: awayLead };
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -121,7 +121,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

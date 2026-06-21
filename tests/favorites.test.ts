@@ -16,6 +16,9 @@ describe('favorites', () => {
     localStorage.setItem('wc-favorites-v1', JSON.stringify({ matches: ['m1'], teams: null }));
     expect(loadFavorites()).toEqual({ matches: ['m1'], teams: [] });
 
+    localStorage.setItem('wc-favorites-v1', JSON.stringify({ teams: ['t1'] }));
+    expect(loadFavorites()).toEqual({ matches: [], teams: ['t1'] });
+
     localStorage.setItem('wc-favorites-v1', '{bad json');
     expect(loadFavorites()).toEqual({ matches: [], teams: [] });
   });

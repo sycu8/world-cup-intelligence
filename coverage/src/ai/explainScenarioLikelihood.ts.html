@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/17</span>
+                <span class='fraction'>17/17</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/17</span>
+                <span class='fraction'>17/17</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -83,43 +83,43 @@
 <a name='L18'></a><a href='#L18'>18</a>
 <a name='L19'></a><a href='#L19'>19</a>
 <a name='L20'></a><a href='#L20'>20</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { AppEnv } from '../env';
-<span class="cstat-no" title="statement not covered" >import { ScenarioExplanationSchema } from './intelligenceSchemas';</span>
+import { ScenarioExplanationSchema } from './intelligenceSchemas';
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export async function explainScenarioLikelihood(</span>
-<span class="cstat-no" title="statement not covered" >  env: AppEnv,</span>
-<span class="cstat-no" title="statement not covered" >  data: { matchId: string; scenarios: { scenarioType: string; probability: number }[] } | null,</span>
-<span class="cstat-no" title="statement not covered" >) {</span>
-<span class="cstat-no" title="statement not covered" >  if (!data) return null;</span>
-<span class="cstat-no" title="statement not covered" >  return ScenarioExplanationSchema.parse({</span>
-<span class="cstat-no" title="statement not covered" >    matchId: data.matchId,</span>
-<span class="cstat-no" title="statement not covered" >    summary: 'Scenario likelihood summary from statistical engine outputs.',</span>
-<span class="cstat-no" title="statement not covered" >    highlights: data.scenarios.slice(0, 5).map((s) =&gt; ({</span>
-<span class="cstat-no" title="statement not covered" >      scenarioType: s.scenarioType,</span>
-<span class="cstat-no" title="statement not covered" >      narrative: `Scenario likelihood ${(s.probability * 100).toFixed(1)}% — model estimate only.`,</span>
-<span class="cstat-no" title="statement not covered" >    })),</span>
-<span class="cstat-no" title="statement not covered" >    uncertaintyNotes: ['Scenario paths are not guaranteed outcomes.'],</span>
-<span class="cstat-no" title="statement not covered" >    disclaimer: 'Scenario likelihoods are analytical estimates, not predictions of certainty.',</span>
-<span class="cstat-no" title="statement not covered" >  });</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export async function explainScenarioLikelihood(
+  env: AppEnv,
+  data: { matchId: string; scenarios: { scenarioType: string; probability: number }[] } | null,
+) {
+  if (!data) return null;
+  return ScenarioExplanationSchema.parse({
+    matchId: data.matchId,
+    summary: 'Scenario likelihood summary from statistical engine outputs.',
+    highlights: data.scenarios.slice(0, 5).map((s) =&gt; ({
+      scenarioType: s.scenarioType,
+      narrative: `Scenario likelihood ${(s.probability * 100).toFixed(1)}% — model estimate only.`,
+    })),
+    uncertaintyNotes: ['Scenario paths are not guaranteed outcomes.'],
+    disclaimer: 'Scenario likelihoods are analytical estimates, not predictions of certainty.',
+  });
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -127,7 +127,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

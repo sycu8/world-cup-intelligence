@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">36.66% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>11/30</span>
+                <span class='fraction'>30/30</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>12/12</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">36.66% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>11/30</span>
+                <span class='fraction'>30/30</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -110,27 +110,27 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">19x</span>
+<span class="cline-any cline-yes">19x</span>
+<span class="cline-any cline-yes">19x</span>
+<span class="cline-any cline-yes">19x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">322x</span>
+<span class="cline-any cline-yes">322x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">19x</span>
+<span class="cline-any cline-yes">19x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { MatchPredictionScenario } from './types';
 &nbsp;
 const PROHIBITED = [
@@ -143,28 +143,28 @@ const PROHIBITED = [
   'guaranteed',
 ];
 &nbsp;
-export <span class="fstat-no" title="function not covered" >function validateScenarioSet(scenarios: MatchPredictionScenario[]): string[] {</span>
-<span class="cstat-no" title="statement not covered" >  const errors: string[] = [];</span>
-<span class="cstat-no" title="statement not covered" >  if (scenarios.length &lt; 2) errors.push('At least two scenarios required.');</span>
-<span class="cstat-no" title="statement not covered" >  if (!scenarios.some((s) =&gt; s.isBaseline)) errors.push('Baseline scenario missing.');</span>
-<span class="cstat-no" title="statement not covered" >  for (const s of scenarios) {</span>
-<span class="cstat-no" title="statement not covered" >    if (!s.modelVersion) errors.push(`Scenario ${s.id} missing modelVersion.`);</span>
-<span class="cstat-no" title="statement not covered" >    if (!s.inputHash) errors.push(`Scenario ${s.id} missing inputHash.`);</span>
-<span class="cstat-no" title="statement not covered" >    if (s.scenarioProbability &lt; 0 || s.scenarioProbability &gt; 1) {</span>
-<span class="cstat-no" title="statement not covered" >      errors.push(`Scenario ${s.id} probability out of range.`);</span>
-<span class="cstat-no" title="statement not covered" >    }</span>
-<span class="cstat-no" title="statement not covered" >    const text = JSON.stringify(s).toLowerCase();</span>
-<span class="cstat-no" title="statement not covered" >    for (const phrase of PROHIBITED) {</span>
-<span class="cstat-no" title="statement not covered" >      if (text.includes(phrase)) errors.push(`Prohibited phrase in scenario ${s.id}: ${phrase}`);</span>
-<span class="cstat-no" title="statement not covered" >    }</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
-<span class="cstat-no" title="statement not covered" >  return errors;</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function validateScenarioSet(scenarios: MatchPredictionScenario[]): string[] {
+  const errors: string[] = [];
+  if (scenarios.length &lt; 2) errors.push('At least two scenarios required.');
+  if (!scenarios.some((s) =&gt; s.isBaseline)) errors.push('Baseline scenario missing.');
+  for (const s of scenarios) {
+    if (!s.modelVersion) errors.push(`Scenario ${s.id} missing modelVersion.`);
+    if (!s.inputHash) errors.push(`Scenario ${s.id} missing inputHash.`);
+    if (s.scenarioProbability &lt; 0 || s.scenarioProbability &gt; 1) {
+      errors.push(`Scenario ${s.id} probability out of range.`);
+    }
+    const text = JSON.stringify(s).toLowerCase();
+    for (const phrase of PROHIBITED) {
+      if (text.includes(phrase)) errors.push(`Prohibited phrase in scenario ${s.id}: ${phrase}`);
+    }
+  }
+  return errors;
+}
 &nbsp;
-export <span class="fstat-no" title="function not covered" >function assertValidScenarioSet(scenarios: MatchPredictionScenario[]): void {</span>
-<span class="cstat-no" title="statement not covered" >  const errors = validateScenarioSet(scenarios);</span>
-<span class="cstat-no" title="statement not covered" >  if (errors.length) throw new Error(errors.join('; '));</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function assertValidScenarioSet(scenarios: MatchPredictionScenario[]): void {
+  const errors = validateScenarioSet(scenarios);
+  if (errors.length) throw new Error(errors.join('; '));
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -172,7 +172,7 @@ export <span class="fstat-no" title="function not covered" >function assertValid
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

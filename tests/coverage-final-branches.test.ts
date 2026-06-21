@@ -1,3 +1,6 @@
+import React, { type ReactElement } from 'react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMockDb, createMockEnv, createMockKv } from './helpers/mockEnv';
 import { FIXTURE_MATCH, FIXTURE_SNAPSHOT, FIXTURE_TEAMS } from './helpers/fixtures';
@@ -46,6 +49,33 @@ import {
 import { validateScenarioSet } from '../src/models/scenarios/scenarioValidation';
 import { jsonRoute } from './helpers/routeHarness';
 import { createRouteTestEnv } from './helpers/mockRouteDb';
+import { I18nProvider } from '../app/lib/i18n/I18nContext';
+import { api } from '../app/lib/api';
+import { MatchAnalyticsPanel } from '../app/components/match/MatchAnalyticsPanel';
+import { MatchLineupSidePanel } from '../app/components/match/MatchLineupSidePanel';
+import { MatchLiveStatsPanel } from '../app/components/match/MatchLiveStatsPanel';
+import { PitchMap } from '../app/components/tactical/PitchMap';
+import { appendFeedEvent, getLatestFeedCursor, queryFeed } from '../src/services/publicApi/feed';
+import {
+  backfillNewsThumbnails,
+  imageUrlFromRaw,
+  recompressNewsThumbnails,
+  resolveNewsThumbSourceUrl,
+} from '../src/services/newsThumbnailBackfill';
+import { buildModelVsMarket } from '../src/market/services/marketSignalService';
+import { refereeToFeatures } from '../src/services/matchStaff';
+import * as marketRepo from '../src/db/repositories/marketRepo';
+import * as probabilityRepo from '../src/db/repositories/probabilityRepo';
+
+function renderWithAppProviders(ui: ReactElement) {
+  return render(
+    React.createElement(
+      MemoryRouter,
+      null,
+      React.createElement(I18nProvider, null, ui),
+    ),
+  );
+}
 
 vi.mock('../src/ingestion/fifa/fifaLineupSync', () => ({
   syncFifaMatchLineupsByRef: vi.fn(async () => undefined),
@@ -89,6 +119,8 @@ vi.mock('../src/ai/translateNews', () => ({
 vi.mock('../src/services/newsImagePipeline', () => ({
   compressAndStoreNewsImage: vi.fn(async () => null),
   newsAssetPublicPath: vi.fn((id: string) => `/news/${id}.webp`),
+  newsThumbnailR2Key: vi.fn((id: string) => `news/thumbs/${id}.webp`),
+  thumbNeedsRecompress: vi.fn((_contentType: string | undefined, size: number | undefined) => size != null && size > 40_000),
 }));
 vi.mock('../src/services/newsSourceBackfill', () => ({
   registerNewsFeedSource: vi.fn(async () => 'source-1'),
@@ -1619,5 +1651,1286 @@ describe('coverage final — targeted branch additions', () => {
     const preview = await getMatchPreviewAnalysis(env, FIXTURE_MATCH.id);
     expect(preview?.summary.en).toContain('vs');
     expect(preview?.sections.context.en).toContain('World Cup 2026 fixture');
+  });
+});
+
+describe('coverage final — additional component and utility branches', () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('covers analytics, lineup, stats, and pitch map UI branch paths', async () => {
+    vi.spyOn(api, 'matchProbabilityMovement')
+      .mockResolvedValueOnce({
+        data: {
+          events: [
+            {
+              minute: 5,
+              reasonCode: 'goal',
+              homeWinBefore: 0.4,
+              drawBefore: 0.3,
+              awayBefore: 0.3,
+              homeWinAfter: 0.15,
+              drawAfter: 0.3,
+              awayAfter: 0.55,
+            },
+            {
+              minute: 12,
+              reasonCode: 'red_card',
+              homeWinBefore: 0.15,
+              drawBefore: 0.3,
+              awayBefore: 0.55,
+              homeWinAfter: 0.1,
+              drawAfter: 0.3,
+              awayAfter: 0.6,
+            },
+          ],
+          modelVersion: 'v1',
+        },
+      } as never)
+      .mockRejectedValueOnce(new Error('movement down'));
+
+    const analyticsNegative = renderWithAppProviders(
+      React.createElement(MatchAnalyticsPanel, { matchId: 'match-neg' }),
+    );
+    await waitFor(() => expect(screen.getByText('-60.0%')).toBeTruthy());
+    analyticsNegative.unmount();
+
+    renderWithAppProviders(
+      React.createElement(MatchAnalyticsPanel, {
+        matchId: 'match-pos',
+        homeWin: 0.7,
+        awayWin: 0.1,
+      }),
+    );
+    await waitFor(() => expect(screen.getByText('+60.0%')).toBeTruthy());
+    cleanup();
+
+    renderWithAppProviders(
+      React.createElement(MatchLineupSidePanel, {
+        label: 'Grouped',
+        matchRef: 'mx-vs-rsa',
+        side: {
+          teamName: 'Grouped FC',
+          formation: '3-4-3',
+          hasAccurateLineup: false,
+          hasLineup: undefined,
+          source: 'projected',
+          starters: undefined,
+          substitutes: [],
+          grouped: {
+            DEF: [{ shirtNumber: null, name: 'Null Number', position: 'CB' }],
+          },
+          lineupPlayers: undefined,
+          players: Array.from({ length: 7 }, (_, i) => ({
+            shirtNumber: i + 1,
+            name: `Player ${i + 1}`,
+            position: 'CM',
+          })),
+        },
+      } as never),
+    );
+    expect(document.body.textContent).toContain('—');
+    cleanup();
+
+    renderWithAppProviders(
+      React.createElement(MatchLineupSidePanel, {
+        label: 'Compact',
+        compact: true,
+        side: {
+          teamName: 'Compact FC',
+          formation: null,
+          hasAccurateLineup: false,
+          hasLineup: undefined,
+          source: null,
+          starters: Array.from({ length: 7 }, (_, i) => ({
+            shirtNumber: i === 0 ? null : i,
+            name: `Starter ${i + 1}`,
+            position: 'CM',
+          })),
+          substitutes: [],
+          grouped: null,
+          lineupPlayers: undefined,
+          players: [],
+        },
+      } as never),
+    );
+    expect(document.body.textContent).toContain('Compact FC');
+    cleanup();
+
+    vi.spyOn(api, 'matchStats')
+      .mockResolvedValueOnce({
+        data: {
+          matchId: 'stats-null',
+          slug: 'stats-null',
+          status: 'live',
+          minute: 20,
+          homeScore: 0,
+          awayScore: 0,
+          updatedAt: null,
+          dataSource: 'fifa_live',
+          home: {
+            teamId: 'h',
+            teamName: 'Home',
+            possession: null,
+            shots: 7,
+            shotsOnTarget: 2,
+            xg: null,
+            passes: 320,
+            passAccuracy: 80,
+          },
+          away: {
+            teamId: 'a',
+            teamName: 'Away',
+            possession: 10,
+            shots: 4,
+            shotsOnTarget: 2,
+            xg: null,
+            passes: 400,
+            passAccuracy: 75,
+          },
+          events: { goals: 0, yellowCards: 1, redCards: 0, substitutions: 2 },
+          xgEstimateNote: 'Estimated from event data',
+        },
+      } as never)
+      .mockResolvedValueOnce({
+        data: {
+          matchId: 'stats-zero',
+          slug: 'stats-zero',
+          status: 'completed',
+          minute: 90,
+          homeScore: 1,
+          awayScore: 1,
+          updatedAt: '2026-01-01T00:00:00Z',
+          dataSource: 'recorded',
+          dataSourceLabel: 'FIFA Match Centre',
+          home: {
+            teamId: 'h',
+            teamName: 'Home',
+            possession: 0,
+            shots: 1,
+            shotsOnTarget: 0,
+            xg: 0.1,
+            passes: 0,
+            passAccuracy: 0,
+          },
+          away: {
+            teamId: 'a',
+            teamName: 'Away',
+            possession: 0,
+            shots: 1,
+            shotsOnTarget: 0,
+            xg: 0.1,
+            passes: 0,
+            passAccuracy: 0,
+          },
+          events: { goals: 2, yellowCards: 0, redCards: 0, substitutions: 6 },
+          xgEstimateNote: 'Recorded feed',
+        },
+      } as never);
+
+    renderWithAppProviders(
+      React.createElement(MatchLiveStatsPanel, {
+        matchId: 'stats-null',
+        homeLabel: 'Home',
+        awayLabel: 'Away',
+      }),
+    );
+    await waitFor(() => expect(document.body.textContent).toContain('7'));
+    cleanup();
+
+    renderWithAppProviders(
+      React.createElement(MatchLiveStatsPanel, {
+        matchId: 'stats-zero',
+        homeLabel: 'Home',
+        awayLabel: 'Away',
+      }),
+    );
+    await waitFor(() => expect(document.body.textContent).toContain('FIFA Match Centre'));
+    cleanup();
+
+    renderWithAppProviders(React.createElement(PitchMap, { data: null, loading: false }));
+    expect(document.body.textContent?.length).toBeGreaterThan(0);
+    cleanup();
+
+    renderWithAppProviders(
+      React.createElement(PitchMap, {
+        loading: false,
+        data: {
+          matchId: 'pitch-1',
+          slug: 'pitch-1',
+          status: 'live',
+          minute: 61,
+          home: {
+            teamId: 'home',
+            teamName: 'Home Data',
+            formation: null,
+            source: 'projected',
+            players: [
+              {
+                playerId: 'hp1',
+                name: 'Home Player',
+                shirtNumber: 9,
+                position: 'ST',
+                x: 0.2,
+                y: 0.4,
+                isOnPitch: true,
+                isStarter: true,
+                subMinute: null,
+                subType: null,
+                rating: 7.2,
+                movement: null,
+              },
+            ],
+            bench: [
+              {
+                playerId: 'hb1',
+                name: 'Bench Home',
+                shirtNumber: null,
+                position: 'CM',
+                x: 0.25,
+                y: 0.5,
+                isOnPitch: false,
+                isStarter: false,
+                subMinute: 60,
+                subType: 'out',
+                rating: 6.5,
+                movement: null,
+              },
+            ],
+          },
+          away: {
+            teamId: 'away',
+            teamName: 'Away Data',
+            formation: null,
+            source: 'unknown',
+            players: [],
+            bench: [],
+          },
+          events: [
+            {
+              id: 'evt-1',
+              x: 0.4,
+              y: 0.3,
+              endX: 0.6,
+              endY: 0.35,
+              eventType: 'shot',
+              teamId: null,
+              playerId: null,
+              minute: 5,
+            },
+          ],
+          showRatings: true,
+          updatedAt: null,
+        },
+      } as never),
+    );
+    expect(document.body.textContent).toContain('Bench Home');
+    expect(document.body.textContent).toContain('—');
+  });
+
+  it('covers feed, formation, and scenario utility branches', async () => {
+    const nullInsertEnv = createMockEnv({
+      DB: createMockDb({
+        run: () => ({ success: true, meta: { last_row_id: 0 } } as never),
+      }),
+    });
+    expect(await appendFeedEvent(nullInsertEnv, 'match.score_updated', null, { ok: true })).toBeNull();
+
+    const pagedEnv = createMockEnv({
+      DB: createMockDb({
+        all: () => ({
+          results: [
+            {
+              id: 5,
+              event_type: 'match.score_updated',
+              match_id: FIXTURE_MATCH.id,
+              payload_json: '{"homeScore":2}',
+              created_at: '2026-01-01T00:00:00Z',
+            },
+            {
+              id: 6,
+              event_type: 'match.status_changed',
+              match_id: FIXTURE_MATCH.id,
+              payload_json: '{"status":"live"}',
+              created_at: '2026-01-01T00:01:00Z',
+            },
+          ],
+        }),
+        first: () => null,
+      }),
+    });
+    const page = await queryFeed(pagedEnv, { limit: 1 });
+    expect(page.events).toHaveLength(1);
+    expect(page.nextCursor).toBe(5);
+    expect(await getLatestFeedCursor(pagedEnv)).toBe(0);
+
+    const emptyFeedEnv = createMockEnv({
+      DB: createMockDb({
+        all: () => ({ results: undefined }),
+      }),
+    });
+    expect(await queryFeed(emptyFeedEnv, {})).toEqual({ events: [], nextCursor: null });
+
+    const coords = assignFormationCoords(
+      '4-3-3',
+      [
+        { playerId: 'lb', position: 'LB' },
+        { playerId: 'rcb', position: 'RCB' },
+        { playerId: 'cm', position: 'CM' },
+        { playerId: 'unk', position: 'SW' },
+      ],
+      'home',
+    );
+    expect(coords.get('lb')?.y).toBeLessThan(coords.get('rcb')?.y ?? 1);
+    expect(coords.get('cm')?.y).toBe(0.5);
+    expect(coords.get('unk')?.x).toBeGreaterThan(0);
+
+    const baselineCtx = mockScenarioContext({
+      minute: 35,
+      homeLineupSource: 'official',
+      awayLineupSource: 'projected',
+      probability: {
+        ...mockScenarioContext().probability,
+        expectedAwayGoals: 0.2,
+        scorelineDistribution: {},
+      },
+      homeSystem: {
+        ...mockScenarioContext().homeSystem,
+        possessionControlScore: 0.42,
+      },
+      awaySystem: {
+        ...mockScenarioContext().awaySystem,
+        possessionControlScore: 0.61,
+      },
+    });
+    const baseline = runScenarioProbabilityModel(
+      'baseline_expected_flow',
+      baselineCtx,
+      selectScenarioFeatures('baseline_expected_flow', baselineCtx),
+    );
+    expect(baseline.initialConditions[0]?.confidence).toBe(0.9);
+    expect(baseline.initialConditions[3]?.value).toBe(baselineCtx.awayTeamName);
+    expect(baseline.triggerConditions[1]?.status).toBe('triggered');
+
+    const negativePressCtx = mockScenarioContext({
+      probability: {
+        ...mockScenarioContext().probability,
+        scorelineDistribution: {},
+      },
+      homeSystem: {
+        ...mockScenarioContext().homeSystem,
+        pressingScore: 0.25,
+      },
+      awaySystem: {
+        ...mockScenarioContext().awaySystem,
+        pressingScore: 0.72,
+      },
+    });
+    const pressing = runScenarioProbabilityModel(
+      'pressing_breakthrough',
+      negativePressCtx,
+      selectScenarioFeatures('pressing_breakthrough', negativePressCtx),
+    );
+    expect(pressing.expectedHomeGoals).toBeLessThan(negativePressCtx.probability.expectedHomeGoals);
+    expect(pressing.mostLikelyScore).toBe('1-1');
+  });
+
+  it('covers thumbnail backfill, market signal, standings, and history fallback branches', async () => {
+    const {
+      getTeamWorldCupHeadToHead,
+      resolveTeamIdsForWcHistory,
+      summarizePairFromPerspective,
+    } = await vi.importActual<typeof import('../src/services/matchHistory')>(
+      '../src/services/matchHistory',
+    );
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(
+          `<rss><channel><item><link>https://unknown.example/no-image</link></item></channel></rss>`,
+          {
+            status: 200,
+            headers: { 'content-type': 'application/rss+xml' },
+          },
+        ),
+      ),
+    );
+
+    const rawMissEnv = createMockEnv({
+      R2_RAW: { get: vi.fn(async () => null) } as never,
+    });
+    expect(await imageUrlFromRaw(rawMissEnv, 'missing/raw.json')).toBeNull();
+
+    const rssMissEnv = createMockEnv({
+      DB: createMockDb({
+        first: () => ({
+          source_url: 'https://unknown.example/no-image',
+          content_r2_key: 'raw/missing.json',
+        }),
+      }),
+      R2_RAW: { get: vi.fn(async () => null) } as never,
+    });
+    expect(await resolveNewsThumbSourceUrl(rssMissEnv, 'doc-missing-thumb')).toBeNull();
+
+    const { compressAndStoreNewsImage } = await import('../src/services/newsImagePipeline');
+    vi.mocked(compressAndStoreNewsImage).mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+
+    const backfillEnv = createMockEnv({
+      DB: createMockDb({
+        all: () => ({
+          results: [
+            {
+              id: 'doc-skip',
+              source_url: 'https://unknown.example/no-image',
+              content_r2_key: null,
+            },
+            {
+              id: 'doc-raw-hit',
+              source_url: 'https://unknown.example/raw-hit',
+              content_r2_key: 'raw/hit.json',
+            },
+          ],
+        }),
+        run: () => ({ success: true }),
+      }),
+      R2_RAW: {
+        get: vi.fn(async (key: string) =>
+          key === 'raw/hit.json'
+            ? {
+                text: async () =>
+                  JSON.stringify({ imageUrl: 'https://cdn.example.com/raw-hit.jpg' }),
+              }
+            : null,
+        ),
+      } as never,
+    });
+    expect(await backfillNewsThumbnails(backfillEnv, 5)).toBe(1);
+
+    const recompressEnv = createMockEnv({
+      DB: createMockDb({
+        all: () => ({
+          results: [
+            {
+              id: 'doc-no-head',
+              source_url: 'https://unknown.example/no-image',
+              content_r2_key: null,
+              thumbnail_r2_key: 'thumb-missing',
+            },
+            {
+              id: 'doc-not-legacy',
+              source_url: 'https://unknown.example/no-image',
+              content_r2_key: null,
+              thumbnail_r2_key: 'thumb-small',
+            },
+            {
+              id: 'doc-no-image',
+              source_url: 'https://unknown.example/no-image',
+              content_r2_key: null,
+              thumbnail_r2_key: 'thumb-large',
+            },
+            {
+              id: 'doc-no-store',
+              source_url: 'https://unknown.example/raw-hit',
+              content_r2_key: 'raw/hit.json',
+              thumbnail_r2_key: 'thumb-large-2',
+            },
+          ],
+        }),
+        run: () => ({ success: true }),
+      }),
+      R2_ARTIFACTS: {
+        head: vi.fn(async (key: string) => {
+          if (key === 'thumb-missing') return null;
+          if (key === 'thumb-small') return { httpMetadata: { contentType: 'image/webp' }, size: 2048 };
+          return { httpMetadata: { contentType: 'image/jpeg' }, size: 90_000 };
+        }),
+      } as never,
+      R2_RAW: {
+        get: vi.fn(async (key: string) =>
+          key === 'raw/hit.json'
+            ? {
+                text: async () =>
+                  JSON.stringify({ imageUrl: 'https://cdn.example.com/raw-hit.jpg' }),
+              }
+            : null,
+        ),
+      } as never,
+    });
+    expect(await recompressNewsThumbnails(recompressEnv, 10)).toBe(0);
+
+    vi.spyOn(probabilityRepo, 'getLatestSnapshot').mockResolvedValue({
+      home_win_prob: 0.45,
+      draw_prob: 0.25,
+      away_win_prob: 0.3,
+    } as never);
+    vi.spyOn(marketRepo, 'getLatestMarketOdds').mockResolvedValue([
+      { selection: 'home', normalized_probability: 0.5, source_id: null, retrieved_at: null },
+    ] as never);
+    vi.spyOn(marketRepo, 'saveMarketSignalAnalysis').mockResolvedValue(undefined as never);
+    const marketSignals = await buildModelVsMarket(
+      createMockEnv({
+        DB: createMockDb({ first: () => null }),
+      }),
+      'market-1',
+    );
+    expect(marketSignals?.market.draw).toBe(0.33);
+    expect(marketSignals?.market.away).toBe(0.34);
+    expect(marketSignals?.sourceId).toBe('mkt-manual');
+    expect(marketSignals?.sourceName).toBe('Market source');
+    expect(refereeToFeatures({ role: 'referee', name: 'Ref', nationality: null, fifaCategory: null, strictness: 0.5 }))
+      .toEqual(expect.objectContaining({ avgYellowCards: 4.5, avgRedCards: 0.11 }));
+
+    const sparseStandings = await buildGroupStandingsPayload(
+      createMockEnv({
+        DB: createMockDb({
+          all: (sql) => {
+            if (sql.includes('WHERE tournament_id = ? AND stage = \'Group\'')) return {} as never;
+            if (sql.includes('GROUP BY group_code')) return {} as never;
+            if (sql.includes('FROM teams WHERE id LIKE')) return {} as never;
+            return { results: [] };
+          },
+        }),
+      }),
+    );
+    expect(sparseStandings.groups.A?.rows).toEqual([]);
+
+    const gdAndGfRanked = sortStandingRows([
+      {
+        teamId: 'one',
+        teamName: 'One',
+        shortName: null,
+        rank: 0,
+        played: 3,
+        points: 4,
+        gf: 2,
+        ga: 1,
+        gd: 1,
+      },
+      {
+        teamId: 'two',
+        teamName: 'Two',
+        shortName: null,
+        rank: 0,
+        played: 3,
+        points: 4,
+        gf: 4,
+        ga: 2,
+        gd: 2,
+      },
+      {
+        teamId: 'three',
+        teamName: 'Three',
+        shortName: null,
+        rank: 0,
+        played: 3,
+        points: 4,
+        gf: 3,
+        ga: 1,
+        gd: 2,
+      },
+    ]);
+    expect(gdAndGfRanked.map((row) => row.teamId)).toEqual(['two', 'three', 'one']);
+
+    const mixedSummary = summarizePairFromPerspective(
+      [
+        {
+          id: 'h-win',
+          kickoff_utc: '2018-06-01T12:00:00Z',
+          stage: 'Group',
+          status: 'completed',
+          home_team_id: 'home',
+          away_team_id: 'away',
+          home_name: 'Home',
+          away_name: 'Away',
+          home_short: 'H',
+          away_short: 'A',
+          home_score: 2,
+          away_score: 1,
+          home_xg: 1,
+          away_xg: 1,
+        },
+        {
+          id: 'draw',
+          kickoff_utc: '2014-06-01T12:00:00Z',
+          stage: 'Group',
+          status: 'completed',
+          home_team_id: 'away',
+          away_team_id: 'home',
+          home_name: 'Away',
+          away_name: 'Home',
+          home_short: 'A',
+          away_short: 'H',
+          home_score: 1,
+          away_score: 1,
+          home_xg: 1,
+          away_xg: 1,
+        },
+      ] as never,
+      'home',
+      'away',
+    );
+    expect(mixedSummary.homeTeamWins).toBe(1);
+    expect(mixedSummary.draws).toBe(1);
+
+    const historyEnv = createMockEnv({
+      DB: createMockDb({
+        first: (sql) => {
+          if (sql.includes('country_code FROM teams WHERE id')) {
+            return { id: 'team-home', name: 'Home', country_code: 'HOM' };
+          }
+          if (sql.includes('SELECT id FROM teams WHERE id = ?')) return { id: 'team-home' };
+          return null;
+        },
+        all: (sql) => {
+          if (sql.includes('SELECT id FROM teams WHERE country_code = ?')) return {} as never;
+          if (sql.includes('WHERE m.home_team_id = ? OR m.away_team_id = ?')) return {} as never;
+          return { results: [] };
+        },
+      }),
+    });
+    expect(await resolveTeamIdsForWcHistory(historyEnv, 'team-home')).toEqual(['team-home']);
+    const groupedHistory = await getTeamWorldCupHeadToHead(historyEnv, 'team-home');
+    expect(groupedHistory?.opponents).toEqual([]);
+  });
+});
+
+describe('coverage final — broad branch pass', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('covers multi-variable analysis cache hits and null exits', async () => {
+    const { runMultiVariableAnalysis } = await import('../src/ai/multiVariableAnalysis');
+    const gatewayClient = await import('../src/ai/gatewayClient');
+    const matchesRepo = await import('../src/db/repositories/matchesRepo');
+    const teamsRepo = await import('../src/db/repositories/teamsRepo');
+    const probabilityRepo = await import('../src/db/repositories/probabilityRepo');
+    const eventsRepo = await import('../src/db/repositories/eventsRepo');
+
+    const cached = {
+      matchId: 'match-cached',
+      generatedAt: '2026-01-01T00:00:00Z',
+      executiveSummary: 'Cached analysis',
+      variableInsights: [],
+      tacticalRecommendations: [],
+      riskFactors: [],
+      confidence: 0.7,
+      modelsUsed: [],
+    };
+    expect(
+      await runMultiVariableAnalysis(
+        createMockEnv({
+          KV: createMockKv({ 'analysis:match-cached': JSON.stringify(cached) }),
+        }),
+        'match-cached',
+      ),
+    ).toEqual(cached);
+
+    vi.mocked(gatewayClient.isGatewayConfigured).mockReturnValue(true);
+
+    vi.spyOn(matchesRepo, 'getMatch').mockResolvedValueOnce(null as never);
+    expect(await runMultiVariableAnalysis(createMockEnv({ KV: createMockKv() }), 'missing-match')).toBeNull();
+
+    const liveMatch = {
+      ...FIXTURE_MATCH,
+      tournament_id: 't-wc',
+      status: 'live',
+      minute: 12,
+      home_score: 1,
+      away_score: 0,
+      group_code: 'A',
+    };
+    vi.spyOn(matchesRepo, 'getMatch').mockResolvedValueOnce(liveMatch as never);
+    vi.mocked(teamsRepo.getTeam).mockResolvedValueOnce(null as never);
+    expect(await runMultiVariableAnalysis(createMockEnv({ KV: createMockKv() }), liveMatch.id)).toBeNull();
+
+    const env = createMockEnv({
+      KV: createMockKv(),
+      DB: createMockDb({
+        first: () => null,
+        all: () => ({ results: [] }),
+      }),
+    });
+    vi.spyOn(matchesRepo, 'getMatch').mockResolvedValueOnce(liveMatch as never);
+    vi.mocked(teamsRepo.getTeam)
+      .mockResolvedValueOnce({ ...FIXTURE_TEAMS[0], country_code: 'MX' } as never)
+      .mockResolvedValueOnce({ ...FIXTURE_TEAMS[1], country_code: 'ZA' } as never);
+    vi.spyOn(probabilityRepo, 'getLatestSnapshot').mockResolvedValueOnce(null as never);
+    vi.spyOn(eventsRepo, 'getMatchEvents').mockResolvedValueOnce([] as never);
+    vi.mocked(gatewayClient.gatewayChatJson).mockResolvedValueOnce(null as never);
+
+    expect(await runMultiVariableAnalysis(env, liveMatch.id)).toBeNull();
+    expect(vi.mocked(gatewayClient.gatewayChatJson)).toHaveBeenCalledWith(
+      env,
+      'multi_variable_synthesis',
+      expect.any(Array),
+    );
+  });
+
+  it('covers english UI branches for schedule, recap, and SEO landing pages', async () => {
+    localStorage.setItem('wc-display-mode', 'en');
+
+    const { MatchScheduleCalendar } = await import('../app/components/home/MatchScheduleCalendar');
+    const { MatchRecapPanel } = await import('../app/components/match/MatchRecapPanel');
+    const { SeoLandingPage } = await import('../app/pages/SeoLandingPage');
+
+    renderWithAppProviders(
+      React.createElement(MatchScheduleCalendar, {
+        totalExpected: 2,
+        matches: [
+          {
+            id: 'sched-1',
+            slug: 'sched-1',
+            kickoff_utc: '2026-06-11T12:00:00Z',
+            stage: 'Group',
+            group_code: 'A',
+            status: 'live',
+            home_name: 'Alpha United',
+            away_name: 'Beta Town',
+            home_short: null,
+            away_short: null,
+            home_score: 1,
+            away_score: 0,
+          },
+          {
+            id: 'sched-2',
+            slug: 'sched-2',
+            kickoff_utc: null as never,
+            stage: null,
+            group_code: null,
+            status: 'scheduled',
+            home_name: 'Searchable Name',
+            away_name: 'Gamma',
+            home_short: 'SN',
+            away_short: 'GAM',
+            home_score: null,
+            away_score: null,
+          },
+        ],
+        byDate: {},
+      } as never),
+    );
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'searchable' } });
+    expect(document.body.textContent).toContain('SN vs GAM');
+    cleanup();
+
+    vi.spyOn(api, 'matchRecap')
+      .mockRejectedValueOnce(new Error('missing recap'))
+      .mockResolvedValueOnce({
+        data: {
+          matchId: 'recap-1',
+          slug: 'recap-1',
+          summaryEn: 'English recap summary',
+          summaryVi: 'Tom tat',
+          sourceId: null,
+          commentary: [
+            {
+              id: 'line-1',
+              minute: 17,
+              period: '1H',
+              textEn: 'English commentary',
+              textVi: 'Binh luan',
+              eventType: 'goal',
+            },
+          ],
+          playerStats: [
+            {
+              playerId: 'p-1',
+              playerName: 'Home Player',
+              teamId: 'home',
+              shirtNumber: 9,
+              minutesPlayed: 90,
+              goals: 1,
+              assists: 0,
+              shots: 2,
+              shotsOnTarget: 1,
+              xg: 0.5,
+              yellowCards: 1,
+              redCards: 1,
+            },
+          ],
+        },
+      } as never);
+
+    const emptyRecap = renderWithAppProviders(
+      React.createElement(MatchRecapPanel, {
+        matchId: 'recap-missing',
+        homeTeamId: 'home',
+        homeLabel: 'Home',
+        awayLabel: 'Away',
+      }),
+    );
+    await waitFor(() => expect(emptyRecap.container.textContent).toBe(''));
+    cleanup();
+
+    renderWithAppProviders(
+      React.createElement(MatchRecapPanel, {
+        matchId: 'recap-1',
+        homeTeamId: 'home',
+        homeLabel: 'Home',
+        awayLabel: 'Away',
+      }),
+    );
+    await waitFor(() => expect(screen.getByText('English recap summary')).toBeTruthy());
+    expect(document.body.textContent).toContain('English commentary');
+    expect(document.body.textContent).toContain('🟥');
+    expect(document.body.textContent).toContain('🟨');
+    cleanup();
+
+    render(
+      React.createElement(
+        MemoryRouter,
+        { initialEntries: ['/lich-thi-dau-world-cup-2026'] },
+        React.createElement(I18nProvider, null, React.createElement(SeoLandingPage)),
+      ),
+    );
+    expect(screen.getByText('World Cup 2026 schedule')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /View match schedule/ })).toBeTruthy();
+    expect(document.title).toContain('World Cup 2026 schedule');
+  });
+
+  it('covers translation, stats completeness, lineup role fallbacks, and publisher utilities', async () => {
+    const { translateNewsHeadline } = await import('../src/ai/translateNews');
+    const {
+      areTeamMatchStatsComplete,
+      loadTeamMatchStatsCompleteness,
+    } = await import('../src/ingestion/fifa/teamMatchStatsComplete');
+    const { buildLineupFeaturesFromPlayers } = await import('../src/services/lineupFeatures');
+    const {
+      isLikelyVietnamese,
+      needsNewsTranslation,
+      resolvePublisherLabel,
+    } = await import('../src/services/newsTranslationUtils');
+
+    expect(await translateNewsHeadline(createMockEnv(), 'US wins opener', 'Summary body')).toBeNull();
+
+    const shortEnv = createMockEnv({
+      AI: {
+        run: vi.fn(async () => ({ translated_text: 'a' })),
+      } as never,
+    });
+    expect(await translateNewsHeadline(shortEnv, 'US wins opener', 'Summary body')).toBeNull();
+
+    const mixedEnv = createMockEnv({
+      AI: {
+        run: vi.fn(async (model: string, input: { text?: string }) => {
+          if (model === '@cf/meta/m2m100-1.2b') {
+            return {
+              translated_text:
+                input.text === 'US wins opener'
+                  ? 'Hoa Ky thang lon'
+                  : 'US wins opener after a controlled first half',
+            };
+          }
+          throw new Error('workers ai disabled');
+        }),
+      } as never,
+    });
+    expect(
+      await translateNewsHeadline(
+        mixedEnv,
+        'US wins opener',
+        'US wins opener after a controlled first half',
+      ),
+    ).toBeNull();
+
+    expect(
+      areTeamMatchStatsComplete(
+        { possession: null, passes: 250 },
+        { possession: 52, passes: 410 },
+      ),
+    ).toBe(false);
+    expect(
+      await loadTeamMatchStatsCompleteness(
+        createMockDb({
+          all: () => ({} as never),
+        }) as never,
+        'm-1',
+        'home',
+        'away',
+      ),
+    ).toEqual({
+      complete: false,
+      home: null,
+      away: null,
+    });
+
+    const lineup = buildLineupFeaturesFromPlayers(
+      '4-3-3',
+      [
+        { is_starter: 1, position_slot: null, role: null, listed_position: 'GK' },
+        { is_starter: 1, position_slot: null, role: 'CB' },
+        { is_starter: 1, position_slot: null, role: null, listed_position: 'CM' },
+        { is_starter: 1, position_slot: null, role: null, position: 'ST' },
+        { is_starter: 1, position_slot: 'DM', role: null },
+        { is_starter: 1, position_slot: null, role: null, listed_position: null, position: null },
+        { is_starter: 1, position_slot: 'LB', role: null },
+      ],
+      false,
+    );
+    expect(lineup?.formation).toBe('4-3-3');
+    expect(lineup?.missingKeyRoles).toContain('MID');
+
+    expect(isLikelyVietnamese('', 'English source')).toBe(false);
+    expect(
+      needsNewsTranslation({
+        id: 'doc-1',
+        title: 'English title',
+        summary: 'English summary',
+        title_vi: 'Tieu de tieng Viet',
+        summary_vi: 'english summary copied',
+      }),
+    ).toBe(true);
+    expect(
+      resolvePublisherLabel({
+        source_name: 'Mock Development Source',
+        source_url: 'https://www.bbc.com/sport',
+      }),
+    ).toBe('BBC');
+    expect(resolvePublisherLabel({ source_name: '  ', source_url: undefined })).toBe('RSS');
+  });
+
+  it('covers news routes, sitemap fallbacks, scenario backtests, and webhook defaults', async () => {
+    const pipelineBootstrap = await import('../src/services/pipelineBootstrap');
+    const newsThumbs = await import('../src/services/newsThumbnailBackfill');
+    const { newsRoutes } = await import('../src/routes/news');
+    const { buildSitemapXml } = await import('../src/services/siteDiscovery');
+    const { runScenarioBacktest } = await import('../src/models/scenarios/backtesting/scenarioBacktestRunner');
+    const {
+      listWebhooks,
+      deleteWebhook,
+      enqueueWebhookDeliveries,
+    } = await import('../src/services/publicApi/webhooks');
+    const { requestRoute } = await import('./helpers/routeHarness');
+
+    vi.spyOn(pipelineBootstrap, 'ensureNewsCrawlFresh').mockResolvedValue(undefined);
+    const listEnv = createMockEnv({
+      KV: createMockKv({
+        meta: '',
+        last_fifa_sync: '',
+        'meta:last_news_thumb_backfill': '2026-01-01T00:00:00Z',
+        'meta:last_news_thumb_recompress': '2026-01-01T00:00:00Z',
+        'meta:last_news_source_backfill': '2026-01-01T00:00:00Z',
+        'meta:news_untranslated_count': '0',
+      }),
+      DB: createMockDb({
+        all: (sql) => {
+          if (sql.includes('ORDER BY COALESCE(sd.hot_score, sd.reliability_score) DESC')) return {} as never;
+          if (sql.includes('ORDER BY sd.published_at DESC, sd.created_at DESC')) return {} as never;
+          return { results: [] };
+        },
+        first: (sql) => {
+          if (sql.includes('COUNT(*) AS n')) return null;
+          return null;
+        },
+      }),
+    });
+    const listResp = await jsonRoute<{
+      data: { hot: unknown[]; articles: unknown[] };
+      meta: { total: number };
+    }>(newsRoutes, '/?page=1&pageSize=20&hot=3', { env: listEnv });
+    expect(listResp.json.data.hot).toEqual([]);
+    expect(listResp.json.data.articles).toEqual([]);
+    expect(listResp.json.meta.total).toBe(0);
+
+    vi.spyOn(newsThumbs, 'resolveNewsThumbSourceUrl').mockResolvedValue('https://cdn.example.com/news.jpg');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(new Uint8Array([1, 2, 3]), { status: 200 })),
+    );
+    const assetRes = await requestRoute(newsRoutes, '/assets/doc-1', {
+      env: createMockEnv({
+        R2_ARTIFACTS: {
+          head: vi.fn(async () => ({
+            httpMetadata: { contentType: 'image/jpeg' },
+            size: 90_000,
+          })),
+          get: vi.fn(async () => null),
+        } as never,
+      }),
+    });
+    expect(assetRes.status).toBe(200);
+    expect(assetRes.headers.get('Content-Type')).toBe('image/jpeg');
+
+    const sitemapEmpty = await buildSitemapXml(
+      createMockEnv({
+        DB: createMockDb({
+          all: () => ({} as never),
+        }),
+      }),
+      'https://pitchintel.test',
+    );
+    expect(sitemapEmpty).toContain('/news-intelligence');
+
+    const sitemapDynamic = await buildSitemapXml(
+      createMockEnv({
+        DB: createMockDb({
+          all: (sql) => {
+            if (sql.includes('FROM matches m')) {
+              return {
+                results: [
+                  {
+                    id: 'm-null-date',
+                    kickoff_utc: null,
+                    stage: null,
+                    group_code: null,
+                    home_name: 'Alpha',
+                    away_name: 'Beta',
+                  },
+                ],
+              };
+            }
+            if (sql.includes('FROM teams WHERE id LIKE')) {
+              return { results: [{ id: 'team-1' }] };
+            }
+            if (sql.includes('FROM source_documents')) {
+              return { results: [{ id: 'doc-1', published_at: null }] };
+            }
+            return { results: [] };
+          },
+        }),
+      }),
+      'https://pitchintel.test',
+    );
+    expect(sitemapDynamic).toContain('/teams/team-1');
+    expect(sitemapDynamic).toContain('/news-intelligence/doc-1');
+
+    const noDataReport = await runScenarioBacktest(
+      createMockEnv({
+        DB: createMockDb({
+          all: () => ({ results: [] }),
+          run: () => ({ success: true }),
+        }),
+        R2_ARTIFACTS: { put: vi.fn(async () => undefined) } as never,
+      }),
+      2026,
+    );
+    expect(noDataReport.matchCount).toBe(0);
+
+    const bucketedReport = await runScenarioBacktest(
+      createMockEnv({
+        DB: createMockDb({
+          all: () => ({
+            results: [
+              {
+                id: 'm-away',
+                home_score: 0,
+                away_score: 1,
+                home_win_prob: 0.3,
+                draw_prob: 0.3,
+                away_win_prob: 0.4,
+              },
+            ],
+          }),
+          run: () => ({ success: true }),
+        }),
+        R2_ARTIFACTS: { put: vi.fn(async () => undefined) } as never,
+      }),
+      2026,
+    );
+    expect(bucketedReport.calibrationBuckets[0]?.bucket).toBe('0-0.45');
+
+    expect(
+      await listWebhooks(
+        createMockEnv({
+          DB: createMockDb({
+            all: () => ({} as never),
+          }),
+        }),
+        'client-1',
+      ),
+    ).toEqual([]);
+    expect(
+      await listWebhooks(
+        createMockEnv({
+          DB: createMockDb({
+            all: () => ({
+              results: [
+                {
+                  id: 'wh-1',
+                  client_id: 'client-1',
+                  url: 'https://example.com/hook',
+                  events_json: '{}',
+                  enabled: 0,
+                  created_at: '2026-01-01T00:00:00Z',
+                },
+              ],
+            }),
+          }),
+        }),
+        'client-1',
+      ),
+    ).toEqual([
+      {
+        id: 'wh-1',
+        clientId: 'client-1',
+        url: 'https://example.com/hook',
+        events: ['*'],
+        enabled: false,
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+    ]);
+    expect(
+      await deleteWebhook(
+        createMockEnv({
+          DB: createMockDb({
+            run: () => ({ meta: {} }),
+          }),
+        }),
+        'client-1',
+        'wh-1',
+      ),
+    ).toBe(false);
+
+    await expect(
+      enqueueWebhookDeliveries(createMockEnv(), {
+        id: 7,
+        type: 'match.completed',
+        matchId: 'm-1',
+        createdAt: '2026-01-01T00:00:00Z',
+        data: {},
+      } as never),
+    ).resolves.toBeUndefined();
+
+    const queueSend = vi.fn(async () => undefined);
+    await enqueueWebhookDeliveries(
+      createMockEnv({
+        INGEST_QUEUE: { send: queueSend } as never,
+        DB: createMockDb({
+          all: () => ({} as never),
+        }),
+      }),
+      {
+        id: 8,
+        type: 'match.completed',
+        matchId: 'm-2',
+        createdAt: '2026-01-01T00:00:00Z',
+        data: {},
+      } as never,
+    );
+    expect(queueSend).not.toHaveBeenCalled();
+  });
+
+  it('covers additional translateNews, newsImagePipeline, and matchStats branches', async () => {
+    const { translateNewsHeadline } = await import('../src/ai/translateNews');
+    const actualNewsImagePipeline = await vi.importActual<typeof import('../src/services/newsImagePipeline')>(
+      '../src/services/newsImagePipeline',
+    );
+    const matchRef = await import('../src/services/matchRef');
+
+    const emptyTitleEnv = createMockEnv({
+      AI: {
+        run: vi.fn(async () => ({ translated_text: '' })),
+      } as never,
+    });
+    expect(await translateNewsHeadline(emptyTitleEnv, 'US wins opener', 'Summary body')).toBeNull();
+
+    const blankSummaryEnv = createMockEnv({
+      AI: {
+        run: vi.fn(async (_model: string, input: { text?: string }) => ({
+          translated_text: input.text === 'US wins opener' ? 'Hoa Ky thang dam' : '',
+        })),
+      } as never,
+    });
+    expect(await translateNewsHeadline(blankSummaryEnv, 'US wins opener', '   ')).toBeNull();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3]), { status: 200 }))
+        .mockResolvedValueOnce(new Response(null, { status: 500 }))
+        .mockResolvedValueOnce(new Response(null, { status: 500 }))
+        .mockResolvedValueOnce(
+          new Response(new Uint8Array(100), {
+            status: 200,
+            headers: { 'content-type': 'application/octet-stream' },
+          }),
+        ),
+    );
+    expect(
+      await actualNewsImagePipeline.compressAndStoreNewsImage(
+        createMockEnv({ R2_ARTIFACTS: { put: vi.fn(async () => undefined) } as never }),
+        'doc-pipeline-1',
+        'https://cdn.example.com/thumb-a.jpg',
+      ),
+    ).toBeNull();
+    expect(
+      await actualNewsImagePipeline.compressAndStoreNewsImage(
+        createMockEnv({ R2_ARTIFACTS: { put: vi.fn(async () => undefined) } as never }),
+        'doc-pipeline-2',
+        'https://cdn.example.com/thumb-b.jpg',
+      ),
+    ).toBeNull();
+
+    vi.spyOn(matchRef, 'resolveMatchRef').mockResolvedValueOnce(null as never);
+    expect(await getMatchStats(createMockEnv(), 'missing-ref')).toBeNull();
+
+    vi.spyOn(matchRef, 'resolveMatchRef').mockResolvedValueOnce({
+      ...FIXTURE_MATCH,
+      id: 'm-stats-espn',
+      slug: 'm-stats-espn',
+      status: 'completed',
+      minute: 90,
+      home_team_id: 'team-home',
+      away_team_id: 'team-away',
+      home_score: 2,
+      away_score: 1,
+      fifa_match_id: 'fifa-stats',
+    } as never);
+    const stats = await getMatchStats(
+      createMockEnv({
+        MOCK_SOURCES: 'true',
+        DB: createMockDb({
+          first: (sql, binds) => {
+            if (sql.includes('SELECT id, name FROM teams WHERE id = ?')) {
+              return { id: binds[0], name: binds[0] === 'team-home' ? 'Home Team' : 'Away Team' };
+            }
+            if (sql.includes('SUM(CASE WHEN event_type')) {
+              return { goals: 3, yellow_cards: 2, red_cards: 0, substitutions: 5 };
+            }
+            if (sql.includes('SELECT status, minute, home_score, away_score, updated_at FROM matches')) {
+              return {
+                status: 'completed',
+                minute: 90,
+                home_score: 2,
+                away_score: 1,
+                updated_at: '2026-06-11T23:30:00Z',
+              };
+            }
+            if (sql.includes('SELECT 1 FROM match_recaps')) return null;
+            return null;
+          },
+          all: (sql) => {
+            if (sql.includes('FROM team_match_stats')) {
+              return {
+                results: [
+                  {
+                    team_id: 'team-home',
+                    possession: 61,
+                    shots: 12,
+                    shots_on_target: 5,
+                    xg: 1.5,
+                    passes: 420,
+                    pass_accuracy: 88,
+                    created_at: null,
+                  },
+                ],
+              };
+            }
+            return { results: [] };
+          },
+        }),
+      }),
+      'm-stats-espn',
+    );
+    expect(stats?.dataSourceLabel).toBe('FIFA Match Centre / ESPN');
+    expect(stats?.updatedAt).toBe('2026-06-11T23:30:00Z');
   });
 });

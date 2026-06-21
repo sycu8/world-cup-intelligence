@@ -235,10 +235,23 @@ describe('publicApi emitter', () => {
     });
     await emitMatchScoreUpdate(env, {
       matchId: FIXTURE_MATCH.id,
+      slug: 'custom-slug',
       homeName: 'Mexico',
       awayName: 'South Africa',
       stage: 'Group',
       groupCode: 'A',
+      status: 'live',
+      minute: 55,
+      homeScore: 1,
+      awayScore: 0,
+      updatedAt: '2026-01-01T00:00:00Z',
+    });
+    await emitMatchScoreUpdate(env, {
+      matchId: FIXTURE_MATCH.id,
+      homeName: 'Mexico',
+      awayName: 'South Africa',
+      stage: null,
+      groupCode: null,
       status: 'live',
       minute: 55,
       homeScore: 1,

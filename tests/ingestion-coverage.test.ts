@@ -181,6 +181,238 @@ describe('espnStatsClient', () => {
     });
     expect(await fetchEspnTeamMatchStats('A', 'B', '2026-06-11T19:00:00Z')).toBeNull();
   });
+
+  it('fetchEspnTeamMatchStats returns null when the summary has fewer than two team rows', async () => {
+    mockFetch((url) => {
+      if (url.includes('scoreboard')) {
+        return new Response(
+          JSON.stringify({
+            events: [
+              {
+                id: 'solo',
+                competitions: [
+                  {
+                    competitors: [
+                      { homeAway: 'home', team: { displayName: 'A' } },
+                      { homeAway: 'away', team: { displayName: 'B' } },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ boxscore: { teams: [{ team: { displayName: 'A' }, statistics: [] }] } }), {
+        status: 200,
+      });
+    });
+    await expect(fetchEspnTeamMatchStats('A', 'B', '2026-06-11T19:00:00Z')).resolves.toBeNull();
+  });
+
+  it('fetchEspnTeamMatchStats returns null when matched rows have no statistics', async () => {
+    mockFetch((url) => {
+      if (url.includes('scoreboard')) {
+        return new Response(
+          JSON.stringify({
+            events: [
+              {
+                id: 'nostats',
+                competitions: [
+                  {
+                    competitors: [
+                      { homeAway: 'home', team: { displayName: 'A' } },
+                      { homeAway: 'away', team: { displayName: 'B' } },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          boxscore: {
+            teams: [
+              { team: { displayName: 'A' }, statistics: [] },
+              { team: { displayName: 'B' }, statistics: [] },
+            ],
+          },
+        }),
+        { status: 200 },
+      );
+    });
+    await expect(fetchEspnTeamMatchStats('A', 'B', '2026-06-11T19:00:00Z')).resolves.toBeNull();
+  });
+
+  it('fetchEspnTeamMatchStats falls back to requested team names when display names are missing', async () => {
+    mockFetch((url) => {
+      if (url.includes('scoreboard')) {
+        return new Response(
+          JSON.stringify({
+            events: [
+              {
+                id: 'swap-home-fallback',
+                competitions: [
+                  {
+                    competitors: [
+                      { homeAway: 'home', team: { displayName: 'Mexico' } },
+                      { homeAway: 'away', team: { displayName: 'South Africa' } },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          boxscore: {
+            teams: [
+              {
+                team: { displayName: 'South Africa' },
+                statistics: [
+                  { name: 'possessionPct', displayValue: '41' },
+                  { name: 'totalPasses', displayValue: '305' },
+                ],
+              },
+              {
+                team: {},
+                statistics: [
+                  { name: 'possessionPct', displayValue: '59' },
+                  { name: 'totalPasses', displayValue: '430' },
+                ],
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      );
+    });
+
+    const stats = await fetchEspnTeamMatchStats('Mexico', 'South Africa', '2026-06-11T19:00:00Z');
+    expect(stats?.homeEspnName).toBe('Mexico');
+    expect(stats?.awayEspnName).toBe('South Africa');
+    expect(stats?.home.passes).toBe(430);
+  });
+
+  it('fetchEspnTeamMatchStats returns null when summary is missing or core stats are undefined', async () => {
+    mockFetch((url) => {
+      if (url.includes('scoreboard')) {
+        return new Response(
+          JSON.stringify({
+            events: [
+              {
+                id: 'missing-summary',
+                competitions: [
+                  {
+                    competitors: [
+                      { homeAway: 'home', team: { displayName: 'Mexico' } },
+                      { homeAway: 'away', team: { displayName: 'South Africa' } },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
+    });
+    await expect(fetchEspnTeamMatchStats('Mexico', 'South Africa', '2026-06-11T19:00:00Z')).resolves.toBeNull();
+
+    mockFetch((url) => {
+      if (url.includes('scoreboard')) {
+        return new Response(
+          JSON.stringify({
+            events: [
+              {
+                id: 'undefined-core',
+                competitions: [
+                  {
+                    competitors: [
+                      { homeAway: 'home', team: { displayName: 'Mexico' } },
+                      { homeAway: 'away', team: { displayName: 'South Africa' } },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          boxscore: {
+            teams: [
+              { team: { displayName: 'Mexico' }, statistics: [{ name: 'shotsOnTarget', displayValue: '4' }] },
+              { team: { displayName: 'South Africa' }, statistics: [{ name: 'shotsOnTarget', displayValue: '2' }] },
+            ],
+          },
+        }),
+        { status: 200 },
+      );
+    });
+    await expect(fetchEspnTeamMatchStats('Mexico', 'South Africa', '2026-06-11T19:00:00Z')).resolves.toBeNull();
+  });
+
+  it('fetchEspnTeamMatchStats swaps team rows and falls back to away request name when needed', async () => {
+    mockFetch((url) => {
+      if (url.includes('scoreboard')) {
+        return new Response(
+          JSON.stringify({
+            events: [
+              {
+                id: 'swap-away-fallback',
+                competitions: [
+                  {
+                    competitors: [
+                      { homeAway: 'home', team: { displayName: 'Mexico' } },
+                      { homeAway: 'away', team: { displayName: 'South Africa' } },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          boxscore: {
+            teams: [
+              {
+                team: { displayName: 'South Africa' },
+                statistics: [
+                  { name: 'possessionPct', displayValue: '44' },
+                  { name: 'totalPasses', displayValue: '320' },
+                ],
+              },
+              {
+                team: {},
+                statistics: [
+                  { name: 'possessionPct', displayValue: '56' },
+                  { name: 'totalPasses', displayValue: '410' },
+                ],
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      );
+    });
+    const stats = await fetchEspnTeamMatchStats('Mexico', 'South Africa', '2026-06-11T19:00:00Z');
+    expect(stats?.home.passes).toBe(410);
+    expect(stats?.awayEspnName).toBe('South Africa');
+  });
 });
 
 describe('parseEspnStats extensions', () => {

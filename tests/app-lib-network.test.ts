@@ -132,12 +132,33 @@ describe('webMcp', () => {
     const getNews = registerTool.mock.calls.find((call) => call[0].name === 'get_news')![0];
     await getNews.execute({ page: 2, pageSize: 10 });
     expect(fetchMock).toHaveBeenCalledWith('/api/news?page=2&pageSize=10&hot=3');
+    await getNews.execute({});
+    expect(fetchMock).toHaveBeenCalledWith('/api/news?page=1&pageSize=8&hot=3');
+
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 503 });
+    const getHomeTool = registerTool.mock.calls.find((call) => call[0].name === 'get_home')![0];
+    await expect(getHomeTool.execute({})).rejects.toThrow('API 503');
+
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ data: [] }) });
+    const getHome = registerTool.mock.calls.find((call) => call[0].name === 'get_home')![0];
+    await getHome.execute({});
+    expect(fetchMock).toHaveBeenCalledWith('/api/home');
 
     const getProb = registerTool.mock.calls.find(
       (call) => call[0].name === 'get_match_probability',
     )![0];
     await getProb.execute({ matchId: 'm-1' });
     expect(fetchMock).toHaveBeenCalledWith('/api/matches/m-1/probability');
+
+    const getSchedule = registerTool.mock.calls.find((call) => call[0].name === 'get_schedule')![0];
+    await getSchedule.execute({});
+    expect(fetchMock).toHaveBeenCalledWith('/api/schedule');
+
+    const getHistory = registerTool.mock.calls.find(
+      (call) => call[0].name === 'get_match_wc_history',
+    )![0];
+    await getHistory.execute({ matchId: 'm-1' });
+    expect(fetchMock).toHaveBeenCalledWith('/api/matches/m-1/history');
 
     const navigate = registerTool.mock.calls.find(
       (call) => call[0].name === 'navigate_to_match',

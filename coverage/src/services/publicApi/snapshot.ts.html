@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.78% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>31/37</span>
+                <span class='fraction'>37/37</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>5/10</span>
+                <span class='fraction'>13/13</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.78% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>31/37</span>
+                <span class='fraction'>37/37</span>
             </div>
         
             
@@ -155,42 +155,42 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { AppEnv } from '../../env';
 import { resolveMatchRef } from '../matchRef';
 import { getMatchStats } from '../matchStats';
@@ -235,24 +235,24 @@ export async function getMatchSnapshot(env: AppEnv, ref: string): Promise&lt;Mat
     matchId,
     slug: resolved.slug,
     status: resolved.status,
-    minute: resolved.<span class="branch-0 cbranch-no" title="branch not covered" >minute ?? null,</span>
+    minute: resolved.minute ?? null,
     homeScore: resolved.home_score,
     awayScore: resolved.away_score,
-    kickoffUtc: resolved.<span class="branch-0 cbranch-no" title="branch not covered" >kickoff_utc ?? null,</span>
+    kickoffUtc: resolved.kickoff_utc ?? null,
     fifaMatchId: resolved.fifa_match_id ?? null,
-    updatedAt: resolved.<span class="branch-0 cbranch-no" title="branch not covered" >updated_at ?? null,</span>
+    updatedAt: resolved.updated_at ?? null,
     homeName: resolved.home_name,
     awayName: resolved.away_name,
     stats,
-    recap: <span class="branch-0 cbranch-no" title="branch not covered" >recap</span>
-<span class="cstat-no" title="statement not covered" >      ? {</span>
-<span class="cstat-no" title="statement not covered" >          summaryEn: recap.summaryEn,</span>
-<span class="cstat-no" title="statement not covered" >          commentaryCount: recap.commentary.length,</span>
-<span class="cstat-no" title="statement not covered" >          playerStatsCount: recap.playerStats.length,</span>
-<span class="cstat-no" title="statement not covered" >          updatedAt: recap.updatedAt,</span>
-<span class="cstat-no" title="statement not covered" >        }</span>
+    recap: recap
+      ? {
+          summaryEn: recap.summaryEn,
+          commentaryCount: recap.commentary.length,
+          playerStatsCount: recap.playerStats.length,
+          updatedAt: recap.updatedAt,
+        }
       : null,
-    eventsCount: events?.<span class="branch-0 cbranch-no" title="branch not covered" >length ?? 0,</span>
+    eventsCount: events?.length ?? 0,
   };
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -262,7 +262,7 @@ export async function getMatchSnapshot(env: AppEnv, ref: string): Promise&lt;Mat
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/21</span>
+                <span class='fraction'>21/21</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>26/26</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/21</span>
+                <span class='fraction'>21/21</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -103,30 +103,30 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">65x</span>
+<span class="cline-any cline-yes">65x</span>
+<span class="cline-any cline-yes">65x</span>
+<span class="cline-any cline-yes">65x</span>
+<span class="cline-any cline-yes">65x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">200x</span>
+<span class="cline-any cline-yes">30x</span>
+<span class="cline-any cline-yes">30x</span>
+<span class="cline-any cline-yes">30x</span>
+<span class="cline-any cline-yes">30x</span>
+<span class="cline-any cline-yes">200x</span>
+<span class="cline-any cline-yes">200x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export type LineupPlayerEntry = {
   shirtNumber: number | null;
   name: string;
@@ -135,30 +135,30 @@
 &nbsp;
 type LineupPositionGroup = 'GK' | 'DEF' | 'MID' | 'FWD';
 &nbsp;
-<span class="cstat-no" title="statement not covered" >const GROUP_ORDER: LineupPositionGroup[] = ['GK', 'DEF', 'MID', 'FWD'];</span>
+const GROUP_ORDER: LineupPositionGroup[] = ['GK', 'DEF', 'MID', 'FWD'];
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function lineupPositionGroup(position: string): LineupPositionGroup {</span>
-<span class="cstat-no" title="statement not covered" >  const p = position.toUpperCase();</span>
-<span class="cstat-no" title="statement not covered" >  if (p === 'GK' || p.includes('GOAL')) return 'GK';</span>
-<span class="cstat-no" title="statement not covered" >  if (/^(CB|LB|RB|FB|WB|LWB|RWB|DF|DEF)/.test(p) || p === 'D') return 'DEF';</span>
-<span class="cstat-no" title="statement not covered" >  if (/^(DM|CM|AM|LM|RM|MF|MID)/.test(p) || p === 'M') return 'MID';</span>
-<span class="cstat-no" title="statement not covered" >  if (/^(ST|CF|SS|WG|LW|RW|FW|FWD)/.test(p) || p === 'F') return 'FWD';</span>
-<span class="cstat-no" title="statement not covered" >  return 'MID';</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function lineupPositionGroup(position: string): LineupPositionGroup {
+  const p = position.toUpperCase();
+  if (p === 'GK' || p.includes('GOAL')) return 'GK';
+  if (/^(CB|LB|RB|FB|WB|LWB|RWB|DF|DEF)/.test(p) || p === 'D') return 'DEF';
+  if (/^(DM|CM|AM|LM|RM|MF|MID)/.test(p) || p === 'M') return 'MID';
+  if (/^(ST|CF|SS|WG|LW|RW|FW|FWD)/.test(p) || p === 'F') return 'FWD';
+  return 'MID';
+}
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function sortLineupPlayers&lt;T extends LineupPlayerEntry&gt;(players: T[]): T[] {</span>
-<span class="cstat-no" title="statement not covered" >  return [...players].sort((a, b) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    const ga = GROUP_ORDER.indexOf(lineupPositionGroup(a.position));</span>
-<span class="cstat-no" title="statement not covered" >    const gb = GROUP_ORDER.indexOf(lineupPositionGroup(b.position));</span>
-<span class="cstat-no" title="statement not covered" >    if (ga !== gb) return ga - gb;</span>
-<span class="cstat-no" title="statement not covered" >    return (a.shirtNumber ?? 999) - (b.shirtNumber ?? 999);</span>
-<span class="cstat-no" title="statement not covered" >  });</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function sortLineupPlayers&lt;T extends LineupPlayerEntry&gt;(players: T[]): T[] {
+  return [...players].sort((a, b) =&gt; {
+    const ga = GROUP_ORDER.indexOf(lineupPositionGroup(a.position));
+    const gb = GROUP_ORDER.indexOf(lineupPositionGroup(b.position));
+    if (ga !== gb) return ga - gb;
+    return (a.shirtNumber ?? 999) - (b.shirtNumber ?? 999);
+  });
+}
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function formatLineupPlayerLine(entry: LineupPlayerEntry): string {</span>
-<span class="cstat-no" title="statement not covered" >  const num = entry.shirtNumber != null ? `(${entry.shirtNumber})` : '(—)';</span>
-<span class="cstat-no" title="statement not covered" >  return `${num} - ${entry.name} - ${entry.position}`;</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function formatLineupPlayerLine(entry: LineupPlayerEntry): string {
+  const num = entry.shirtNumber != null ? `(${entry.shirtNumber})` : '(—)';
+  return `${num} - ${entry.name} - ${entry.position}`;
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -166,7 +166,7 @@ type LineupPositionGroup = 'GK' | 'DEF' | 'MID' | 'FWD';
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

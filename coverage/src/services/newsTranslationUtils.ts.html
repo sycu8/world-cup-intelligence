@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">82.14% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>23/28</span>
+                <span class='fraction'>28/28</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">57.14% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>12/21</span>
+                <span class='fraction'>43/43</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">82.14% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>23/28</span>
+                <span class='fraction'>28/28</span>
             </div>
         
             
@@ -118,33 +118,33 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">62x</span>
-<span class="cline-any cline-yes">62x</span>
-<span class="cline-any cline-yes">62x</span>
-<span class="cline-any cline-yes">62x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">62x</span>
-<span class="cline-any cline-yes">62x</span>
+<span class="cline-any cline-yes">107x</span>
+<span class="cline-any cline-yes">107x</span>
+<span class="cline-any cline-yes">107x</span>
+<span class="cline-any cline-yes">105x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">107x</span>
+<span class="cline-any cline-yes">107x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">34x</span>
-<span class="cline-any cline-yes">34x</span>
-<span class="cline-any cline-yes">34x</span>
-<span class="cline-any cline-yes">34x</span>
-<span class="cline-any cline-yes">34x</span>
-<span class="cline-any cline-yes">31x</span>
-<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">61x</span>
+<span class="cline-any cline-yes">61x</span>
+<span class="cline-any cline-yes">61x</span>
+<span class="cline-any cline-yes">61x</span>
+<span class="cline-any cline-yes">57x</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-yes">40x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">22x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export type NewsDocRow = {
   id: string;
   title: string;
@@ -160,31 +160,31 @@ const VI_DIACRITICS =
 &nbsp;
 export function isLikelyVietnamese(text: string, englishRef?: string): boolean {
   const value = text.trim();
-  if (!value) <span class="branch-0 cbranch-no" title="branch not covered" >return false;</span>
-  if (englishRef &amp;&amp; value.toLowerCase() === englishRef.trim().toLowerCase()) <span class="branch-0 cbranch-no" title="branch not covered" >return false;</span>
-  if (VI_DIACRITICS.test(value)) return <span class="branch-0 cbranch-no" title="branch not covered" >true;</span>
-<span class="cstat-no" title="statement not covered" >  const viHints =</span>
-<span class="cstat-no" title="statement not covered" >    /\b(giá|vé|trận|đội|bóng đá|vòng|bảng|tuyển|huấn luyện|cầu thủ|thắng|thua|hòa|tóm tắt|đang|người|năm|trong|cho|với|của)\b/i;</span>
-  return viHints.test(value) &amp;&amp; value.length &gt;= <span class="branch-0 cbranch-no" title="branch not covered" >12 &amp;&amp; !/^[a-z0-9\s\?,\.'"-]+$/i.test(value);</span>
+  if (!value) return false;
+  if (englishRef &amp;&amp; value.toLowerCase() === englishRef.trim().toLowerCase()) return false;
+  if (VI_DIACRITICS.test(value)) return true;
+  const viHints =
+    /\b(giá|vé|trận|đội|bóng đá|vòng|bảng|tuyển|huấn luyện|cầu thủ|thắng|thua|hòa|tóm tắt|đang|người|năm|trong|cho|với|của)\b/i;
+  return viHints.test(value) &amp;&amp; value.length &gt;= 12 &amp;&amp; !/^[a-z0-9\s\?,\.'"-]+$/i.test(value);
 }
 &nbsp;
 export function needsNewsTranslation(row: NewsDocRow): boolean {
   const titleVi = row.title_vi?.trim() ?? '';
   const summaryVi = row.summary_vi?.trim() ?? '';
   if (!titleVi || !summaryVi) return true;
-  if (!isLikelyVietnamese(titleVi, row.title)) <span class="branch-0 cbranch-no" title="branch not covered" >return true;</span>
-  if (!isLikelyVietnamese(summaryVi, row.summary)) <span class="branch-0 cbranch-no" title="branch not covered" >return true;</span>
+  if (!isLikelyVietnamese(titleVi, row.title)) return true;
+  if (!isLikelyVietnamese(summaryVi, row.summary)) return true;
   return false;
 }
 &nbsp;
 export function resolvePublisherLabel(row: Pick&lt;NewsDocRow, 'source_url' | 'source_name'&gt;): string {
   const name = row.source_name?.trim();
-  if (name &amp;&amp; name !== 'Mock Development Source') return <span class="branch-0 cbranch-no" title="branch not covered" >name;</span>
+  if (name &amp;&amp; name !== 'Mock Development Source') return name;
   const url = (row.source_url ?? '').toLowerCase();
-  if (url.includes('bbc.'<span class="branch-0 cbranch-no" title="branch not covered" >) || url.includes('bbci.')) <span class="branch-0 cbranch-no" title="branch not covered" >r</span>eturn 'BBC';</span>
-<span class="cstat-no" title="statement not covered" >  if (url.includes('theguardian.')) return 'The Guardian';</span>
-<span class="cstat-no" title="statement not covered" >  if (url.includes('fifa.')) return 'FIFA';</span>
-<span class="cstat-no" title="statement not covered" >  return name || 'RSS';</span>
+  if (url.includes('bbc.') || url.includes('bbci.')) return 'BBC';
+  if (url.includes('theguardian.')) return 'The Guardian';
+  if (url.includes('fifa.')) return 'FIFA';
+  return name || 'RSS';
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -193,7 +193,7 @@ export function resolvePublisherLabel(row: Pick&lt;NewsDocRow, 'source_url' | 's
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

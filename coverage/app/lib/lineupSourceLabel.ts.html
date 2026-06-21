@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/24</span>
+                <span class='fraction'>24/24</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>10/10</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/24</span>
+                <span class='fraction'>24/24</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -92,58 +92,58 @@
 <a name='L27'></a><a href='#L27'>27</a>
 <a name='L28'></a><a href='#L28'>28</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { LocaleKey } from './i18n/locales';
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function lineupSourceLocaleKey(source: string): LocaleKey {</span>
-<span class="cstat-no" title="statement not covered" >  switch (source) {</span>
-<span class="cstat-no" title="statement not covered" >    case 'official':</span>
-<span class="cstat-no" title="statement not covered" >      return 'match.lineupOfficial';</span>
-<span class="cstat-no" title="statement not covered" >    case 'squad':</span>
-<span class="cstat-no" title="statement not covered" >      return 'match.lineupSquad';</span>
-<span class="cstat-no" title="statement not covered" >    case 'projected':</span>
-<span class="cstat-no" title="statement not covered" >      return 'match.lineupProjected';</span>
-<span class="cstat-no" title="statement not covered" >    default:</span>
-<span class="cstat-no" title="statement not covered" >      return 'match.lineupUnknown';</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function lineupSourceLocaleKey(source: string): LocaleKey {
+  switch (source) {
+    case 'official':
+      return 'match.lineupOfficial';
+    case 'squad':
+      return 'match.lineupSquad';
+    case 'projected':
+      return 'match.lineupProjected';
+    default:
+      return 'match.lineupUnknown';
+  }
+}
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function lineupSourceBadgeClass(source: string): string {</span>
-<span class="cstat-no" title="statement not covered" >  switch (source) {</span>
-<span class="cstat-no" title="statement not covered" >    case 'official':</span>
-<span class="cstat-no" title="statement not covered" >      return 'border-green/40 bg-green/10 text-green';</span>
-<span class="cstat-no" title="statement not covered" >    case 'squad':</span>
-<span class="cstat-no" title="statement not covered" >      return 'border-cyan/40 bg-cyan/10 text-cyan';</span>
-<span class="cstat-no" title="statement not covered" >    case 'projected':</span>
-<span class="cstat-no" title="statement not covered" >      return 'border-yellow/40 bg-yellow/10 text-yellow';</span>
-<span class="cstat-no" title="statement not covered" >    default:</span>
-<span class="cstat-no" title="statement not covered" >      return 'border-border/50 bg-panel2/40 text-muted';</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function lineupSourceBadgeClass(source: string): string {
+  switch (source) {
+    case 'official':
+      return 'border-green/40 bg-green/10 text-green';
+    case 'squad':
+      return 'border-cyan/40 bg-cyan/10 text-cyan';
+    case 'projected':
+      return 'border-yellow/40 bg-yellow/10 text-yellow';
+    default:
+      return 'border-border/50 bg-panel2/40 text-muted';
+  }
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -151,7 +151,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

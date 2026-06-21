@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/24</span>
+                <span class='fraction'>24/24</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/24</span>
+                <span class='fraction'>24/24</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -95,67 +95,67 @@
 <a name='L30'></a><a href='#L30'>30</a>
 <a name='L31'></a><a href='#L31'>31</a>
 <a name='L32'></a><a href='#L32'>32</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">47x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { MatchPredictionScenario } from '../../lib/api';
-<span class="cstat-no" title="statement not covered" >import { pct } from '../../lib/format';</span>
-<span class="cstat-no" title="statement not covered" >import { useI18n } from '../../lib/i18n/I18nContext';</span>
-<span class="cstat-no" title="statement not covered" >import { formatScenarioMetricValue } from '../../lib/i18n/scenarioPredictionLabels';</span>
+import { pct } from '../../lib/format';
+import { useI18n } from '../../lib/i18n/I18nContext';
+import { formatScenarioMetricValue } from '../../lib/i18n/scenarioPredictionLabels';
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function ScenarioConditionList({</span>
-<span class="cstat-no" title="statement not covered" >  title,</span>
-<span class="cstat-no" title="statement not covered" >  items,</span>
-<span class="cstat-no" title="statement not covered" >}: {</span>
+export function ScenarioConditionList({
+  title,
+  items,
+}: {
   title: string;
   items: MatchPredictionScenario['initialConditions'];
-<span class="cstat-no" title="statement not covered" >}) {</span>
-<span class="cstat-no" title="statement not covered" >  const { mode } = useI18n();</span>
+}) {
+  const { mode } = useI18n();
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
-<span class="cstat-no" title="statement not covered" >    &lt;div&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;p className="text-xs font-semibold uppercase tracking-wider text-muted"&gt;{title}&lt;/p&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;ul className="mt-2 space-y-1 text-sm text-foreground/90"&gt;</span>
-<span class="cstat-no" title="statement not covered" >        {items.map((c, i) =&gt; (</span>
-<span class="cstat-no" title="statement not covered" >          &lt;li key={i} className="rounded border border-border/40 bg-background/30 px-2 py-1"&gt;</span>
-<span class="cstat-no" title="statement not covered" >            {c.condition}:{' '}</span>
-<span class="cstat-no" title="statement not covered" >            &lt;span className="font-mono-data text-cyan"&gt;{formatScenarioMetricValue(c.value, mode)}&lt;/span&gt;</span>
-<span class="cstat-no" title="statement not covered" >            {typeof c.confidence === 'number' &amp;&amp; (</span>
-<span class="cstat-no" title="statement not covered" >              &lt;span className="ml-2 text-xs text-muted"&gt;({pct(c.confidence)})&lt;/span&gt;</span>
+  return (
+    &lt;div&gt;
+      &lt;p className="text-xs font-semibold uppercase tracking-wider text-muted"&gt;{title}&lt;/p&gt;
+      &lt;ul className="mt-2 space-y-1 text-sm text-foreground/90"&gt;
+        {items.map((c, i) =&gt; (
+          &lt;li key={i} className="rounded border border-border/40 bg-background/30 px-2 py-1"&gt;
+            {c.condition}:{' '}
+            &lt;span className="font-mono-data text-cyan"&gt;{formatScenarioMetricValue(c.value, mode)}&lt;/span&gt;
+            {typeof c.confidence === 'number' &amp;&amp; (
+              &lt;span className="ml-2 text-xs text-muted"&gt;({pct(c.confidence)})&lt;/span&gt;
             )}
-<span class="cstat-no" title="statement not covered" >          &lt;/li&gt;</span>
-<span class="cstat-no" title="statement not covered" >        ))}</span>
-<span class="cstat-no" title="statement not covered" >      &lt;/ul&gt;</span>
-<span class="cstat-no" title="statement not covered" >    &lt;/div&gt;</span>
+          &lt;/li&gt;
+        ))}
+      &lt;/ul&gt;
+    &lt;/div&gt;
   );
-<span class="cstat-no" title="statement not covered" >}</span>
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -163,7 +163,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -23,6 +23,7 @@ export async function buildModelVsMarket(env: AppEnv, matchId: string): Promise<
 
   const odds = await marketRepo.getLatestMarketOdds(env.DB, matchId);
   if (!odds.length) return null;
+  const latestOdds = odds[0];
 
   const model = {
     home: snap.home_win_prob,
@@ -38,7 +39,7 @@ export async function buildModelVsMarket(env: AppEnv, matchId: string): Promise<
   );
 
   const source = await env.DB.prepare('SELECT * FROM market_sources WHERE id = ?')
-    .bind(String(odds[0]?.source_id ?? 'mkt-manual'))
+    .bind(String(latestOdds.source_id ?? 'mkt-manual'))
     .first<{ name: string; reliability_score: number }>();
 
   await marketRepo.saveMarketSignalAnalysis(env.DB, matchId, {
@@ -55,10 +56,10 @@ export async function buildModelVsMarket(env: AppEnv, matchId: string): Promise<
     market,
     edge,
     volatilityScore: volatility,
-    sourceId: String(odds[0]?.source_id ?? 'mkt-manual'),
+    sourceId: String(latestOdds.source_id ?? 'mkt-manual'),
     sourceName: source?.name ?? 'Market source',
     sourceReliability: source?.reliability_score ?? 0.5,
-    retrievedAt: String(odds[0]?.retrieved_at ?? null),
+    retrievedAt: String(latestOdds.retrieved_at ?? null),
     disclaimer: MARKET_DISCLAIMER,
   };
 }

@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/15</span>
+                <span class='fraction'>15/15</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>8/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/15</span>
+                <span class='fraction'>15/15</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -87,42 +87,42 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">470x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">467x</span>
+<span class="cline-any cline-yes">467x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">467x</span>
+<span class="cline-any cline-yes">467x</span>
+<span class="cline-any cline-yes">467x</span>
+<span class="cline-any cline-yes">467x</span>
+<span class="cline-any cline-yes">467x</span>
+<span class="cline-any cline-yes">467x</span>
+<span class="cline-any cline-yes">458x</span>
+<span class="cline-any cline-yes">458x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { DisplayMode } from './i18n/I18nContext';
 &nbsp;
 export type LocalizedString = string | { vi: string; en: string };
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function normalizeLocalized(value: LocalizedString, fallbackEn?: string): { vi: string; en: string } {</span>
-<span class="cstat-no" title="statement not covered" >  if (typeof value === 'string') {</span>
-<span class="cstat-no" title="statement not covered" >    return { vi: value, en: fallbackEn ?? value };</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
-<span class="cstat-no" title="statement not covered" >  return { vi: value.vi, en: value.en };</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function normalizeLocalized(value: LocalizedString, fallbackEn?: string): { vi: string; en: string } {
+  if (typeof value === 'string') {
+    return { vi: value, en: fallbackEn ?? value };
+  }
+  return { vi: value.vi, en: value.en };
+}
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function pickLocalized(</span>
-<span class="cstat-no" title="statement not covered" >  value: LocalizedString,</span>
-<span class="cstat-no" title="statement not covered" >  mode: DisplayMode,</span>
-<span class="cstat-no" title="statement not covered" >  fallbackEn?: string,</span>
-<span class="cstat-no" title="statement not covered" >): string {</span>
-<span class="cstat-no" title="statement not covered" >  const { vi, en } = normalizeLocalized(value, fallbackEn);</span>
-<span class="cstat-no" title="statement not covered" >  if (mode === 'en') return en;</span>
-<span class="cstat-no" title="statement not covered" >  return vi;</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function pickLocalized(
+  value: LocalizedString,
+  mode: DisplayMode,
+  fallbackEn?: string,
+): string {
+  const { vi, en } = normalizeLocalized(value, fallbackEn);
+  if (mode === 'en') return en;
+  return vi;
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -130,7 +130,7 @@ export type LocalizedString = string | { vi: string; en: string };
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

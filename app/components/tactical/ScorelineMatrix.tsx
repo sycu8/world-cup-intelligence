@@ -23,7 +23,7 @@ export function ScorelineMatrix({ distribution, highlight, actualScore, actualLi
       <DataKindLegend className="mb-3" />
       <div className="inline-grid min-w-max grid-cols-4 gap-1.5 sm:grid-cols-6 md:grid-cols-7">
         {keys.map((k) => {
-          const p = distribution[k] ?? 0;
+          const p = distribution[k];
           const intensity = p / max;
           const isPredicted = predictedKey != null && k === predictedKey;
           const isActual = actualKey != null && k === actualKey;

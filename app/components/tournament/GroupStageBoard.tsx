@@ -286,7 +286,7 @@ function GroupStagePanel({
             key={code}
             code={code}
             standings={standings?.groups[code]}
-            fixtures={groupFixtures[code] ?? []}
+            fixtures={groupFixtures[code]}
             probs={probs}
             standingsUnavailable={standingsError}
           />

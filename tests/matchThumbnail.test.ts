@@ -7,12 +7,15 @@ import {
 } from '../src/services/matchThumbnail';
 import { injectMatchPageHtml } from '../src/services/spaMatchMeta';
 import { parseMatchPageSlug } from '../src/utils/matchPath';
-import { resolveTeamFlagSlug } from '../src/lib/teamFlags';
+import { resolveTeamFlagSlug, flagCdnUrl } from '../src/lib/teamFlags';
 
 describe('matchThumbnail', () => {
   it('resolves Mexico and South Africa flag slugs', () => {
     expect(resolveTeamFlagSlug({ countryCode: 'MX', teamName: 'Mexico' })).toBe('mx');
     expect(resolveTeamFlagSlug({ countryCode: 'ZA', teamName: 'South Africa' })).toBe('za');
+    expect(resolveTeamFlagSlug({ teamName: null })).toBe('');
+    expect(resolveTeamFlagSlug({ teamName: 'england' })).toBe('gb-eng');
+    expect(flagCdnUrl('')).toBe('');
   });
 
   it('builds public thumbnail paths from slug', () => {

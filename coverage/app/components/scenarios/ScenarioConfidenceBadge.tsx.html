@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/18</span>
+                <span class='fraction'>18/18</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/18</span>
+                <span class='fraction'>18/18</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -86,49 +86,49 @@
 <a name='L21'></a><a href='#L21'>21</a>
 <a name='L22'></a><a href='#L22'>22</a>
 <a name='L23'></a><a href='#L23'>23</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">81x</span>
+<span class="cline-any cline-yes">80x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-yes">89x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">89x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { MatchPredictionScenario } from '../../lib/api';
-<span class="cstat-no" title="statement not covered" >import { pct } from '../../lib/format';</span>
-<span class="cstat-no" title="statement not covered" >import { useI18n } from '../../lib/i18n/I18nContext';</span>
+import { pct } from '../../lib/format';
+import { useI18n } from '../../lib/i18n/I18nContext';
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function ScenarioConfidenceBadge({ value }: { value: number }) {</span>
-<span class="cstat-no" title="statement not covered" >  const { t } = useI18n();</span>
-<span class="cstat-no" title="statement not covered" >  const tone =</span>
-<span class="cstat-no" title="statement not covered" >    value &gt;= 0.75</span>
-<span class="cstat-no" title="statement not covered" >      ? 'border-green/40 bg-green/10 text-green'</span>
-<span class="cstat-no" title="statement not covered" >      : value &gt;= 0.55</span>
-<span class="cstat-no" title="statement not covered" >        ? 'border-cyan/40 bg-cyan/10 text-cyan'</span>
-<span class="cstat-no" title="statement not covered" >        : 'border-yellow/40 bg-yellow/10 text-yellow';</span>
-<span class="cstat-no" title="statement not covered" >  return (</span>
-<span class="cstat-no" title="statement not covered" >    &lt;span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${tone}`}&gt;</span>
-<span class="cstat-no" title="statement not covered" >      {t('scenario.modelConfidence')} {pct(value)}</span>
-<span class="cstat-no" title="statement not covered" >    &lt;/span&gt;</span>
+export function ScenarioConfidenceBadge({ value }: { value: number }) {
+  const { t } = useI18n();
+  const tone =
+    value &gt;= 0.75
+      ? 'border-green/40 bg-green/10 text-green'
+      : value &gt;= 0.55
+        ? 'border-cyan/40 bg-cyan/10 text-cyan'
+        : 'border-yellow/40 bg-yellow/10 text-yellow';
+  return (
+    &lt;span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${tone}`}&gt;
+      {t('scenario.modelConfidence')} {pct(value)}
+    &lt;/span&gt;
   );
-<span class="cstat-no" title="statement not covered" >}</span>
+}
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function ScenarioConfidenceInline({ scenario }: { scenario: MatchPredictionScenario }) {</span>
-<span class="cstat-no" title="statement not covered" >  return &lt;ScenarioConfidenceBadge value={scenario.scenarioConfidence} /&gt;;</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function ScenarioConfidenceInline({ scenario }: { scenario: MatchPredictionScenario }) {
+  return &lt;ScenarioConfidenceBadge value={scenario.scenarioConfidence} /&gt;;
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -136,7 +136,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

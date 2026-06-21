@@ -4,6 +4,7 @@ import {
   countUntranslatedNews,
   ensureNewsArticleTranslated,
 } from '../src/services/newsTranslation';
+import { translateNewsHeadline } from '../src/ai/translateNews';
 import { createMockDb, createMockEnv } from './helpers/mockEnv';
 
 vi.mock('../src/ai/translateNews', () => ({
@@ -59,6 +60,26 @@ describe('newsTranslation', () => {
       }),
     });
     expect(await countUntranslatedNews(env)).toBe(1);
+  });
+
+  it('returns null when translation provider returns null', async () => {
+    vi.mocked(translateNewsHeadline).mockResolvedValueOnce(null);
+    const env = createMockEnv({ DB: createMockDb() });
+    expect(await ensureNewsArticleTranslated(env, untranslated)).toBeNull();
+  });
+
+  it('countUntranslatedNews handles missing results array', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({ all: () => ({}) }),
+    });
+    expect(await countUntranslatedNews(env)).toBe(0);
+  });
+
+  it('backfillNewsTranslations handles missing results array', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({ all: () => ({}) }),
+    });
+    expect(await backfillNewsTranslations(env, 5)).toBe(0);
   });
 
   it('backfillNewsTranslations processes limited batch', async () => {

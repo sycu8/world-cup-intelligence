@@ -47,6 +47,15 @@ describe('refreshTeamRatingsFromForm', () => {
     expect(runCalls[0]?.[0]).toBeGreaterThan(0.35);
   });
 
+  it('handles D1 all() without results array', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: () => ({}),
+      }),
+    });
+    expect(await refreshTeamRatingsFromForm(env)).toBe(0);
+  });
+
   it('skips teams without enough form matches', async () => {
     const env = createMockEnv({
       DB: createMockDb({

@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">42.85% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>3/7</span>
+                <span class='fraction'>11/11</span>
             </div>
         
             
@@ -107,40 +107,40 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">282x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">47x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">126x</span>
-<span class="cline-any cline-yes">126x</span>
-<span class="cline-any cline-yes">126x</span>
+<span class="cline-any cline-yes">846x</span>
+<span class="cline-any cline-yes">846x</span>
+<span class="cline-any cline-yes">846x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { IntervalKey, IntervalProbability } from './types';
 &nbsp;
 const INTERVALS: IntervalKey[] = ['15', '30', '45', '60', '75', '90'];
@@ -163,11 +163,11 @@ export function buildIntervalDistribution(
     const rateAway = lambdaAway * frac;
     const scale = 0.85 + remainingFrac * 0.15;
     result[key] = {
-      homeWinProb: clamp(wdl.homeWin * scale + (homeScore &gt; <span class="branch-0 cbranch-no" title="branch not covered" >awayScore ? 0.05 : 0</span>)),
+      homeWinProb: clamp(wdl.homeWin * scale + (homeScore &gt; awayScore ? 0.05 : 0)),
       drawProb: clamp(wdl.draw * scale),
-      awayWinProb: clamp(wdl.awayWin * scale + (awayScore &gt; <span class="branch-0 cbranch-no" title="branch not covered" >homeScore ? 0.05 : 0</span>)),
-      expectedHomeGoals: rateHome + homeScore * (target &lt;= <span class="branch-0 cbranch-no" title="branch not covered" >elapsed ? 1 : 0</span>.3),
-      expectedAwayGoals: rateAway + awayScore * (target &lt;= <span class="branch-0 cbranch-no" title="branch not covered" >elapsed ? 1 : 0</span>.3),
+      awayWinProb: clamp(wdl.awayWin * scale + (awayScore &gt; homeScore ? 0.05 : 0)),
+      expectedHomeGoals: rateHome + homeScore * (target &lt;= elapsed ? 1 : 0.3),
+      expectedAwayGoals: rateAway + awayScore * (target &lt;= elapsed ? 1 : 0.3),
     };
     const sum = result[key].homeWinProb + result[key].drawProb + result[key].awayWinProb;
     result[key].homeWinProb /= sum;
@@ -187,7 +187,7 @@ function clamp(v: number, min = 0, max = 1): number {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

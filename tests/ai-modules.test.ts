@@ -338,6 +338,34 @@ describe('translateNews', () => {
     });
     expect(await translateNewsHeadline(env, 'Mexico wins opener', 'Mexico beat South Africa 2-1.')).toBeNull();
   });
+
+  it('returns null when m2m100 produces too-short Vietnamese', async () => {
+    const env = createMockEnv({
+      AI: { run: vi.fn(async () => ({ translated_text: 'ab' })) } as never,
+    });
+    expect(await translateNewsHeadline(env, 'Mexico wins opener', 'Mexico beat South Africa 2-1.')).toBeNull();
+  });
+
+  it('returns null when no AI binding is configured', async () => {
+    expect(
+      await translateNewsHeadline(createMockEnv({ AI: undefined as never }), 'Mexico wins', 'Summary text here.'),
+    ).toBeNull();
+  });
+
+  it('returns null when m2m100 summary copies English source', async () => {
+    const env = createMockEnv({
+      AI: {
+        run: vi.fn(async (_model: string, opts: { text?: string }) => {
+          const text = opts?.text ?? '';
+          if (text.includes('Mexico wins')) {
+            return { translated_text: 'Mexico thắng trận mở màn' };
+          }
+          return { translated_text: 'Mexico beat South Africa 2-1.' };
+        }),
+      } as never,
+    });
+    expect(await translateNewsHeadline(env, 'Mexico wins opener', 'Mexico beat South Africa 2-1.')).toBeNull();
+  });
 });
 
 describe('gatewayClient', () => {

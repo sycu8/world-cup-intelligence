@@ -24,8 +24,7 @@ async function buildRssImageIndex(): Promise<Map<string, string>> {
       });
       if (!res.ok) continue;
       const items = parseRssItems(await res.text(), 40);
-      for (const item of items) {
-        if (!item.imageUrl) continue;
+      for (const item of items.filter((row): row is typeof row & { imageUrl: string } => Boolean(row.imageUrl))) {
         const norm = normalizeFeedImageUrl(item.imageUrl);
         if (norm) map.set(normalizeArticleLink(item.link), norm);
       }

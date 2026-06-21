@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>13/13</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>13/13</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -83,40 +83,40 @@
 <a name='L18'></a><a href='#L18'>18</a>
 <a name='L19'></a><a href='#L19'>19</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">243x</span>
+<span class="cline-any cline-yes">243x</span>
+<span class="cline-any cline-yes">243x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">243x</span>
+<span class="cline-any cline-yes">243x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">243x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { HttpMethod } from '../../lib/apiDocsContent';
 &nbsp;
-<span class="cstat-no" title="statement not covered" >const STYLES: Record&lt;HttpMethod, string&gt; = {</span>
-<span class="cstat-no" title="statement not covered" >  GET: 'bg-green/15 text-green border-green/30',</span>
-<span class="cstat-no" title="statement not covered" >  POST: 'bg-cyan/15 text-cyan border-cyan/30',</span>
-<span class="cstat-no" title="statement not covered" >  DELETE: 'bg-danger/15 text-danger border-danger/30',</span>
-<span class="cstat-no" title="statement not covered" >  PATCH: 'bg-yellow/15 text-yellow border-yellow/30',</span>
-<span class="cstat-no" title="statement not covered" >};</span>
+const STYLES: Record&lt;HttpMethod, string&gt; = {
+  GET: 'bg-green/15 text-green border-green/30',
+  POST: 'bg-cyan/15 text-cyan border-cyan/30',
+  DELETE: 'bg-danger/15 text-danger border-danger/30',
+  PATCH: 'bg-yellow/15 text-yellow border-yellow/30',
+};
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function MethodBadge({ method }: { method: HttpMethod }) {</span>
-<span class="cstat-no" title="statement not covered" >  return (</span>
-<span class="cstat-no" title="statement not covered" >    &lt;span</span>
-<span class="cstat-no" title="statement not covered" >      className={`inline-flex min-w-[3.25rem] justify-center rounded-md border px-2 py-0.5 font-mono text-xs font-semibold tracking-wide ${STYLES[method]}`}</span>
+export function MethodBadge({ method }: { method: HttpMethod }) {
+  return (
+    &lt;span
+      className={`inline-flex min-w-[3.25rem] justify-center rounded-md border px-2 py-0.5 font-mono text-xs font-semibold tracking-wide ${STYLES[method]}`}
     &gt;
-<span class="cstat-no" title="statement not covered" >      {method}</span>
-<span class="cstat-no" title="statement not covered" >    &lt;/span&gt;</span>
+      {method}
+    &lt;/span&gt;
   );
-<span class="cstat-no" title="statement not covered" >}</span>
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -124,7 +124,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

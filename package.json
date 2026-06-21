@@ -15,7 +15,7 @@
     "pull:statsbomb:local": "node scripts/pull-statsbomb-open-data.mjs --local",
     "sync:fifa-schedule": "node scripts/fetch-fifa-wc2026-calendar.mjs && node scripts/generate-fifa-kickoff-migration.mjs && node scripts/generate-fifa-results-migration.mjs",
     "test": "vitest run",
-    "test:coverage": "node -e \"require('node:fs').mkdirSync('coverage/.tmp',{recursive:true})\" && vitest run --coverage --pool=forks --maxWorkers=1 --no-file-parallelism --exclude tests/coverage-target-lines-2.test.ts",
+    "test:coverage": "node -e \"require('node:fs').mkdirSync('coverage/.tmp',{recursive:true})\" && vitest run --coverage --pool=forks --maxWorkers=1 --no-file-parallelism",
     "test:scenarios": "node scripts/run-capability-scenarios.mjs",
     "test:perf": "node scripts/measure-page-load.mjs",
     "warm:caches": "node scripts/warm-production-caches.mjs",

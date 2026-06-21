@@ -6,6 +6,7 @@ import {
   backfillIncompleteFifaMatchStats,
 } from '../src/ingestion/fifa/fifaLiveBlogSync';
 import { createIngestionEnv } from './helpers/ingestionMockDb';
+import { createMockDb, createMockEnv } from './helpers/mockEnv';
 import { FIXTURE_MATCH } from './helpers/fixtures';
 import type { FifaMatchInfo } from '../src/ingestion/fifa/fifaApiClient';
 
@@ -161,6 +162,118 @@ describe('ingestion fifaLiveBlogSync', () => {
     expect(result.statsUpdated).toBe(true);
   });
 
+  it('syncFifaMatchBlogAndStats leaves KV untouched when commentary and stats both stay empty', async () => {
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaTimeline).mockResolvedValue({ IdMatch: '400021443', Event: [] });
+    const gameday = await import('../src/ingestion/fifa/fifaGamedayClient');
+    vi.mocked(gameday.fetchFifaGamedayTeamMatchStats).mockResolvedValue(null);
+    const espn = await import('../src/ingestion/espn/espnStatsClient');
+    vi.mocked(espn.fetchEspnTeamMatchStats).mockResolvedValue(null);
+
+    const { env } = createIngestionEnv({
+      matches: [{ ...FIXTURE_MATCH, kickoff_utc: FIXTURE_MATCH.kickoff_utc }],
+      teamMatchStats: [
+        { id: 'tms-home', match_id: FIXTURE_MATCH.id, team_id: FIXTURE_MATCH.home_team_id, possession: 55, passes: 400 },
+        { id: 'tms-away', match_id: FIXTURE_MATCH.id, team_id: FIXTURE_MATCH.away_team_id, possession: 45, passes: 350 },
+      ],
+    });
+
+    const result = await syncFifaMatchBlogAndStats(
+      env,
+      FIXTURE_MATCH.id,
+      FIXTURE_MATCH.home_team_id,
+      FIXTURE_MATCH.away_team_id,
+      matchInfo(),
+    );
+    expect(result).toEqual({ commentary: 0, statsUpdated: false });
+    expect(env.KV.put).not.toHaveBeenCalled();
+  });
+
+  it('syncFifaMatchBlogAndStats tolerates missing FIFA team ids and IFES id', async () => {
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaTimeline).mockResolvedValue({
+      IdMatch: '400021443',
+      Event: [
+        {
+          EventId: '1',
+          MatchMinute: "12'",
+          Period: 3,
+          TypeLocalized: [{ Locale: 'en-GB', Description: 'Attempt at Goal' }],
+          EventDescription: [{ Locale: 'en-GB', Description: 'Shot on target' }],
+          GoalGatePositionX: 55,
+        },
+      ],
+    });
+    const gameday = await import('../src/ingestion/fifa/fifaGamedayClient');
+    vi.mocked(gameday.fetchFifaGamedayTeamMatchStats).mockResolvedValue([
+      { idTeam: '43822', stats: [['Possession', 50, false]] },
+    ]);
+    const espn = await import('../src/ingestion/espn/espnStatsClient');
+    vi.mocked(espn.fetchEspnTeamMatchStats).mockResolvedValue(null);
+
+    const { env, db } = createIngestionEnv({
+      matches: [{ ...FIXTURE_MATCH, kickoff_utc: FIXTURE_MATCH.kickoff_utc }],
+      teamMatchStats: [
+        { id: 'tms-home', match_id: FIXTURE_MATCH.id, team_id: FIXTURE_MATCH.home_team_id, possession: 55, passes: 400 },
+        { id: 'tms-away', match_id: FIXTURE_MATCH.id, team_id: FIXTURE_MATCH.away_team_id, possession: 45, passes: 350 },
+      ],
+    });
+    const result = await syncFifaMatchBlogAndStats(
+      env,
+      FIXTURE_MATCH.id,
+      FIXTURE_MATCH.home_team_id,
+      FIXTURE_MATCH.away_team_id,
+      {
+        ...matchInfo(),
+        Properties: undefined,
+        HomeTeam: undefined,
+        AwayTeam: undefined,
+      } as FifaMatchInfo,
+    );
+    expect(result.commentary).toBeGreaterThanOrEqual(0);
+    expect(result.statsUpdated).toBe(false);
+    expect(db.runCalls.some((c) => c.sql.includes('INSERT INTO team_match_stats'))).toBe(false);
+  });
+
+  it('syncFifaMatchBlogAndStats skips derived-shot and gameday updates when ids do not match', async () => {
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaTimeline).mockResolvedValue({
+      IdMatch: '400021443',
+      Event: [
+        {
+          EventId: 'comment-only',
+          MatchMinute: "18'",
+          Period: 3,
+          TypeLocalized: [{ Locale: 'en-GB', Description: 'Injury Time' }],
+          EventDescription: [{ Locale: 'en-GB', Description: 'Pause in play' }],
+        },
+      ],
+    });
+    const gameday = await import('../src/ingestion/fifa/fifaGamedayClient');
+    vi.mocked(gameday.fetchFifaGamedayTeamMatchStats).mockResolvedValue([
+      { idTeam: 'other-home', stats: [['Possession', 51, false]] },
+      { idTeam: 'other-away', stats: [['Possession', 49, false]] },
+    ]);
+    const espn = await import('../src/ingestion/espn/espnStatsClient');
+    vi.mocked(espn.fetchEspnTeamMatchStats).mockResolvedValue(null);
+    const { env } = createIngestionEnv({
+      matches: [{ ...FIXTURE_MATCH, kickoff_utc: FIXTURE_MATCH.kickoff_utc }],
+      teamMatchStats: [
+        { id: 'tms-home', match_id: FIXTURE_MATCH.id, team_id: FIXTURE_MATCH.home_team_id, possession: 60, passes: 500 },
+        { id: 'tms-away', match_id: FIXTURE_MATCH.id, team_id: FIXTURE_MATCH.away_team_id, possession: 40, passes: 350 },
+      ],
+    });
+    const result = await syncFifaMatchBlogAndStats(
+      env,
+      FIXTURE_MATCH.id,
+      FIXTURE_MATCH.home_team_id,
+      FIXTURE_MATCH.away_team_id,
+      matchInfo(),
+    );
+    expect(result.commentary).toBeGreaterThanOrEqual(0);
+    expect(result.statsUpdated).toBe(false);
+  });
+
   it('tryEspnStatsFallback returns false without kickoff or team names', async () => {
     const espn = await import('../src/ingestion/espn/espnStatsClient');
     vi.mocked(espn.fetchEspnTeamMatchStats).mockResolvedValue(null);
@@ -171,6 +284,29 @@ describe('ingestion fifaLiveBlogSync', () => {
 
     const { env } = createIngestionEnv({
       matches: [{ ...FIXTURE_MATCH, kickoff_utc: null }],
+    });
+    const result = await syncFifaMatchBlogAndStats(
+      env,
+      FIXTURE_MATCH.id,
+      FIXTURE_MATCH.home_team_id,
+      FIXTURE_MATCH.away_team_id,
+      matchInfo(),
+    );
+    expect(result.statsUpdated).toBe(false);
+  });
+
+  it('tryEspnStatsFallback returns false when one team name is missing from D1', async () => {
+    const espn = await import('../src/ingestion/espn/espnStatsClient');
+    vi.mocked(espn.fetchEspnTeamMatchStats).mockResolvedValue(null);
+    const gameday = await import('../src/ingestion/fifa/fifaGamedayClient');
+    vi.mocked(gameday.fetchFifaGamedayTeamMatchStats).mockResolvedValue(null);
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaTimeline).mockResolvedValue({ Event: [] });
+
+    const { env } = createIngestionEnv({
+      teams: [{ id: FIXTURE_MATCH.home_team_id, name: 'Mexico' }],
+      matches: [{ ...FIXTURE_MATCH, kickoff_utc: FIXTURE_MATCH.kickoff_utc }],
+      teamMatchStats: [],
     });
     const result = await syncFifaMatchBlogAndStats(
       env,
@@ -220,6 +356,38 @@ describe('ingestion fifaLiveBlogSync', () => {
       matchInfo(),
     );
     expect(db.runCalls.some((c) => c.sql.includes('UPDATE team_match_stats SET'))).toBe(true);
+  });
+
+  it('syncFifaMatchBlogAndStats handles null timeline and null stat patches', async () => {
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaTimeline).mockResolvedValue(null);
+    const gameday = await import('../src/ingestion/fifa/fifaGamedayClient');
+    vi.mocked(gameday.fetchFifaGamedayTeamMatchStats).mockResolvedValue([
+      {
+        idTeam: '43822',
+        stats: [['Possession', 55, false]],
+      },
+      {
+        idTeam: '43995',
+        stats: [['Possession', 45, false]],
+      },
+    ]);
+    const espn = await import('../src/ingestion/espn/espnStatsClient');
+    vi.mocked(espn.fetchEspnTeamMatchStats).mockResolvedValue(null);
+    const { env } = createIngestionEnv({ teamMatchStats: [] });
+    const result = await syncFifaMatchBlogAndStats(
+      env,
+      FIXTURE_MATCH.id,
+      FIXTURE_MATCH.home_team_id,
+      FIXTURE_MATCH.away_team_id,
+      matchInfo(),
+    );
+    expect(result.commentary).toBe(0);
+  });
+
+  it('shouldSyncFifaBlogAndStats returns true when KV cursor missing', async () => {
+    const { env } = createIngestionEnv({ teamMatchStats: [] });
+    expect(await shouldSyncFifaBlogAndStats(env, FIXTURE_MATCH.id, 'live')).toBe(true);
   });
 
   it('upsertTeamMatchStats inserts new rows when none exist', async () => {
@@ -280,6 +448,36 @@ describe('ingestion fifaLiveBlogSync', () => {
     ).toBe(true);
   });
 
+  it('shouldSyncFifaBlogAndStats applies the longer completed-match throttle window', async () => {
+    const recent = new Date(Date.now() - 30_000).toISOString();
+    const stale = new Date(Date.now() - 180_000).toISOString();
+    const state = {
+      teamMatchStats: [
+        {
+          match_id: FIXTURE_MATCH.id,
+          team_id: FIXTURE_MATCH.home_team_id,
+          possession: 50,
+          passes: 300,
+        },
+        {
+          match_id: FIXTURE_MATCH.id,
+          team_id: FIXTURE_MATCH.away_team_id,
+          possession: 50,
+          passes: 280,
+        },
+      ],
+    };
+    const { env: recentEnv } = createIngestionEnv(state, {
+      [`meta:fifa_blog_sync:${FIXTURE_MATCH.id}`]: recent,
+    });
+    const { env: staleEnv } = createIngestionEnv(state, {
+      [`meta:fifa_blog_sync:${FIXTURE_MATCH.id}`]: stale,
+    });
+
+    await expect(shouldSyncFifaBlogAndStats(recentEnv, FIXTURE_MATCH.id, 'completed')).resolves.toBe(false);
+    await expect(shouldSyncFifaBlogAndStats(staleEnv, FIXTURE_MATCH.id, 'completed')).resolves.toBe(true);
+  });
+
   it('shouldSyncFifaBlogAndStats returns false when match row missing', async () => {
     const { env } = createIngestionEnv({ matches: [] });
     expect(await shouldSyncFifaBlogAndStats(env, 'missing', 'live')).toBe(false);
@@ -336,6 +534,21 @@ describe('ingestion fifaLiveBlogSync', () => {
     expect(api.fetchFifaMatchInfo).not.toHaveBeenCalled();
   });
 
+  it('ensureFifaBlogAndStats exits when FIFA match info cannot be fetched', async () => {
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaMatchInfo).mockResolvedValueOnce(null);
+    const { env } = createIngestionEnv({ teamMatchStats: [] });
+    await ensureFifaBlogAndStats(
+      env,
+      FIXTURE_MATCH.id,
+      FIXTURE_MATCH.home_team_id,
+      FIXTURE_MATCH.away_team_id,
+      '400021443',
+      'live',
+    );
+    expect(env.KV.put).not.toHaveBeenCalled();
+  });
+
   it('backfillIncompleteFifaMatchStats syncs candidates', async () => {
     const { env } = createIngestionEnv({
       matches: [
@@ -349,6 +562,16 @@ describe('ingestion fifaLiveBlogSync', () => {
     });
     const synced = await backfillIncompleteFifaMatchStats(env, 4);
     expect(synced).toBe(1);
+  });
+
+  it('backfillIncompleteFifaMatchStats skips rows when FIFA info is unavailable', async () => {
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaMatchInfo).mockResolvedValueOnce(null);
+    const { env } = createIngestionEnv({
+      matches: [{ ...FIXTURE_MATCH, fifa_match_id: '400021443', status: 'completed' }],
+      teamMatchStats: [],
+    });
+    await expect(backfillIncompleteFifaMatchStats(env, 1)).resolves.toBe(0);
   });
 
   it('backfillIncompleteFifaMatchStats handles sync errors', async () => {
@@ -367,5 +590,17 @@ describe('ingestion fifaLiveBlogSync', () => {
       matches: [{ ...FIXTURE_MATCH, fifa_match_id: '400021443', status: 'live' }],
     });
     expect(await backfillIncompleteFifaMatchStats(env)).toBe(0);
+  });
+
+  it('backfillIncompleteFifaMatchStats handles undefined result arrays', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: (sql) => {
+          if (sql.includes('FROM matches m')) return {} as never;
+          return { results: [] };
+        },
+      }),
+    });
+    expect(await backfillIncompleteFifaMatchStats(env as never)).toBe(0);
   });
 });

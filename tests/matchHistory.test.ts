@@ -52,6 +52,19 @@ describe('summarizePairFromPerspective', () => {
     expect(summary.awayTeamWins).toBe(1);
     expect(summary.draws).toBe(1);
   });
+
+  it('returns neutral summary when no meetings exist', () => {
+    expect(summarizePairFromPerspective([], 'team-a', 'team-b')).toEqual({
+      totalMatches: 0,
+      homeTeamWins: 0,
+      awayTeamWins: 0,
+      draws: 0,
+      avgGoalsHome: 0,
+      avgGoalsAway: 0,
+      recentFormHome: '—',
+      recentFormAway: '—',
+    });
+  });
 });
 
 describe('groupTeamWorldCupMeetings', () => {
@@ -109,6 +122,28 @@ describe('mapMatchesToTeamPerspective', () => {
       isHome: false,
     });
   });
+
+  it('maps drawn matches from the away perspective', () => {
+    const mapped = mapMatchesToTeamPerspective(
+      new Set(['team-draw-away']),
+      [
+        {
+          ...meeting('draw-1', 'team-home', 'team-draw-away', 1, 1, 2014),
+          home_name: 'Home',
+          away_name: 'Away',
+          home_short: 'HOM',
+          away_short: 'AWY',
+        },
+      ],
+    );
+    expect(mapped[0]).toMatchObject({
+      opponentId: 'team-home',
+      teamScore: 1,
+      opponentScore: 1,
+      result: 'D',
+      isHome: false,
+    });
+  });
 });
 
 describe('resolveTeamIdsForWcHistory', () => {
@@ -122,6 +157,16 @@ describe('resolveTeamIdsForWcHistory', () => {
     const ids = await resolveTeamIdsForWcHistory(env, 'team-w26-a1');
     expect(ids).toContain('team-mex');
     expect(ids).toContain('team-w26-a1');
+  });
+
+  it('falls back to the requested team id when team lookup is missing', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: () => null,
+        all: () => ({ results: [] }),
+      }),
+    });
+    await expect(resolveTeamIdsForWcHistory(env, 'team-missing')).resolves.toEqual(['team-missing']);
   });
 });
 
@@ -141,6 +186,15 @@ describe('getHeadToHead async loaders', () => {
     expect(rows).toHaveLength(1);
   });
 
+  it('getWorldCupHeadToHeadBetween returns empty array when no rows exist', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: () => ({ results: undefined }),
+      }),
+    });
+    await expect(getWorldCupHeadToHeadBetween(env, 'team-a', 'team-b')).resolves.toEqual([]);
+  });
+
   it('getTeamWorldCupHeadToHead groups opponents', async () => {
     const env = createMockEnv({
       DB: createMockDb({
@@ -156,6 +210,15 @@ describe('getHeadToHead async loaders', () => {
     const payload = await getTeamWorldCupHeadToHead(env, 'team-arg');
     expect(payload?.opponents).toHaveLength(2);
     expect(payload?.totalMeetings).toBe(2);
+  });
+
+  it('getTeamWorldCupHeadToHead returns null when the team is absent', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: () => null,
+      }),
+    });
+    await expect(getTeamWorldCupHeadToHead(env, 'team-ghost')).resolves.toBeNull();
   });
 
   it('getHeadToHead returns summary for WC2026 fixture', async () => {
@@ -180,6 +243,16 @@ describe('getHeadToHead async loaders', () => {
     expect(h2h?.current?.id).toBe('current');
   });
 
+  it('getHeadToHead returns null when the current WC2026 fixture is missing', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: () => null,
+        all: () => ({ results: [] }),
+      }),
+    });
+    await expect(getHeadToHead(env, 'missing')).resolves.toBeNull();
+  });
+
   it('getTeamRecentWorldCupMatches maps team perspective', async () => {
     const env = createMockEnv({
       DB: createMockDb({
@@ -191,5 +264,18 @@ describe('getHeadToHead async loaders', () => {
     });
     const recent = await getTeamRecentWorldCupMatches(env, 'team-mex', 3);
     expect(recent[0].result).toBeDefined();
+  });
+
+  it('getTeamRecentWorldCupMatches returns empty array when history rows are undefined', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: () => ({ id: 'team-mex', name: 'Mexico', country_code: null }),
+        all: (sql) => {
+          if (sql.includes('country_code = ?')) return { results: [] };
+          return { results: undefined };
+        },
+      }),
+    });
+    await expect(getTeamRecentWorldCupMatches(env, 'team-mex', 2, 'exclude-me')).resolves.toEqual([]);
   });
 });

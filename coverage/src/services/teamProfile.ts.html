@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">51.35% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>19/37</span>
+                <span class='fraction'>37/37</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">46.15% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>6/13</span>
+                <span class='fraction'>22/22</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>2/4</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">51.35% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>19/37</span>
+                <span class='fraction'>37/37</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -121,42 +121,42 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">143x</span>
+<span class="cline-any cline-yes">143x</span>
+<span class="cline-any cline-yes">143x</span>
+<span class="cline-any cline-yes">143x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">140x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">140x</span>
+<span class="cline-any cline-yes">140x</span>
+<span class="cline-any cline-yes">140x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { TeamRow } from '../db/schema';
 &nbsp;
 const KNOWN_TEAMS = new Set([
@@ -168,40 +168,40 @@ const KNOWN_TEAMS = new Set([
   'team-eng',
 ]);
 &nbsp;
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >function hashString(s: string): number {</span></span>
-<span class="cstat-no" title="statement not covered" >  let h = 0;</span>
-<span class="cstat-no" title="statement not covered" >  for (let i = 0; i &lt; s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;</span>
-<span class="cstat-no" title="statement not covered" >  return Math.abs(h);</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i &lt; s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
 &nbsp;
 /** Deterministic profile so placeholder teams are not all identical */
-export <span class="fstat-no" title="function not covered" >function deriveTeamProfile(teamId: string): {</span>
+export function deriveTeamProfile(teamId: string): {
   elo_rating: number;
   collective_strength_rating: number;
   fifa_ranking: number;
-<span class="cstat-no" title="statement not covered" >} {</span>
-<span class="cstat-no" title="statement not covered" >  const h = hashString(teamId);</span>
-<span class="cstat-no" title="statement not covered" >  return {</span>
-<span class="cstat-no" title="statement not covered" >    elo_rating: 1580 + (h % 380),</span>
-<span class="cstat-no" title="statement not covered" >    collective_strength_rating: 0.52 + (h % 36) / 100,</span>
-<span class="cstat-no" title="statement not covered" >    fifa_ranking: 8 + (h % 85),</span>
-<span class="cstat-no" title="statement not covered" >  };</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+} {
+  const h = hashString(teamId);
+  return {
+    elo_rating: 1580 + (h % 380),
+    collective_strength_rating: 0.52 + (h % 36) / 100,
+    fifa_ranking: 8 + (h % 85),
+  };
+}
 &nbsp;
 export function isPlaceholderTeam(team: TeamRow): boolean {
-  if (KNOWN_TEAMS.has(team.id)) <span class="branch-0 cbranch-no" title="branch not covered" >return false;</span>
-  if ((team.<span class="branch-0 cbranch-no" title="branch not covered" >elo_rating ?? 0) &gt; 1</span>550 &amp;&amp; (team.collective_strength_rating ?? 0) &gt; 0.55) return false;
-  return (team.<span class="branch-0 cbranch-no" title="branch not covered" >elo_rating ?? 1500) &lt;= <span class="branch-0 cbranch-no" title="branch not covered" >1</span>505 &amp;&amp; (team.collective_strength_rating ?? 0.5) &lt;= 0.52;</span>
+  if (KNOWN_TEAMS.has(team.id)) return false;
+  if ((team.elo_rating ?? 0) &gt; 1550 &amp;&amp; (team.collective_strength_rating ?? 0) &gt; 0.55) return false;
+  return (team.elo_rating ?? 1500) &lt;= 1505 &amp;&amp; (team.collective_strength_rating ?? 0.5) &lt;= 0.52;
 }
 &nbsp;
 export function applyEffectiveTeamProfile(team: TeamRow): TeamRow {
-  if (!isPlaceholderTeam(team)) return <span class="branch-0 cbranch-no" title="branch not covered" >team;</span>
-<span class="cstat-no" title="statement not covered" >  const derived = deriveTeamProfile(team.id);</span>
-<span class="cstat-no" title="statement not covered" >  return {</span>
-<span class="cstat-no" title="statement not covered" >    ...team,</span>
-<span class="cstat-no" title="statement not covered" >    elo_rating: derived.elo_rating,</span>
-<span class="cstat-no" title="statement not covered" >    collective_strength_rating: derived.collective_strength_rating,</span>
-    fifa_ranking: team.fifa_ranking &amp;&amp; team.fifa_ranking &lt; <span class="branch-0 cbranch-no" title="branch not covered" >90 ? team.<span class="branch-0 cbranch-no" title="branch not covered" >fifa_ranking : d</span>erived.fifa_ranking,</span>
+  if (!isPlaceholderTeam(team)) return team;
+  const derived = deriveTeamProfile(team.id);
+  return {
+    ...team,
+    elo_rating: derived.elo_rating,
+    collective_strength_rating: derived.collective_strength_rating,
+    fifa_ranking: team.fifa_ranking &amp;&amp; team.fifa_ranking &lt; 90 ? team.fifa_ranking : derived.fifa_ranking,
   };
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -211,7 +211,7 @@ export function applyEffectiveTeamProfile(team: TeamRow): TeamRow {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

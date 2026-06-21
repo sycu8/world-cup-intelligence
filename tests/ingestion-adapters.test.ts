@@ -93,6 +93,32 @@ describe('ingestion FifaWc2026NewsAdapter', () => {
     expect(items[0]?.title).toBe('Nested WC2026 item');
   });
 
+  it('uses fallback article fields from the second JSON API candidate', async () => {
+    let call = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      call += 1;
+      if (call === 1) return new Response('{}', { status: 404 });
+      return new Response(
+        JSON.stringify({
+          news: [
+            {
+              headline: 'Thumbnail-only article',
+              url: 'https://www.fifa.com/en/articles/thumb-only?utm=1',
+              publishedAt: '2026-02-02T00:00:00Z',
+              thumbnail: { url: 'https://img.fifa.com/thumb.jpg' },
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    });
+    const items = await fetchFifaWc2026NewsItems(5);
+    expect(items[0]?.title).toBe('Thumbnail-only article');
+    expect(items[0]?.link).toBe('https://www.fifa.com/en/articles/thumb-only');
+    expect(items[0]?.description).toBe('Thumbnail-only article');
+    expect(items[0]?.imageUrl).toBe('https://img.fifa.com/thumb.jpg');
+  });
+
   it('fetchArticleMeta uses title tag and description fallbacks', async () => {
     let call = 0;
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -187,6 +213,132 @@ describe('ingestion FifaWc2026NewsAdapter', () => {
     expect(items.some((i) => i.title === 'Host cities')).toBe(true);
   });
 
+  it('filters duplicate and non-article next-data links while supporting path-based URLs', async () => {
+    let call = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      call += 1;
+      if (call <= 2) return new Response('{}', { status: 404 });
+      const html = `<html><script id="__NEXT_DATA__" type="application/json">{
+        "props":{"pageProps":{"news":{
+          "items":[
+            {"title":"Kept one","path":"/en/articles/kept-one","summary":"World Cup"},
+            {"title":"Kept one duplicate","path":"/en/articles/kept-one","summary":"Dup"},
+            {"title":"Drop me","url":"https://www.fifa.com/en/other/drop-me","summary":"Other"}
+          ]
+        }}}
+      }</script></html>`;
+      return new Response(html, { status: 200 });
+    });
+    const items = await fetchFifaWc2026NewsItems(5);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.title).toBe('Kept one');
+  });
+
+  it('normalizes relative slugs, nested items, and missing description metadata', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          results: [
+            {
+              title: 'Relative slug article',
+              slug: 'en/articles/relative-slug',
+              date: '2026-03-03T00:00:00Z',
+            },
+          ],
+          data: {
+            items: [
+              {
+                headline: 'Ignored duplicate structure',
+                link: 'https://www.fifa.com/en/articles/ignored-duplicate',
+                summary: 'Nested',
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    const items = await fetchFifaWc2026NewsItems(5);
+    expect(items[0]?.link).toBe('https://www.fifa.com/en/articles/relative-slug');
+    expect(items[0]?.description).toBe('Relative slug article');
+  });
+
+  it('skips JSON articles with missing titles or links and returns [] for primitive payloads', async () => {
+    let call = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      call += 1;
+      if (call === 1) {
+        return new Response(
+          JSON.stringify({
+            items: [
+              { slug: '/en/articles/no-title' },
+              { title: 'No link article' },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify('not-an-object'), { status: 200 });
+    });
+    expect(await fetchFifaWc2026NewsItems(5)).toEqual([]);
+  });
+
+  it('returns no scraped article metadata when article responses are non-ok', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/v3/')) return new Response('{}', { status: 404 });
+      if (url.includes('canadamexicousa2026/news')) {
+        return new Response('<a href="/en/articles/non-ok-meta">Broken meta</a>', { status: 200 });
+      }
+      return new Response('down', { status: 503 });
+    });
+    expect(await fetchFifaWc2026NewsItems(3)).toEqual([]);
+  });
+
+  it('uses publishedAt from next-data items and meta name description from article pages', async () => {
+    let call = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      call += 1;
+      const url = String(input);
+      if (url.includes('/api/v3/')) return new Response('{}', { status: 404 });
+      if (url.includes('canadamexicousa2026/news')) {
+        const html = `<html><script id="__NEXT_DATA__" type="application/json">{
+          "props":{"pageProps":{"news":{"items":[
+            {"title":"Published-at item","path":"/en/articles/published-at-item","publishedAt":"2026-04-04T00:00:00Z"}
+          ]}}}
+        }</script></html>`;
+        return new Response(html, { status: 200 });
+      }
+      return new Response(
+        `<html><head>
+          <title>Meta description title</title>
+          <meta name="description" content="Fallback meta description"/>
+        </head></html>`,
+        { status: 200 },
+      );
+    });
+    const items = await fetchFifaWc2026NewsItems(3);
+    expect(items[0]?.pubDate).toBe('2026-04-04T00:00:00Z');
+
+    call = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/v3/')) return new Response('{}', { status: 404 });
+      if (url.includes('canadamexicousa2026/news')) {
+        return new Response('<a href="/en/articles/meta-name-desc">Meta desc</a>', { status: 200 });
+      }
+      return new Response(
+        `<html><head>
+          <title>Meta description title</title>
+          <meta name="description" content="Fallback meta description"/>
+        </head></html>`,
+        { status: 200 },
+      );
+    });
+    const scraped = await fetchFifaWc2026NewsItems(3);
+    expect(scraped[0]?.description).toBe('Fallback meta description');
+  });
+
   it('scrapes article links when JSON and Next data empty', async () => {
     let call = 0;
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -212,6 +364,16 @@ describe('ingestion FifaWc2026NewsAdapter', () => {
 
   it('returns empty array on fetch failure', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network'));
+    expect(await fetchFifaWc2026NewsItems()).toEqual([]);
+  });
+
+  it('returns empty array when the HTML page itself is not ok', async () => {
+    let call = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      call += 1;
+      if (call <= 2) return new Response('{}', { status: 404 });
+      return new Response('down', { status: 503 });
+    });
     expect(await fetchFifaWc2026NewsItems()).toEqual([]);
   });
 });

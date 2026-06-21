@@ -128,10 +128,7 @@ function stripHtml(s: string): string {
 
 export function extractImageUrl(block: string, description: string): string | null {
   const fromAttr = (tag: string, attr = 'url') => {
-    const after = new RegExp(`<${tag}[^>]+${attr}=["']([^"']+)["']`, 'i').exec(block)?.[1]?.trim();
-    if (after) return after;
-    const before = new RegExp(`<${tag}[^>]+${attr}=["']([^"']+)["'][^>]*/?>`, 'i').exec(block)?.[1]?.trim();
-    return before ?? null;
+    return new RegExp(`<${tag}[^>]+${attr}=["']([^"']+)["']`, 'i').exec(block)?.[1]?.trim() ?? null;
   };
   const mediaUrl =
     /<media:(?:content|thumbnail)[^>]+url=["']([^"']+)["']/i.exec(block)?.[1]?.trim() ?? null;

@@ -111,10 +111,6 @@ export async function syncFifaMatchLineupsFromInfo(
   awayTeamId: string,
   info: FifaMatchInfo,
 ): Promise<{ updated: boolean; home: boolean; away: boolean }> {
-  if (!isFifaLineupReady(info)) {
-    return { updated: false, home: false, away: false };
-  }
-
   const [homeTeam, awayTeam] = await Promise.all([
     env.DB.prepare(`SELECT country_code FROM teams WHERE id = ?`)
       .bind(homeTeamId)

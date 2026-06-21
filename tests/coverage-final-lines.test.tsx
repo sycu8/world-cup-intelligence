@@ -159,6 +159,80 @@ describe('coverage final — remaining line gaps (UI)', () => {
     expect(emptyH2h.container.textContent).toMatch(/empty|chưa|h2h/i);
   });
 
+  it('MatchHistoryPanel — covers draw badge fallbacks, away labels, and null recent WC columns', () => {
+    const drawRecent = {
+      ...sampleRecentWc,
+      id: 'recent-draw',
+      result: 'D' as const,
+      isHome: false,
+      opponentShort: null,
+      opponentName: 'Costa Rica',
+      tournament_year: undefined,
+    };
+    const view = renderApp(
+      <MatchHistoryPanel
+        homeName="USA"
+        awayName="Mexico"
+        history={[sampleHistoryMatch]}
+        summary={sampleH2HSummary}
+        homeRecentWc={null as never}
+        awayRecentWc={[drawRecent]}
+      />,
+    );
+    expect(view.container.textContent).toMatch(/Costa Rica|draw|hòa|away|sân khách/i);
+    expect(view.container.textContent).toMatch(/No recent|chưa có|recent/i);
+  });
+
+  it('MatchHistoryPanel — falls back to an empty away recent-WC column when payload is nullish', () => {
+    const view = renderApp(
+      <MatchHistoryPanel
+        homeName="USA"
+        awayName="Mexico"
+        history={[sampleHistoryMatch]}
+        summary={sampleH2HSummary}
+        homeRecentWc={[]}
+        awayRecentWc={null as never}
+      />,
+    );
+    expect(view.container.textContent).toMatch(/No recent|chưa có|recent/i);
+  });
+
+  it('TeamWorldCupH2HPanel — falls back to full names when short labels are missing', () => {
+    const view = renderApp(
+      <TeamWorldCupH2HPanel
+        teamName="USA"
+        totalMeetings={1}
+        opponents={[
+          {
+            opponentId: 'team-costa-rica',
+            opponentName: 'Costa Rica',
+            opponentShort: null,
+            wins: 0,
+            draws: 1,
+            losses: 0,
+            goalsFor: 1,
+            goalsAgainst: 1,
+            meetings: [
+              {
+                id: 'hist-full-name',
+                kickoff_utc: '2022-11-25T20:00:00Z',
+                stage: 'Group',
+                home_name: 'United States',
+                away_name: 'Costa Rica',
+                home_short: null,
+                away_short: null,
+                home_score: 1,
+                away_score: 1,
+                tournament_year: 2022,
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+    expect(view.container.textContent).toMatch(/Costa Rica|United States/);
+  });
+
   it('ProbabilityMovementPanel — single stable event with prob snapshot', async () => {
     vi.stubGlobal(
       'fetch',
@@ -784,6 +858,237 @@ describe('coverage final — remaining line gaps (UI)', () => {
     const queryInput = view.container.querySelector('input[type="search"], input[type="text"]');
     if (queryInput) await user.type(queryInput, 'USA');
     expect(view.container.textContent?.length ?? 0).toBeGreaterThan(10);
+  });
+
+  it('TeamPage — handles missing route params by staying in loading state', async () => {
+    const view = renderRoute(
+      '/teams',
+      <Routes>
+        <Route path="/teams" element={<TeamPage />} />
+      </Routes>,
+    );
+    await waitFor(() => expect(view.container.textContent).toMatch(/loading|đang tải/i), {
+      timeout: 5000,
+    });
+  });
+
+  it('TeamPage — renders squad grouping and stat fallbacks for nullish team metadata', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.match(/\/api\/teams\/team-usa\/squad$/)) {
+          return new Response(
+            JSON.stringify({
+              data: [
+                { player_id: 'p-gk', name: 'Keeper', position: 'GK', shirt_number: 1, listed_position: null, status: 'active' },
+                { player_id: 'p-df', name: 'Defender', position: 'DF', shirt_number: 4, listed_position: null, status: 'active' },
+                { player_id: 'p-mf', name: 'Midfielder', position: 'MF', shirt_number: 8, listed_position: null, status: 'active' },
+                { player_id: 'p-fw', name: 'Forward', position: 'FW', shirt_number: 9, listed_position: 'FW', status: 'active' },
+                { player_id: 'p-ot', name: 'Utility', position: 'WB', shirt_number: null, listed_position: null, status: 'active' },
+                { player_id: 'p-emp', name: 'Unknown', position: null, shirt_number: 15, listed_position: null, status: 'active' },
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (url.match(/\/api\/teams\/team-usa\/wc-h2h$/)) {
+          return new Response(JSON.stringify({ data: { opponents: [], totalMeetings: 0 } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        if (url.match(/\/api\/teams\/team-usa$/)) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                id: 'team-usa',
+                name: 'United States',
+                short_name: 'United States',
+                country_code: 'US',
+                fifa_ranking: null,
+                elo_rating: null,
+                coach: null,
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(JSON.stringify(mockApiBody(url)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    const view = renderRoute(
+      '/teams/team-usa',
+      <Routes>
+        <Route path="/teams/:teamId" element={<TeamPage />} />
+      </Routes>,
+    );
+    await waitFor(() => expect(view.container.textContent).toMatch(/United States|Keeper|Defender/i), {
+      timeout: 8000,
+    });
+    expect(view.container.textContent).toContain('GK');
+    expect(view.container.textContent).toContain('DF');
+    expect(view.container.textContent).toContain('MF');
+    expect(view.container.textContent).toContain('FW');
+    expect(view.container.textContent).toContain('—');
+    expect(view.container.textContent).toMatch(/coach pending|chưa có/i);
+  });
+
+  it('TeamPage — falls back to resolved team names for world cup H2H text', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.match(/\/api\/teams\/team-usa\/squad$/)) {
+          return new Response(JSON.stringify({ data: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        if (url.match(/\/api\/teams\/team-usa\/wc-h2h$/)) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                totalMeetings: 2,
+                opponents: [
+                  {
+                    opponentId: 'team-mex',
+                    opponentName: 'Mexico',
+                    opponentShort: 'MEX',
+                    wins: 1,
+                    draws: 0,
+                    losses: 1,
+                    goalsFor: 2,
+                    goalsAgainst: 2,
+                    meetings: [sampleHistoryMatch],
+                  },
+                ],
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (url.match(/\/api\/teams\/team-usa$/)) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                id: 'team-usa',
+                name: null,
+                short_name: null,
+                country_code: 'US',
+                fifa_ranking: 12,
+                elo_rating: 1850,
+                coach: null,
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(JSON.stringify(mockApiBody(url)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    const view = renderRoute(
+      '/teams/team-usa',
+      <Routes>
+        <Route path="/teams/:teamId" element={<TeamPage />} />
+      </Routes>,
+    );
+    await waitFor(() => expect(view.container.textContent).toMatch(/United States|Mexico/i), {
+      timeout: 8000,
+    });
+  });
+
+  it('TeamPage — covers null shirt sorting and blank rendered position fallbacks', async () => {
+    let listedReads = 0;
+    const getterPlayer = {
+      player_id: 'p-getter',
+      name: 'Getter Keeper',
+      position: null,
+      shirt_number: null,
+      get listed_position() {
+        listedReads += 1;
+        return listedReads === 1 ? 'GK' : null;
+      },
+      status: 'active',
+    };
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.match(/\/api\/teams\/team-usa\/squad$/)) {
+          return {
+            ok: true,
+            json: async () => ({
+              data: [
+                getterPlayer,
+                {
+                  player_id: 'p-keeper-2',
+                  name: 'Second Keeper',
+                  position: 'GK',
+                  shirt_number: null,
+                  listed_position: 'GK',
+                  status: 'active',
+                },
+                {
+                  player_id: 'p-keeper-3',
+                  name: 'Third Keeper',
+                  position: 'GK',
+                  shirt_number: 3,
+                  listed_position: 'GK',
+                  status: 'active',
+                },
+              ],
+            }),
+          } as Response;
+        }
+        if (url.match(/\/api\/teams\/team-usa\/wc-h2h$/)) {
+          return {
+            ok: true,
+            json: async () => ({ data: { opponents: [], totalMeetings: 0 } }),
+          } as Response;
+        }
+        if (url.match(/\/api\/teams\/team-usa$/)) {
+          return {
+            ok: true,
+            json: async () => ({
+              data: {
+                id: 'team-usa',
+                name: 'United States',
+                short_name: 'USA',
+                country_code: 'US',
+                fifa_ranking: 12,
+                elo_rating: 1850,
+                coach: null,
+              },
+            }),
+          } as Response;
+        }
+        return {
+          ok: true,
+          json: async () => mockApiBody(url),
+        } as Response;
+      }),
+    );
+
+    const view = renderRoute(
+      '/teams/team-usa',
+      <Routes>
+        <Route path="/teams/:teamId" element={<TeamPage />} />
+      </Routes>,
+    );
+    await waitFor(() => expect(view.container.textContent).toMatch(/Getter Keeper|Second Keeper/i), {
+      timeout: 8000,
+    });
+    expect(view.container.textContent).toContain('—');
   });
 });
 

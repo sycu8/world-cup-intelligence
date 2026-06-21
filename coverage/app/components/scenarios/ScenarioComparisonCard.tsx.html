@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/23</span>
+                <span class='fraction'>23/23</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>7/7</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/23</span>
+                <span class='fraction'>23/23</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -97,8 +97,8 @@
 <a name='L32'></a><a href='#L32'>32</a>
 <a name='L33'></a><a href='#L33'>33</a>
 <a name='L34'></a><a href='#L34'>34</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -106,32 +106,32 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">87x</span>
+<span class="cline-any cline-yes">87x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">327x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">88x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">88x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { MatchScenarioSet } from '../../lib/api';
-<span class="cstat-no" title="statement not covered" >import { pct } from '../../lib/format';</span>
-<span class="cstat-no" title="statement not covered" >import { useI18n } from '../../lib/i18n/I18nContext';</span>
+import { pct } from '../../lib/format';
+import { useI18n } from '../../lib/i18n/I18nContext';
 &nbsp;
 type Props = {
   data: MatchScenarioSet | null;
@@ -139,29 +139,29 @@ type Props = {
   awayName?: string;
 };
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function ScenarioComparisonCard({ data, homeName = '', awayName = '' }: Props) {</span>
-<span class="cstat-no" title="statement not covered" >  const { t } = useI18n();</span>
-<span class="cstat-no" title="statement not covered" >  if (!data?.comparison) return null;</span>
-<span class="cstat-no" title="statement not covered" >  const { comparison } = data;</span>
-<span class="cstat-no" title="statement not covered" >  const awayLabel = awayName || t('common.away');</span>
+export function ScenarioComparisonCard({ data, homeName = '', awayName = '' }: Props) {
+  const { t } = useI18n();
+  if (!data?.comparison) return null;
+  const { comparison } = data;
+  const awayLabel = awayName || t('common.away');
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
-<span class="cstat-no" title="statement not covered" >    &lt;div className="rounded-card border border-cyan/25 bg-cyan/5 p-4"&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;p className="label-tactical text-cyan"&gt;{t('scenario.comparisonTitle')}&lt;/p&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;p className="mt-2 text-sm leading-relaxed text-foreground/90"&gt;{comparison.summary}&lt;/p&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;ul className="mt-3 space-y-1 text-xs text-muted"&gt;</span>
-<span class="cstat-no" title="statement not covered" >        {comparison.keyDifferences.slice(0, 4).map((line) =&gt; (</span>
-<span class="cstat-no" title="statement not covered" >          &lt;li key={line}&gt;{line}&lt;/li&gt;</span>
-<span class="cstat-no" title="statement not covered" >        ))}</span>
-<span class="cstat-no" title="statement not covered" >      &lt;/ul&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;p className="mt-3 font-mono-data text-xs text-muted-dim"&gt;</span>
-<span class="cstat-no" title="statement not covered" >        {t('scenario.likelihoodGap')} {pct(comparison.probabilityGap)} · {t('scenario.awayWinDelta')}{' '}</span>
-<span class="cstat-no" title="statement not covered" >        {pct(Math.abs(comparison.awayWinDelta))}</span>
-<span class="cstat-no" title="statement not covered" >        {awayLabel !== t('common.away') ? ` (${awayLabel})` : ''}</span>
-<span class="cstat-no" title="statement not covered" >      &lt;/p&gt;</span>
-<span class="cstat-no" title="statement not covered" >    &lt;/div&gt;</span>
+  return (
+    &lt;div className="rounded-card border border-cyan/25 bg-cyan/5 p-4"&gt;
+      &lt;p className="label-tactical text-cyan"&gt;{t('scenario.comparisonTitle')}&lt;/p&gt;
+      &lt;p className="mt-2 text-sm leading-relaxed text-foreground/90"&gt;{comparison.summary}&lt;/p&gt;
+      &lt;ul className="mt-3 space-y-1 text-xs text-muted"&gt;
+        {comparison.keyDifferences.slice(0, 4).map((line) =&gt; (
+          &lt;li key={line}&gt;{line}&lt;/li&gt;
+        ))}
+      &lt;/ul&gt;
+      &lt;p className="mt-3 font-mono-data text-xs text-muted-dim"&gt;
+        {t('scenario.likelihoodGap')} {pct(comparison.probabilityGap)} · {t('scenario.awayWinDelta')}{' '}
+        {pct(Math.abs(comparison.awayWinDelta))}
+        {awayLabel !== t('common.away') ? ` (${awayLabel})` : ''}
+      &lt;/p&gt;
+    &lt;/div&gt;
   );
-<span class="cstat-no" title="statement not covered" >}</span>
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -169,7 +169,7 @@ type Props = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

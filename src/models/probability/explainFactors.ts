@@ -42,10 +42,9 @@ export function buildExplanationFactors(input: MatchFeatureInput): {
     },
   ];
   if (input.homeCoach || input.awayCoach) {
-    const coachSide =
-      (input.homeCoach?.tacticalRating ?? 0.72) >= (input.awayCoach?.tacticalRating ?? 0.72)
-        ? 'home'
-        : 'away';
+    const homeRating = input.homeCoach?.tacticalRating ?? 0.72;
+    const awayRating = input.awayCoach?.tacticalRating ?? 0.72;
+    const coachSide: 'home' | 'away' = homeRating >= awayRating ? 'home' : 'away';
     factors.push({
       key: 'head_coach',
       label: 'Head coach profile',

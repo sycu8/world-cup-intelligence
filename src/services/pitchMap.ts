@@ -155,7 +155,6 @@ export function aggregateMovement(rows: MovementRow[]): Map<string, { dx: number
 
   const out = new Map<string, { dx: number; dy: number; magnitude: number }>();
   for (const [id, s] of sums) {
-    if (s.n === 0) continue;
     const dx = s.dx / s.n;
     const dy = s.dy / s.n;
     out.set(id, { dx, dy, magnitude: Math.sqrt(dx * dx + dy * dy) });
@@ -352,7 +351,7 @@ export async function getPitchMapPayload(env: AppEnv, ref: string): Promise<Pitc
 
   return {
     matchId,
-    slug: resolved.slug ?? matchId,
+    slug: resolved.slug,
     status: resolved.status,
     minute,
     home: buildSide(

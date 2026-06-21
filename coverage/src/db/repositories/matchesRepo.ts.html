@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">51.72% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>15/29</span>
+                <span class='fraction'>29/29</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>2/4</span>
+                <span class='fraction'>7/7</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">66.66% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>2/3</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">51.72% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>15/29</span>
+                <span class='fraction'>29/29</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -102,59 +102,59 @@
 <a name='L37'></a><a href='#L37'>37</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">100x</span>
+<span class="cline-any cline-yes">100x</span>
+<span class="cline-any cline-yes">100x</span>
+<span class="cline-any cline-yes">100x</span>
+<span class="cline-any cline-yes">100x</span>
+<span class="cline-any cline-yes">100x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">22x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { MatchRow } from '../schema';
 import { WC2026_TOURNAMENT_ID } from '../../constants/tournament';
 &nbsp;
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >export async function listMatches(</span></span>
-<span class="cstat-no" title="statement not covered" >  db: D1Database,</span>
-<span class="cstat-no" title="statement not covered" >  limit = 50,</span>
-<span class="cstat-no" title="statement not covered" >  offset = 0,</span>
-<span class="cstat-no" title="statement not covered" >  tournamentId = WC2026_TOURNAMENT_ID,</span>
-<span class="cstat-no" title="statement not covered" >): Promise&lt;MatchRow[]&gt; {</span>
-<span class="cstat-no" title="statement not covered" >  const { results } = await db</span>
-<span class="cstat-no" title="statement not covered" >    .prepare(</span>
-<span class="cstat-no" title="statement not covered" >      `SELECT * FROM matches</span>
+export async function listMatches(
+  db: D1Database,
+  limit = 50,
+  offset = 0,
+  tournamentId = WC2026_TOURNAMENT_ID,
+): Promise&lt;MatchRow[]&gt; {
+  const { results } = await db
+    .prepare(
+      `SELECT * FROM matches
        WHERE tournament_id = ?
        ORDER BY kickoff_utc DESC
        LIMIT ? OFFSET ?`,
-<span class="cstat-no" title="statement not covered" >    )</span>
-<span class="cstat-no" title="statement not covered" >    .bind(tournamentId, limit, offset)</span>
-<span class="cstat-no" title="statement not covered" >    .all&lt;MatchRow&gt;();</span>
-<span class="cstat-no" title="statement not covered" >  return results ?? [];</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+    )
+    .bind(tournamentId, limit, offset)
+    .all&lt;MatchRow&gt;();
+  return results ?? [];
+}
 &nbsp;
 export async function getMatch(db: D1Database, matchId: string): Promise&lt;MatchRow | null&gt; {
   return db
@@ -164,12 +164,12 @@ export async function getMatch(db: D1Database, matchId: string): Promise&lt;Matc
 }
 &nbsp;
 export async function getMatchesByTournament(db: D1Database, tournamentId: string): Promise&lt;MatchRow[]&gt; {
-  const tid = tournamentId === WC2026_TOURNAMENT_ID ? <span class="branch-0 cbranch-no" title="branch not covered" >tournamentId : WC2026_TOURNAMENT_ID;</span>
+  const tid = tournamentId === WC2026_TOURNAMENT_ID ? tournamentId : WC2026_TOURNAMENT_ID;
   const { results } = await db
     .prepare('SELECT * FROM matches WHERE tournament_id = ? ORDER BY kickoff_utc ASC')
     .bind(tid)
     .all&lt;MatchRow&gt;();
-  return <span class="branch-0 cbranch-no" title="branch not covered" >results ?? [];</span>
+  return results ?? [];
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -178,7 +178,7 @@ export async function getMatchesByTournament(db: D1Database, tournamentId: strin
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

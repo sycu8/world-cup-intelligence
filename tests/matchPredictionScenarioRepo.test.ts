@@ -76,7 +76,12 @@ describe('matchPredictionScenarioRepo', () => {
     expect(await getScenarioById(db, 'missing')).toBeNull();
   });
 
-  it('getLatestComparison parses comparison_json', async () => {
+  it('listActiveScenariosForMatch returns [] when results omitted', async () => {
+    const db = createMockDb({ all: () => ({}) });
+    expect(await listActiveScenariosForMatch(db, 'm-1')).toEqual([]);
+  });
+
+  it('getLatestComparison maps empty keyDifferences', async () => {
     const db = createMockDb({
       first: () => ({
         scenario_a_id: 'a',

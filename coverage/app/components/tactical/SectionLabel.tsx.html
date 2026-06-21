@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/19</span>
+                <span class='fraction'>19/19</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/19</span>
+                <span class='fraction'>19/19</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -93,7 +93,7 @@
 <a name='L28'></a><a href='#L28'>28</a>
 <a name='L29'></a><a href='#L29'>29</a>
 <a name='L30'></a><a href='#L30'>30</a>
-<a name='L31'></a><a href='#L31'>31</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L31'></a><a href='#L31'>31</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -103,27 +103,27 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">594x</span>
+<span class="cline-any cline-yes">594x</span>
+<span class="cline-any cline-yes">594x</span>
+<span class="cline-any cline-yes">594x</span>
+<span class="cline-any cline-yes">594x</span>
+<span class="cline-any cline-yes">594x</span>
+<span class="cline-any cline-yes">594x</span>
+<span class="cline-any cline-yes">594x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { DataKindBadge, type DataKind } from '../ui/DataKindBadge';<span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
+<span class="cline-any cline-yes">594x</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { DataKindBadge, type DataKind } from '../ui/DataKindBadge';
 &nbsp;
 type Props = {
   title: string;
@@ -133,26 +133,26 @@ type Props = {
   className?: string;
 };
 &nbsp;
-<span class="cstat-no" title="statement not covered" >const accentClass = {</span>
-<span class="cstat-no" title="statement not covered" >  cyan: 'text-cyan',</span>
-<span class="cstat-no" title="statement not covered" >  magenta: 'text-magenta',</span>
-<span class="cstat-no" title="statement not covered" >  yellow: 'text-yellow',</span>
-<span class="cstat-no" title="statement not covered" >  green: 'text-green',</span>
-<span class="cstat-no" title="statement not covered" >  lime: 'text-yellow',</span>
-<span class="cstat-no" title="statement not covered" >  purple: 'text-magenta',</span>
-<span class="cstat-no" title="statement not covered" >};</span>
+const accentClass = {
+  cyan: 'text-cyan',
+  magenta: 'text-magenta',
+  yellow: 'text-yellow',
+  green: 'text-green',
+  lime: 'text-yellow',
+  purple: 'text-magenta',
+};
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function SectionLabel({ title, subtitle, accent = 'cyan', dataKind, className = '' }: Props) {</span>
-<span class="cstat-no" title="statement not covered" >  return (</span>
-<span class="cstat-no" title="statement not covered" >    &lt;div className={`mb-3 ${className}`.trim()}&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;div className="flex flex-wrap items-center gap-2"&gt;</span>
-<span class="cstat-no" title="statement not covered" >        &lt;h3 className={`label-tactical ${accentClass[accent]}`}&gt;{title}&lt;/h3&gt;</span>
-<span class="cstat-no" title="statement not covered" >        {dataKind &amp;&amp; &lt;DataKindBadge kind={dataKind} compact /&gt;}</span>
-<span class="cstat-no" title="statement not covered" >      &lt;/div&gt;</span>
-<span class="cstat-no" title="statement not covered" >      {subtitle &amp;&amp; &lt;p className="mt-1 text-sm leading-relaxed text-foreground/80"&gt;{subtitle}&lt;/p&gt;}</span>
-<span class="cstat-no" title="statement not covered" >    &lt;/div&gt;</span>
+export function SectionLabel({ title, subtitle, accent = 'cyan', dataKind, className = '' }: Props) {
+  return (
+    &lt;div className={`mb-3 ${className}`.trim()}&gt;
+      &lt;div className="flex flex-wrap items-center gap-2"&gt;
+        &lt;h3 className={`label-tactical ${accentClass[accent]}`}&gt;{title}&lt;/h3&gt;
+        {dataKind &amp;&amp; &lt;DataKindBadge kind={dataKind} compact /&gt;}
+      &lt;/div&gt;
+      {subtitle &amp;&amp; &lt;p className="mt-1 text-sm leading-relaxed text-foreground/80"&gt;{subtitle}&lt;/p&gt;}
+    &lt;/div&gt;
   );
-<span class="cstat-no" title="statement not covered" >}</span>
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -160,7 +160,7 @@ type Props = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

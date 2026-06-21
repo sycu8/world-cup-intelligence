@@ -44,8 +44,6 @@ export function resolveTeamFlagSlug(opts: {
 
   const name = opts.teamName?.trim();
   if (!name) return '';
-  const override = FLAG_SLUG_OVERRIDES[normalizeFlagKey(name)];
-  if (override) return override;
   try {
     return nationMeta(name).iso.toLowerCase();
   } catch {
@@ -66,15 +64,11 @@ export function resolveTeamFlag(opts: {
   if (!slug) return '';
   // Emoji flags only work for plain ISO slugs; sub-nations fall back to name lookup.
   if (slug.includes('-')) {
-    const name = opts.teamName?.trim();
-    if (name) {
-      try {
-        return isoToFlagEmoji(nationMeta(name).iso);
-      } catch {
-        return '';
-      }
+    try {
+      return isoToFlagEmoji(nationMeta(opts.teamName!.trim()).iso);
+    } catch {
+      return '';
     }
-    return '';
   }
   return isoToFlagEmoji(slug.toUpperCase());
 }

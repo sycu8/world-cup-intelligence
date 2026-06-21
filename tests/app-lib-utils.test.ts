@@ -101,6 +101,12 @@ describe('derivePlayerImpact', () => {
     expect(derivePlayerImpact([])).toHaveLength(2);
   });
 
+  it('returns demo when events have no goals or shots', () => {
+    expect(derivePlayerImpact([{ event_type: 'pass' }])).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'Key forward' }),
+    ]));
+  });
+
   it('boosts impact when goals or shots exist', () => {
     const impacts = derivePlayerImpact([
       { event_type: 'goal', xg: 0.4 },

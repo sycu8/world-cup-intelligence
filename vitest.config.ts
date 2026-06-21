@@ -21,7 +21,7 @@ export default defineConfig({
     },
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json-summary', 'html'],
+      reporter: ['text', 'json', 'json-summary', 'html'],
       tempDirectory: './coverage/.tmp',
       include: ['src/**/*.ts', 'app/**/*.{ts,tsx}'],
       exclude: [
@@ -33,8 +33,8 @@ export default defineConfig({
       thresholds: {
         lines: 100,
         functions: 100,
-        branches: 100,
         statements: 100,
+        branches: 100,
       },
     },
   },

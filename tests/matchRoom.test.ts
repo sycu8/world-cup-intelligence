@@ -81,4 +81,30 @@ describe('MatchRoom durable object', () => {
     const json = (await res.json()) as { subscribers: number };
     expect(json.subscribers).toBeGreaterThanOrEqual(0);
   });
+
+  it('accepts websocket upgrade and sends initial state', async () => {
+    vi.stubGlobal(
+      'WebSocketPair',
+      class WebSocketPairMock {
+        0 = { tag: 'client' };
+        1 = { tag: 'server', send: vi.fn() };
+      },
+    );
+    const req = {
+      method: 'GET',
+      url: 'https://do/live',
+      headers: {
+        get: (name: string) => (name.toLowerCase() === 'upgrade' ? 'websocket' : null),
+      },
+    } as unknown as Request;
+    const res = await room.fetch(req);
+    expect(res.status).toBe(101);
+    expect(acceptWebSocket).toHaveBeenCalled();
+  });
+
+  it('ignores non-string websocket payloads', async () => {
+    const ws = { send: vi.fn() };
+    await room.webSocketMessage(ws as unknown as WebSocket, new ArrayBuffer(8));
+    expect(ws.send).not.toHaveBeenCalled();
+  });
 });

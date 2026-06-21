@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/24</span>
+                <span class='fraction'>24/24</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/24</span>
+                <span class='fraction'>24/24</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -97,74 +97,74 @@
 <a name='L32'></a><a href='#L32'>32</a>
 <a name='L33'></a><a href='#L33'>33</a>
 <a name='L34'></a><a href='#L34'>34</a>
-<a name='L35'></a><a href='#L35'>35</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L35'></a><a href='#L35'>35</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">63x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { useState } from 'react';<span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useState } from 'react';
 &nbsp;
 type Props = {
   code: string;
   language?: string;
 };
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function CodeBlock({ code, language = 'bash' }: Props) {</span>
-<span class="cstat-no" title="statement not covered" >  const [copied, setCopied] = useState(false);</span>
+export function CodeBlock({ code, language = 'bash' }: Props) {
+  const [copied, setCopied] = useState(false);
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  async function copy() {</span>
-<span class="cstat-no" title="statement not covered" >    await navigator.clipboard.writeText(code);</span>
-<span class="cstat-no" title="statement not covered" >    setCopied(true);</span>
-<span class="cstat-no" title="statement not covered" >    setTimeout(() =&gt; setCopied(false), 2000);</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
+  async function copy() {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() =&gt; setCopied(false), 2000);
+  }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
-<span class="cstat-no" title="statement not covered" >    &lt;div className="api-code-block group relative overflow-hidden rounded-xl border border-border/80 bg-[#050a0e]"&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;div className="flex items-center justify-between border-b border-border/50 px-4 py-2"&gt;</span>
-<span class="cstat-no" title="statement not covered" >        &lt;span className="font-mono text-xs uppercase tracking-wider text-muted"&gt;{language}&lt;/span&gt;</span>
-<span class="cstat-no" title="statement not covered" >        &lt;button</span>
-<span class="cstat-no" title="statement not covered" >          type="button"</span>
-<span class="cstat-no" title="statement not covered" >          onClick={copy}</span>
-<span class="cstat-no" title="statement not covered" >          className="rounded-md px-2.5 py-1 text-xs font-medium text-muted transition hover:bg-panel2 hover:text-cyan"</span>
+  return (
+    &lt;div className="api-code-block group relative overflow-hidden rounded-xl border border-border/80 bg-[#050a0e]"&gt;
+      &lt;div className="flex items-center justify-between border-b border-border/50 px-4 py-2"&gt;
+        &lt;span className="font-mono text-xs uppercase tracking-wider text-muted"&gt;{language}&lt;/span&gt;
+        &lt;button
+          type="button"
+          onClick={copy}
+          className="rounded-md px-2.5 py-1 text-xs font-medium text-muted transition hover:bg-panel2 hover:text-cyan"
         &gt;
-<span class="cstat-no" title="statement not covered" >          {copied ? 'Copied' : 'Copy'}</span>
-<span class="cstat-no" title="statement not covered" >        &lt;/button&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;/div&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;pre className="overflow-x-auto p-4 font-mono text-[0.8125rem] leading-relaxed text-foreground/90"&gt;</span>
-<span class="cstat-no" title="statement not covered" >        &lt;code&gt;{code}&lt;/code&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;/pre&gt;</span>
-<span class="cstat-no" title="statement not covered" >    &lt;/div&gt;</span>
+          {copied ? 'Copied' : 'Copy'}
+        &lt;/button&gt;
+      &lt;/div&gt;
+      &lt;pre className="overflow-x-auto p-4 font-mono text-[0.8125rem] leading-relaxed text-foreground/90"&gt;
+        &lt;code&gt;{code}&lt;/code&gt;
+      &lt;/pre&gt;
+    &lt;/div&gt;
   );
-<span class="cstat-no" title="statement not covered" >}</span>
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -172,7 +172,7 @@ type Props = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

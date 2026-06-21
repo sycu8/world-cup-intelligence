@@ -1,5 +1,87 @@
-import type { MatchPredictionScenario, ScenarioComparison } from '../../src/models/scenarios/types';
+import type {
+  MatchPredictionScenario,
+  MatchScenarioContext,
+  ScenarioComparison,
+} from '../../src/models/scenarios/types';
+import { buildTeamSystemProfile } from '../../src/models/probability/teamSystemStrength';
 import { newId } from '../../src/utils/ids';
+
+export function mockScenarioContext(overrides: Partial<MatchScenarioContext> = {}): MatchScenarioContext {
+  const homeTeam = {
+    teamId: 'team-usa',
+    eloRating: 1780,
+    fifaRanking: 12,
+    recentForm: 0.3,
+    goalDifference: 2,
+    xgDifference: 0.4,
+    xgFor: 1.6,
+    xgAgainst: 1.2,
+    possessionProfile: 0.55,
+    fieldTilt: 0.52,
+    ppda: 8,
+    highTurnovers: 0.6,
+    transitionThreat: 0.55,
+    setPieceXg: 0.25,
+    setPieceXga: 0.2,
+    defensiveCompactness: 0.6,
+    formationStability: 0.7,
+    benchDepth: 0.65,
+    goalkeeperStrength: 0.7,
+    restDays: 4,
+  };
+  const awayTeam = { ...homeTeam, teamId: 'team-mex', recentForm: 0.2 };
+  const homeSystem = buildTeamSystemProfile(homeTeam, '4-3-3');
+  const awaySystem = buildTeamSystemProfile(awayTeam, '4-4-2');
+  const probability = {
+    matchId: 'm-1',
+    modelVersion: 'wc-prob-v2',
+    inputHash: 'hash',
+    timestamp: new Date().toISOString(),
+    homeWinProb: 0.4,
+    drawProb: 0.28,
+    awayWinProb: 0.32,
+    expectedHomeGoals: 1.5,
+    expectedAwayGoals: 1.3,
+    mostLikelyScore: '1-1',
+    scorelineDistribution: { '1-1': 0.12, '2-1': 0.1, '1-2': 0.09 },
+    intervalDistribution: {},
+    scenarioLikelihoods: [],
+    teamSystemFactors: { home: homeSystem, away: awaySystem },
+    topPositiveFactors: [],
+    topNegativeFactors: [],
+    confidence: 0.82,
+  };
+
+  return {
+    matchId: 'm-1',
+    tournamentYear: 2026,
+    stage: 'Group',
+    minute: 0,
+    homeScore: 0,
+    awayScore: 0,
+    status: 'scheduled',
+    homeTeamName: 'United States',
+    awayTeamName: 'Mexico',
+    features: {
+      matchId: 'm-1',
+      tournamentYear: 2026,
+      stage: 'Group',
+      minute: 0,
+      second: 0,
+      homeTeam,
+      awayTeam,
+      currentScore: { home: 0, away: 0 },
+      sourceConfidence: 0.85,
+    },
+    probability,
+    homeSystem,
+    awaySystem,
+    homeLineupSource: 'projected',
+    awayLineupSource: 'projected',
+    marketImplied: null,
+    ...overrides,
+  };
+}
 
 export function mockScenario(overrides: Partial<MatchPredictionScenario> = {}): MatchPredictionScenario {
   return {

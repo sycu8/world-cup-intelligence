@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">8.33% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>2/24</span>
+                <span class='fraction'>24/24</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>16/16</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">8.33% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>2/24</span>
+                <span class='fraction'>24/24</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -92,58 +92,58 @@
 <a name='L27'></a><a href='#L27'>27</a>
 <a name='L28'></a><a href='#L28'>28</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">80x</span>
+<span class="cline-any cline-yes">78x</span>
+<span class="cline-any cline-yes">78x</span>
+<span class="cline-any cline-yes">80x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">80x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-yes">80x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">80x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/** Recency + source reliability for "hot" ranking (0–1 scale). */
-export <span class="fstat-no" title="function not covered" >function computeHotScore(publishedAt: string, reliability: number): number {</span>
-<span class="cstat-no" title="statement not covered" >  const pub = new Date(publishedAt).getTime();</span>
-<span class="cstat-no" title="statement not covered" >  if (Number.isNaN(pub)) return reliability * 0.6;</span>
-<span class="cstat-no" title="statement not covered" >  const ageHours = (Date.now() - pub) / 3_600_000;</span>
-<span class="cstat-no" title="statement not covered" >  const recency = Math.max(0, Math.min(1, 1 - ageHours / 72));</span>
-<span class="cstat-no" title="statement not covered" >  return Math.min(1, reliability * 0.55 + recency * 0.45);</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function computeHotScore(publishedAt: string, reliability: number): number {
+  const pub = new Date(publishedAt).getTime();
+  if (Number.isNaN(pub)) return reliability * 0.6;
+  const ageHours = (Date.now() - pub) / 3_600_000;
+  const recency = Math.max(0, Math.min(1, 1 - ageHours / 72));
+  return Math.min(1, reliability * 0.55 + recency * 0.45);
+}
 &nbsp;
 /** Prefer ~medium width for card thumbnails when URL supports query params. */
-export <span class="fstat-no" title="function not covered" >function mediumThumbnailUrl(url: string | null | undefined): string | null {</span>
-<span class="cstat-no" title="statement not covered" >  if (!url?.trim()) return null;</span>
-<span class="cstat-no" title="statement not covered" >  try {</span>
-<span class="cstat-no" title="statement not covered" >    const u = new URL(url);</span>
-<span class="cstat-no" title="statement not covered" >    if (u.hostname.includes('theguardian.com') &amp;&amp; !u.searchParams.has('width')) {</span>
-<span class="cstat-no" title="statement not covered" >      u.searchParams.set('width', '460');</span>
-<span class="cstat-no" title="statement not covered" >      return u.toString();</span>
-<span class="cstat-no" title="statement not covered" >    }</span>
-<span class="cstat-no" title="statement not covered" >    if (u.hostname.includes('i.guim.co.uk') &amp;&amp; !u.searchParams.has('width')) {</span>
-<span class="cstat-no" title="statement not covered" >      u.searchParams.set('width', '460');</span>
-<span class="cstat-no" title="statement not covered" >      return u.toString();</span>
-<span class="cstat-no" title="statement not covered" >    }</span>
-<span class="cstat-no" title="statement not covered" >    return url;</span>
-<span class="cstat-no" title="statement not covered" >  } catch {</span>
-<span class="cstat-no" title="statement not covered" >    return url;</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function mediumThumbnailUrl(url: string | null | undefined): string | null {
+  if (!url?.trim()) return null;
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('theguardian.com') &amp;&amp; !u.searchParams.has('width')) {
+      u.searchParams.set('width', '460');
+      return u.toString();
+    }
+    if (u.hostname.includes('i.guim.co.uk') &amp;&amp; !u.searchParams.has('width')) {
+      u.searchParams.set('width', '460');
+      return u.toString();
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -151,7 +151,7 @@ export <span class="fstat-no" title="function not covered" >function mediumThumb
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

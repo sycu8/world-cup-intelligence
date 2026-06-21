@@ -46,6 +46,7 @@ type PreviewEnvOpts = {
   snapshot?: typeof FIXTURE_SNAPSHOT | null;
   lineupSource?: string;
   lineupPlayers?: number;
+  lineupFormation?: string | null;
   homeTeam?: typeof FIXTURE_TEAMS[0];
   awayTeam?: typeof FIXTURE_TEAMS[1];
   kvSeed?: Record<string, string>;
@@ -57,6 +58,7 @@ function previewEnv(opts: PreviewEnvOpts = {}) {
     snapshot = FIXTURE_SNAPSHOT,
     lineupSource = 'match_official',
     lineupPlayers = 11,
+    lineupFormation = '4-3-3',
     homeTeam = FIXTURE_TEAMS[0],
     awayTeam = FIXTURE_TEAMS[1],
     kvSeed = {},
@@ -78,7 +80,7 @@ function previewEnv(opts: PreviewEnvOpts = {}) {
         if (sql.includes('FROM lineups l')) {
           return {
             id: lineupId,
-            formation: '4-3-3',
+            formation: lineupFormation,
             is_official: lineupSource.includes('official') ? 1 : 0,
             source_type: lineupSource,
             confidence: 0.9,
@@ -349,5 +351,117 @@ describe('matchPreviewAnalysis', () => {
     const env = previewEnv({ snapshot: null });
     const ctx = await buildMatchPreviewContext(env, FIXTURE_MATCH.id);
     expect(ctx?.prob).toBeNull();
+  });
+
+  it('covers null scoreline distribution, nullish team stats, no H2H, and world-cup fixture fallback text', async () => {
+    vi.mocked(getGroupContextForMatch).mockResolvedValueOnce({ fixtures: [] });
+    vi.mocked(getHeadToHead).mockResolvedValueOnce(null as never);
+    const env = previewEnv({
+      match: { ...FIXTURE_MATCH, stage: null, group_code: null },
+      snapshot: {
+        ...FIXTURE_SNAPSHOT,
+        home_win_prob: 0.34,
+        away_win_prob: 0.33,
+        draw_prob: 0.33,
+        scoreline_json: null,
+        explanation_json: null,
+        most_likely_score: null,
+      },
+      lineupFormation: null,
+      homeTeam: {
+        ...FIXTURE_TEAMS[0],
+        elo_rating: null,
+        fifa_ranking: null,
+        collective_strength_rating: 0.7,
+      },
+      awayTeam: {
+        ...FIXTURE_TEAMS[1],
+        elo_rating: null,
+        fifa_ranking: null,
+        collective_strength_rating: 0.6,
+      },
+    });
+    const analysis = await getMatchPreviewAnalysis(env, FIXTURE_MATCH.id);
+    expect(analysis?.scorelineTop3).toEqual([]);
+    expect(analysis?.sections.context.en).toContain('World Cup 2026 fixture');
+    expect(analysis?.sections.strength.en).toContain('above average');
+    expect(analysis?.sections.strength.en).toContain('average');
+    expect(analysis?.sections.form.en).toContain('No completed WC 2026 H2H');
+    expect(analysis?.summary.en).toContain('Probabilities are tight');
+  });
+
+  it('keeps rule-based section text when AI omits optional section fields', async () => {
+    vi.mocked(getGroupContextForMatch).mockResolvedValueOnce({ fixtures: [] });
+    vi.mocked(isGatewayConfigured).mockReturnValue(true);
+    vi.mocked(gatewayChatJson).mockResolvedValue({
+      summaryVi: 'Tom tat AI toi gian',
+      summary: 'Minimal AI summary',
+    });
+    const env = previewEnv({
+      match: { ...FIXTURE_MATCH, stage: 'Group', group_code: null },
+      snapshot: {
+        ...FIXTURE_SNAPSHOT,
+        home_win_prob: 0.58,
+        away_win_prob: 0.21,
+        draw_prob: 0.21,
+      },
+    });
+    const analysis = await getMatchPreviewAnalysis(env, FIXTURE_MATCH.id);
+    expect(analysis?.summary.vi).toBe('Tom tat AI toi gian');
+    expect(analysis?.sections.context.en).toContain('World Cup 2026 fixture');
+    expect(analysis?.sections.strength.en).toContain('Home side edges');
+    expect(analysis?.sections.lineup.en).toContain('official');
+    expect(analysis?.sections.form.en).toContain('WC 2026 H2H form');
+    expect(analysis?.sections.tactical.en).toContain('Model leans');
+    expect(analysis?.insights[0]?.en).toContain('Likely scores');
+  });
+
+  it('uses default strength and kickoff fallbacks when probability note is absent and AI only returns summaryVi', async () => {
+    vi.mocked(getGroupContextForMatch).mockResolvedValueOnce({ fixtures: [] });
+    vi.mocked(getHeadToHead).mockResolvedValueOnce(null as never);
+    vi.mocked(isGatewayConfigured).mockReturnValue(true);
+    vi.mocked(gatewayChatJson).mockResolvedValue({
+      summaryVi: 'Tom tat chi co tieng Viet',
+    });
+    const env = previewEnv({
+      match: {
+        ...FIXTURE_MATCH,
+        home_team_id: 'team-mex',
+        away_team_id: 'team-usa',
+        kickoff_utc: null,
+        stage: null,
+        group_code: null,
+      },
+      snapshot: null,
+      homeTeam: {
+        ...FIXTURE_TEAMS[0],
+        id: 'team-mex',
+        fifa_ranking: null,
+        elo_rating: null,
+        collective_strength_rating: null,
+      },
+      awayTeam: {
+        ...FIXTURE_TEAMS[1],
+        id: 'team-usa',
+        name: 'United States',
+        short_name: 'USA',
+        country_code: 'USA',
+        fifa_ranking: null,
+        elo_rating: null,
+        collective_strength_rating: null,
+      },
+    });
+    const analysis = await getMatchPreviewAnalysis(env, FIXTURE_MATCH.id);
+    expect(analysis?.summary.vi).toBe('Tom tat chi co tieng Viet');
+    expect(analysis?.summary.en).toContain('Mexico vs');
+    expect(analysis?.sections.context.en).toContain('World Cup 2026 fixture');
+    expect(analysis?.sections.strength.en).toContain('high');
+    expect(analysis?.probabilityNote).toBeNull();
+  });
+
+  it('getMatchPreviewAnalysis returns null when context cannot be built', async () => {
+    const env = previewEnv();
+    vi.spyOn(await import('../src/db/repositories/teamsRepo'), 'getTeam').mockResolvedValueOnce(null);
+    expect(await getMatchPreviewAnalysis(env, FIXTURE_MATCH.id)).toBeNull();
   });
 });

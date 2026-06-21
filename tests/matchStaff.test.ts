@@ -134,4 +134,20 @@ describe('getMatchStaff', () => {
     const coach = await getTeamCoachProfile(env, FIXTURE_MATCH.home_team_id);
     expect(coach?.coachId).toBe('coach-1');
   });
+
+  it('loadStaffFeaturesForMatch maps referee row without fifa category', async () => {
+    const { loadStaffFeaturesForMatch } = await import('../src/services/matchStaff');
+    const env = createMockEnv({ DB: staffDb() });
+    const features = await loadStaffFeaturesForMatch(
+      env,
+      FIXTURE_MATCH.id,
+      WC2026_TOURNAMENT_ID,
+      FIXTURE_MATCH.home_team_id,
+      FIXTURE_MATCH.away_team_id,
+      'MEX',
+      'RSA',
+    );
+    expect(features.referee?.name).toBe('Jane Ref');
+    expect(features.homeCoach?.homeNationMatch).toBe(true);
+  });
 });

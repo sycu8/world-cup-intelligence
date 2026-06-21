@@ -43,6 +43,25 @@ describe('applySubstitutions', () => {
     expect(marks.get('a')?.subType).toBe('out');
     expect(marks.get('c')?.subType).toBe('in');
   });
+
+  it('ignores future or null-minute substitutions and tracks off-only entries', () => {
+    const onPitch = new Set(['a', 'b']);
+    const marks = applySubstitutions(
+      new Set(['a', 'b']),
+      onPitch,
+      [
+        { minute: null, player_id: 'c', related_player_id: 'a', team_id: 't1' },
+        { minute: 95, player_id: 'd', related_player_id: 'b', team_id: 't1' },
+        { minute: 40, player_id: null, related_player_id: 'a', team_id: 't1' },
+      ],
+      90,
+    );
+    expect(onPitch.has('a')).toBe(false);
+    expect(onPitch.has('b')).toBe(true);
+    expect(marks.get('a')?.subType).toBe('out');
+    expect(marks.has('c')).toBe(false);
+    expect(marks.has('d')).toBe(false);
+  });
 });
 
 describe('computePlayerRating', () => {
@@ -63,6 +82,25 @@ describe('computePlayerRating', () => {
     });
     expect(high).toBeGreaterThan(7);
     expect(high).toBeLessThanOrEqual(10);
+  });
+
+  it('handles null pass accuracy and card deductions', () => {
+    const low = computePlayerRating({
+      player_id: 'p2',
+      team_id: 't',
+      minutes_played: 20,
+      goals: 0,
+      assists: 0,
+      shots: 0,
+      shots_on_target: 0,
+      xg: 0,
+      passes: 0,
+      pass_accuracy: null as never,
+      yellow_cards: 1,
+      red_cards: 1,
+    });
+    expect(low).toBeGreaterThanOrEqual(4);
+    expect(low).toBeLessThan(6);
   });
 });
 
@@ -235,5 +273,219 @@ describe('getPitchMapPayload', () => {
       MOCK_SOURCES: 'true',
     });
     expect(await getPitchMapPayload(env, FIXTURE_MATCH.id)).toBeNull();
+  });
+
+  it('returns null when lineup query has no result array', async () => {
+    const kv = createMockKv({
+      [`cache:match-ref:${FIXTURE_MATCH.id}`]: JSON.stringify({ ...FIXTURE_MATCH, slug: FIXTURE_MATCH.id }),
+    });
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: () => ({ ...FIXTURE_MATCH, slug: FIXTURE_MATCH.id }),
+        all: () => ({} as never),
+      }),
+      KV: kv,
+      MOCK_SOURCES: 'true',
+    });
+    expect(await getPitchMapPayload(env, FIXTURE_MATCH.id)).toBeNull();
+  });
+
+  it('returns null when the match ref cannot be resolved', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: () => null,
+        all: () => ({ results: [] }),
+      }),
+      KV: createMockKv(),
+      MOCK_SOURCES: 'true',
+    });
+    expect(await getPitchMapPayload(env, 'missing-ref')).toBeNull();
+  });
+
+  it('hides ratings before halftime and uses computed coords, fallback labels, and null updatedAt', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: (sql) => {
+          if (sql.includes('FROM matches m') && sql.includes('m.id = ?')) {
+            return {
+              ...FIXTURE_MATCH,
+              status: 'live',
+              minute: 20,
+              slug: null,
+              updated_at: null,
+              home_name: 'Mexico',
+              away_name: 'South Africa',
+            };
+          }
+          if (sql.includes('SELECT name FROM teams')) return null;
+          return null;
+        },
+        all: (sql) => {
+          if (sql.includes('FROM lineups l')) {
+            return {
+              results: [
+                {
+                  lineup_id: 'lu-home',
+                  team_id: FIXTURE_MATCH.home_team_id,
+                  team_name: 'Mexico',
+                  formation: '4-3-3',
+                  source_type: null,
+                  player_id: 'h1',
+                  player_name: 'Home One',
+                  shirt_number: 1,
+                  position_slot: 'GK',
+                  role: null,
+                  player_position: null,
+                  is_starter: 1,
+                  x: null,
+                  y: null,
+                },
+                {
+                  lineup_id: 'lu-away',
+                  team_id: FIXTURE_MATCH.away_team_id,
+                  team_name: 'South Africa',
+                  formation: '4-3-3',
+                  source_type: null,
+                  player_id: 'a1',
+                  player_name: 'Away One',
+                  shirt_number: 1,
+                  position_slot: 'GK',
+                  role: null,
+                  player_position: null,
+                  is_starter: 1,
+                  x: null,
+                  y: null,
+                },
+              ],
+            };
+          }
+          return { results: [] };
+        },
+      }),
+      KV: createMockKv({
+        [`cache:match-ref:${FIXTURE_MATCH.id}`]: JSON.stringify({
+          ...FIXTURE_MATCH,
+          id: FIXTURE_MATCH.id,
+          slug: null,
+          status: 'live',
+          minute: 20,
+          updated_at: null,
+        }),
+      }),
+      MOCK_SOURCES: 'true',
+    });
+    const payload = await getPitchMapPayload(env, FIXTURE_MATCH.id);
+    expect(payload?.showRatings).toBe(false);
+    expect(payload?.home.teamName).toBe('Home');
+    expect(payload?.away.teamName).toBe('Away');
+    expect(payload?.home.players[0]?.x).toBeGreaterThan(0);
+    expect(payload?.away.players[0]?.x).toBeGreaterThan(0.5);
+    expect(payload?.home.players[0]?.rating).toBeNull();
+    expect(payload?.home.source).toBe('unknown');
+    expect(payload?.slug).toBe('vong-bang-a-mexico-vs-south-africa');
+    expect(payload?.updatedAt).toBeNull();
+  });
+
+  it('uses default fallback coordinates and skips zero-minute ratings', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: (sql) => {
+          if (sql.includes('FROM matches m') && sql.includes('m.id = ?')) {
+            return {
+              ...FIXTURE_MATCH,
+              slug: FIXTURE_MATCH.id,
+              status: 'completed',
+              minute: 90,
+              updated_at: '2026-06-11T21:30:00Z',
+            };
+          }
+          if (sql.includes('SELECT name FROM teams')) return { name: 'Fallback Team' };
+          return null;
+        },
+        all: (sql) => {
+          if (sql.includes('FROM lineups l')) {
+            return {
+              results: [
+                {
+                  lineup_id: 'lu-home',
+                  team_id: FIXTURE_MATCH.home_team_id,
+                  team_name: 'Mexico',
+                  formation: null,
+                  source_type: null,
+                  player_id: 'home-1',
+                  player_name: 'Home Unknown',
+                  shirt_number: 1,
+                  position_slot: null,
+                  role: null,
+                  player_position: null,
+                  is_starter: 0,
+                  x: null,
+                  y: null,
+                },
+                {
+                  lineup_id: 'lu-away',
+                  team_id: FIXTURE_MATCH.away_team_id,
+                  team_name: 'South Africa',
+                  formation: null,
+                  source_type: null,
+                  player_id: 'away-1',
+                  player_name: 'Away Unknown',
+                  shirt_number: 1,
+                  position_slot: null,
+                  role: null,
+                  player_position: null,
+                  is_starter: 0,
+                  x: null,
+                  y: null,
+                },
+              ],
+            };
+          }
+          if (sql.includes("event_type = 'substitution'")) return { results: [] };
+          if (sql.includes('FROM player_match_stats')) {
+            return {
+              results: [
+                {
+                  player_id: 'home-1',
+                  team_id: FIXTURE_MATCH.home_team_id,
+                  minutes_played: null,
+                  goals: 0,
+                  assists: 0,
+                  shots: 0,
+                  shots_on_target: 0,
+                  xg: 0,
+                  passes: 0,
+                  pass_accuracy: 80,
+                  yellow_cards: 0,
+                  red_cards: 0,
+                },
+              ],
+            };
+          }
+          if (sql.includes('FROM match_events') && sql.includes('end_x')) return { results: [] };
+          if (sql.includes('FROM match_events') && sql.includes('event_type')) return { results: [] };
+          return { results: [] };
+        },
+      }),
+      KV: createMockKv({
+        [`cache:match-ref:${FIXTURE_MATCH.id}`]: JSON.stringify({
+          ...FIXTURE_MATCH,
+          id: FIXTURE_MATCH.id,
+          slug: FIXTURE_MATCH.id,
+          status: 'completed',
+          minute: 90,
+          updated_at: '2026-06-11T21:30:00Z',
+        }),
+      }),
+      MOCK_SOURCES: 'true',
+    });
+    const payload = await getPitchMapPayload(env, FIXTURE_MATCH.id);
+    expect(payload?.showRatings).toBe(true);
+    expect(payload?.home.players).toEqual([]);
+    expect(payload?.away.players).toEqual([]);
+    expect(payload?.home.bench[0]?.x).toBe(0.25);
+    expect(payload?.away.bench[0]?.x).toBe(0.75);
+    expect(payload?.home.bench[0]?.rating).toBeNull();
+    expect(payload?.home.formation).toBeNull();
   });
 });

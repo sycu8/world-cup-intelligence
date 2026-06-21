@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">3.12% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>1/32</span>
+                <span class='fraction'>32/32</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>18/18</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">3.12% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>1/32</span>
+                <span class='fraction'>32/32</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -120,41 +120,41 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">38x</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">42x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/** Minimal team stat columns used to decide if FIFA Match Centre stats are complete. */
 export type TeamStatCompletenessRow = {
   possession: number | null;
@@ -165,42 +165,42 @@ export type TeamStatCompletenessRow = {
  * Full Match Centre stats require possession and passes for both sides.
  * Timeline-only fallbacks often set shots while leaving possession/passes at 0.
  */
-export <span class="fstat-no" title="function not covered" >function areTeamMatchStatsComplete(</span>
-<span class="cstat-no" title="statement not covered" >  home: TeamStatCompletenessRow | null | undefined,</span>
-<span class="cstat-no" title="statement not covered" >  away: TeamStatCompletenessRow | null | undefined,</span>
-<span class="cstat-no" title="statement not covered" >): boolean {</span>
-<span class="cstat-no" title="statement not covered" >  if (!home || !away) return false;</span>
-<span class="cstat-no" title="statement not covered" >  const homePoss = home.possession ?? 0;</span>
-<span class="cstat-no" title="statement not covered" >  const awayPoss = away.possession ?? 0;</span>
-<span class="cstat-no" title="statement not covered" >  const homePasses = home.passes ?? 0;</span>
-<span class="cstat-no" title="statement not covered" >  const awayPasses = away.passes ?? 0;</span>
-<span class="cstat-no" title="statement not covered" >  return homePoss &gt; 0 &amp;&amp; awayPoss &gt; 0 &amp;&amp; homePasses &gt; 0 &amp;&amp; awayPasses &gt; 0;</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function areTeamMatchStatsComplete(
+  home: TeamStatCompletenessRow | null | undefined,
+  away: TeamStatCompletenessRow | null | undefined,
+): boolean {
+  if (!home || !away) return false;
+  const homePoss = home.possession ?? 0;
+  const awayPoss = away.possession ?? 0;
+  const homePasses = home.passes ?? 0;
+  const awayPasses = away.passes ?? 0;
+  return homePoss &gt; 0 &amp;&amp; awayPoss &gt; 0 &amp;&amp; homePasses &gt; 0 &amp;&amp; awayPasses &gt; 0;
+}
 &nbsp;
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >export async function loadTeamMatchStatsCompleteness(</span></span>
-<span class="cstat-no" title="statement not covered" >  db: D1Database,</span>
-<span class="cstat-no" title="statement not covered" >  matchId: string,</span>
-<span class="cstat-no" title="statement not covered" >  homeTeamId: string,</span>
-<span class="cstat-no" title="statement not covered" >  awayTeamId: string,</span>
-<span class="cstat-no" title="statement not covered" >): Promise&lt;{ complete: boolean; home: TeamStatCompletenessRow | null; away: TeamStatCompletenessRow | null }&gt; {</span>
-<span class="cstat-no" title="statement not covered" >  const { results } = await db</span>
-<span class="cstat-no" title="statement not covered" >    .prepare(</span>
-<span class="cstat-no" title="statement not covered" >      `SELECT team_id, possession, passes</span>
+export async function loadTeamMatchStatsCompleteness(
+  db: D1Database,
+  matchId: string,
+  homeTeamId: string,
+  awayTeamId: string,
+): Promise&lt;{ complete: boolean; home: TeamStatCompletenessRow | null; away: TeamStatCompletenessRow | null }&gt; {
+  const { results } = await db
+    .prepare(
+      `SELECT team_id, possession, passes
        FROM team_match_stats
        WHERE match_id = ? AND team_id IN (?, ?)`,
-<span class="cstat-no" title="statement not covered" >    )</span>
-<span class="cstat-no" title="statement not covered" >    .bind(matchId, homeTeamId, awayTeamId)</span>
-<span class="cstat-no" title="statement not covered" >    .all&lt;{ team_id: string; possession: number | null; passes: number | null }&gt;();</span>
+    )
+    .bind(matchId, homeTeamId, awayTeamId)
+    .all&lt;{ team_id: string; possession: number | null; passes: number | null }&gt;();
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  const byTeam = new Map((results ?? []).map((r) =&gt; [r.team_id, r]));</span>
-<span class="cstat-no" title="statement not covered" >  const home = byTeam.get(homeTeamId) ?? null;</span>
-<span class="cstat-no" title="statement not covered" >  const away = byTeam.get(awayTeamId) ?? null;</span>
-<span class="cstat-no" title="statement not covered" >  return {</span>
-<span class="cstat-no" title="statement not covered" >    complete: areTeamMatchStatsComplete(home, away),</span>
-<span class="cstat-no" title="statement not covered" >    home,</span>
-<span class="cstat-no" title="statement not covered" >    away,</span>
-<span class="cstat-no" title="statement not covered" >  };</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+  const byTeam = new Map((results ?? []).map((r) =&gt; [r.team_id, r]));
+  const home = byTeam.get(homeTeamId) ?? null;
+  const away = byTeam.get(awayTeamId) ?? null;
+  return {
+    complete: areTeamMatchStatsComplete(home, away),
+    home,
+    away,
+  };
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -208,7 +208,7 @@ export <span class="fstat-no" title="function not covered" >function areTeamMatc
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

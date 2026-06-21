@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/20</span>
+                <span class='fraction'>20/20</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>9/9</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/20</span>
+                <span class='fraction'>20/20</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -88,53 +88,53 @@
 <a name='L23'></a><a href='#L23'>23</a>
 <a name='L24'></a><a href='#L24'>24</a>
 <a name='L25'></a><a href='#L25'>25</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { AppEnv } from '../env';
-<span class="cstat-no" title="statement not covered" >import { buildHomePayloadData } from './homePayload';</span>
-<span class="cstat-no" title="statement not covered" >import { buildDashboardPayload } from './dashboardPayload';</span>
-<span class="cstat-no" title="statement not covered" >import { buildSchedulePayload } from './schedulePayload';</span>
-<span class="cstat-no" title="statement not covered" >import { buildGroupStandingsPayload } from './tournamentStandings';</span>
-<span class="cstat-no" title="statement not covered" >import { getCachedJson, getCachedJsonWithVersion } from './payloadCache';</span>
-<span class="cstat-no" title="statement not covered" >import { buildHealthPayload } from './healthPayload';</span>
+import { buildHomePayloadData } from './homePayload';
+import { buildDashboardPayload } from './dashboardPayload';
+import { buildSchedulePayload } from './schedulePayload';
+import { buildGroupStandingsPayload } from './tournamentStandings';
+import { getCachedJson, getCachedJsonWithVersion } from './payloadCache';
+import { buildHealthPayload } from './healthPayload';
 &nbsp;
 /** Pre-warm KV caches after data refresh so hot paths stay under budget. */
-<span class="cstat-no" title="statement not covered" >export async function warmPayloadCaches(env: AppEnv): Promise&lt;void&gt; {</span>
-<span class="cstat-no" title="statement not covered" >  const version =</span>
-<span class="cstat-no" title="statement not covered" >    (await env.KV.get('meta:last_data_refresh')) ??</span>
-<span class="cstat-no" title="statement not covered" >    (await env.KV.get('meta:last_fifa_sync')) ??</span>
-<span class="cstat-no" title="statement not covered" >    'cold';</span>
+export async function warmPayloadCaches(env: AppEnv): Promise&lt;void&gt; {
+  const version =
+    (await env.KV.get('meta:last_data_refresh')) ??
+    (await env.KV.get('meta:last_fifa_sync')) ??
+    'cold';
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  await Promise.all([</span>
-<span class="cstat-no" title="statement not covered" >    getCachedJsonWithVersion(env, 'home:t-2026', () =&gt; buildHomePayloadData(env), 60),</span>
-<span class="cstat-no" title="statement not covered" >    getCachedJsonWithVersion(env, 'schedule:t-2026', () =&gt; buildSchedulePayload(env, 't-2026'), 60),</span>
-<span class="cstat-no" title="statement not covered" >    getCachedJsonWithVersion(env, 'dashboard', () =&gt; buildDashboardPayload(env), 60),</span>
-<span class="cstat-no" title="statement not covered" >    getCachedJsonWithVersion(env, 'standings', () =&gt; buildGroupStandingsPayload(env), 60),</span>
-<span class="cstat-no" title="statement not covered" >    getCachedJson(env, 'cache:health:v1', () =&gt; buildHealthPayload(env), 15),</span>
-<span class="cstat-no" title="statement not covered" >    env.KV.put('cache:warm:version', version, { expirationTtl: 120 }),</span>
-<span class="cstat-no" title="statement not covered" >  ]);</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+  await Promise.all([
+    getCachedJsonWithVersion(env, 'home:t-2026', () =&gt; buildHomePayloadData(env), 60),
+    getCachedJsonWithVersion(env, 'schedule:t-2026', () =&gt; buildSchedulePayload(env, 't-2026'), 60),
+    getCachedJsonWithVersion(env, 'dashboard', () =&gt; buildDashboardPayload(env), 60),
+    getCachedJsonWithVersion(env, 'standings', () =&gt; buildGroupStandingsPayload(env), 60),
+    getCachedJson(env, 'cache:health:v1', () =&gt; buildHealthPayload(env), 15),
+    env.KV.put('cache:warm:version', version, { expirationTtl: 120 }),
+  ]);
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -142,7 +142,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

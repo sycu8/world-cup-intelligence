@@ -84,4 +84,73 @@ describe('probability routes extended', () => {
     expect(res.status).toBe(200);
     expect(json.data.homeWinProb).toBeCloseTo(0.55);
   });
+
+  it('treats invalid or empty snapshot JSON as incomplete and falls back to recompute payload defaults', async () => {
+    const env = createRouteTestEnv(
+      {},
+      {
+        snapshot: {
+          ...FIXTURE_SNAPSHOT,
+          scoreline_json: '{bad',
+          interval_json: '{}',
+          explanation_json: '{bad',
+        },
+      },
+    );
+    const { res, json } = await jsonRoute<{
+      data: { topScorelines: Array<{ score: string; prob: number }>; drivers: string[]; updatedAt: string | null };
+    }>(probabilityRoutes, `${matchPath}/probability`, { env });
+    expect(res.status).toBe(200);
+    expect(json.data.topScorelines.length).toBeGreaterThan(0);
+    expect(json.data.drivers.length).toBeGreaterThan(0);
+    expect(json.data.updatedAt).toBeTruthy();
+  });
+
+  it('accepts explanation-summary snapshots and exposes raw scoreline/interval data when recompute path is used', async () => {
+    const match = {
+      ...FIXTURE_MATCH,
+      id: 'm-prob-summary',
+    };
+    const env = createRouteTestEnv(
+      {},
+      {
+        match: {
+          ...FIXTURE_MATCH,
+          ...match,
+          home_name: 'Mexico',
+          away_name: 'South Africa',
+          home_short: 'MEX',
+          away_short: 'RSA',
+          home_country_code: 'MEX',
+          away_country_code: 'RSA',
+        },
+        snapshot: {
+          ...FIXTURE_SNAPSHOT,
+          match_id: match.id,
+          explanation_json: JSON.stringify({ summary: 'Summary fallback driver' }),
+        },
+      },
+    );
+
+    const probability = await jsonRoute<{ data: { drivers: string[] } }>(
+      probabilityRoutes,
+      `/${match.id}/probability`,
+      { env },
+    );
+    expect(Array.isArray(probability.json.data.drivers)).toBe(true);
+
+    const scoreline = await jsonRoute<{ data: Record<string, number> }>(
+      probabilityRoutes,
+      `/${match.id}/scoreline?recompute=1`,
+      { env },
+    );
+    expect(Object.keys(scoreline.json.data).length).toBeGreaterThan(0);
+
+    const intervals = await jsonRoute<{ data: Record<string, unknown> }>(
+      probabilityRoutes,
+      `/${match.id}/intervals?recompute=1`,
+      { env },
+    );
+    expect(Object.keys(intervals.json.data).length).toBeGreaterThan(0);
+  });
 });

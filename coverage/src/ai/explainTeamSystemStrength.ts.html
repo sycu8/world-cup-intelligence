@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/19</span>
+                <span class='fraction'>19/19</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>11/11</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/19</span>
+                <span class='fraction'>19/19</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -89,55 +89,55 @@
 <a name='L24'></a><a href='#L24'>24</a>
 <a name='L25'></a><a href='#L25'>25</a>
 <a name='L26'></a><a href='#L26'>26</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { AppEnv } from '../env';
-<span class="cstat-no" title="statement not covered" >import { TeamSystemExplanationSchema } from './intelligenceSchemas';</span>
+import { TeamSystemExplanationSchema } from './intelligenceSchemas';
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export async function explainTeamSystemStrength(</span>
-<span class="cstat-no" title="statement not covered" >  env: AppEnv,</span>
-<span class="cstat-no" title="statement not covered" >  data: {</span>
+export async function explainTeamSystemStrength(
+  env: AppEnv,
+  data: {
     matchId: string;
     home: { collectiveStrengthScore?: number; tacticalIdentity?: string } | null;
     away: { collectiveStrengthScore?: number; tacticalIdentity?: string } | null;
   } | null,
-<span class="cstat-no" title="statement not covered" >) {</span>
-<span class="cstat-no" title="statement not covered" >  if (!data) return null;</span>
-<span class="cstat-no" title="statement not covered" >  return TeamSystemExplanationSchema.parse({</span>
-<span class="cstat-no" title="statement not covered" >    matchId: data.matchId,</span>
-<span class="cstat-no" title="statement not covered" >    homeSummary: data.home</span>
-<span class="cstat-no" title="statement not covered" >      ? `Collective strength ${((data.home.collectiveStrengthScore ?? 0.5) * 100).toFixed(0)}% — ${data.home.tacticalIdentity ?? 'balanced'}.`</span>
-<span class="cstat-no" title="statement not covered" >      : 'Home team system profile pending recompute.',</span>
-<span class="cstat-no" title="statement not covered" >    awaySummary: data.away</span>
-<span class="cstat-no" title="statement not covered" >      ? `Collective strength ${((data.away.collectiveStrengthScore ?? 0.5) * 100).toFixed(0)}% — ${data.away.tacticalIdentity ?? 'balanced'}.`</span>
-<span class="cstat-no" title="statement not covered" >      : 'Away team system profile pending recompute.',</span>
-<span class="cstat-no" title="statement not covered" >    comparison: 'Compare pressing, compactness, and transition scores in the team system panel.',</span>
-<span class="cstat-no" title="statement not covered" >    uncertaintyNotes: ['Lineup changes can shift collective metrics materially.'],</span>
-<span class="cstat-no" title="statement not covered" >    disclaimer: 'Team system metrics describe structure — not individual player quality alone.',</span>
-<span class="cstat-no" title="statement not covered" >  });</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+) {
+  if (!data) return null;
+  return TeamSystemExplanationSchema.parse({
+    matchId: data.matchId,
+    homeSummary: data.home
+      ? `Collective strength ${((data.home.collectiveStrengthScore ?? 0.5) * 100).toFixed(0)}% — ${data.home.tacticalIdentity ?? 'balanced'}.`
+      : 'Home team system profile pending recompute.',
+    awaySummary: data.away
+      ? `Collective strength ${((data.away.collectiveStrengthScore ?? 0.5) * 100).toFixed(0)}% — ${data.away.tacticalIdentity ?? 'balanced'}.`
+      : 'Away team system profile pending recompute.',
+    comparison: 'Compare pressing, compactness, and transition scores in the team system panel.',
+    uncertaintyNotes: ['Lineup changes can shift collective metrics materially.'],
+    disclaimer: 'Team system metrics describe structure — not individual player quality alone.',
+  });
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -145,7 +145,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

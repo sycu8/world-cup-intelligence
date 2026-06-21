@@ -348,6 +348,167 @@ describe('coverage gaps — components and pages', () => {
     });
   });
 
+  it('MatchAnalysisPage falls back to preview matchLabel and em dash scoreline when history fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/api/matches/fallback-article/history')) {
+          return new Response('history down', { status: 500 });
+        }
+        if (url.includes('/api/matches/fallback-article/preview')) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                ...(mockApiBody('/api/matches/usa-vs-mexico/preview') as any).data,
+                matchLabel: { en: 'Fallback preview title', vi: 'Fallback preview title' },
+                stage: null,
+                groupCode: null,
+                home: { teamId: null, teamName: '', shortName: '', formation: null, lineupSource: 'unknown' },
+                away: { teamId: null, teamName: '', shortName: '', formation: null, lineupSource: 'unknown' },
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (url.includes('/api/matches/fallback-article/probability')) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                ...(mockApiBody('/api/matches/usa-vs-mexico/probability') as any).data,
+                mostLikelyScore: null,
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (url.match(/\/api\/matches\/fallback-article$/)) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                ...(mockApiBody('/api/matches/usa-vs-mexico') as any).data,
+                id: 'fallback-article',
+                slug: null,
+                home_team_id: null,
+                away_team_id: null,
+                stage: null,
+                kickoff_utc: '2026-06-11T19:00:00Z',
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(JSON.stringify(mockApiBody(url)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    renderWithRouter(
+      <Routes>
+        <Route path="/matches/:matchId/analysis" element={<MatchAnalysisPage />} />
+      </Routes>,
+      '/matches/fallback-article/analysis',
+    );
+    await waitFor(() => expect(document.body.textContent).toMatch(/Fallback preview title/i), {
+      timeout: 8000,
+    });
+    expect(document.body.textContent).toMatch(/—|scoreline|tỉ số/i);
+  });
+
+  it('MatchAnalysisPage uses history fallback fields when world cup-specific values are absent', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/api/matches/history-fallback/history')) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                history: [
+                  {
+                    id: 'hist-1',
+                    kickoff_utc: '2022-11-21T16:00:00Z',
+                    stage: 'Group',
+                    home_team_id: 't-usa',
+                    away_team_id: 't-mex',
+                    home_name: 'USA',
+                    away_name: 'Mexico',
+                    home_score: 1,
+                    away_score: 1,
+                  },
+                ],
+                summary: {
+                  totalMatches: 1,
+                  homeTeamWins: 0,
+                  awayTeamWins: 0,
+                  draws: 1,
+                  avgGoalsHome: 1,
+                  avgGoalsAway: 1,
+                  recentFormHome: 'D',
+                  recentFormAway: 'D',
+                },
+                current: {
+                  id: 'current',
+                  kickoff_utc: '2026-06-11T19:00:00Z',
+                  stage: 'Group',
+                  home_team_id: 't-usa',
+                  away_team_id: 't-mex',
+                  home_name: null,
+                  away_name: null,
+                  home_score: 0,
+                  away_score: 0,
+                },
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (url.match(/\/api\/matches\/history-fallback$/)) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                ...(mockApiBody('/api/matches/usa-vs-mexico') as any).data,
+                id: 'history-fallback',
+                slug: 'history-fallback',
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(JSON.stringify(mockApiBody(url)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    renderWithRouter(
+      <Routes>
+        <Route path="/matches/:matchId/analysis" element={<MatchAnalysisPage />} />
+      </Routes>,
+      '/matches/history-fallback/analysis',
+    );
+    await waitFor(() => expect(document.body.textContent).toMatch(/USA|Mexico/i), {
+      timeout: 8000,
+    });
+    expect(document.body.textContent).toMatch(/history|lịch sử|W\/D\/L|D/i);
+  });
+
+  it('MatchAnalysisPage formats kickoff text in English mode', async () => {
+    window.localStorage.setItem('wc-display-mode', 'en');
+    renderWithRouter(
+      <Routes>
+        <Route path="/matches/:matchId/analysis" element={<MatchAnalysisPage />} />
+      </Routes>,
+      '/matches/usa-vs-mexico/analysis',
+    );
+    await waitFor(() => expect(document.body.textContent).toMatch(/USA|Mexico|Thursday|June/i), {
+      timeout: 8000,
+    });
+  });
+
   it('NewsArticlePage handles missing id and polling for untranslated articles', async () => {
     renderWithRouter(
       <Routes>

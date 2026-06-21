@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/27</span>
+                <span class='fraction'>27/27</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>7/7</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/27</span>
+                <span class='fraction'>27/27</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -102,81 +102,81 @@
 <a name='L37'></a><a href='#L37'>37</a>
 <a name='L38'></a><a href='#L38'>38</a>
 <a name='L39'></a><a href='#L39'>39</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">53x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">53x</span>
+<span class="cline-any cline-yes">53x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">41x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">53x</span>
+<span class="cline-any cline-yes">53x</span>
+<span class="cline-any cline-yes">53x</span>
+<span class="cline-any cline-yes">53x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">53x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { MarketSignalsPayload } from '../../lib/api';
-<span class="cstat-no" title="statement not covered" >import { useI18n } from '../../lib/i18n/I18nContext';</span>
-<span class="cstat-no" title="statement not covered" >import { MarketDisclaimer } from './MarketDisclaimer';</span>
-<span class="cstat-no" title="statement not covered" >import { ModelVsMarketChart } from './ModelVsMarketChart';</span>
-<span class="cstat-no" title="statement not covered" >import { pct } from '../../lib/format';</span>
-<span class="cstat-no" title="statement not covered" >import { DataKindBadge, DataKindLegend } from '../ui/DataKindBadge';</span>
+import { useI18n } from '../../lib/i18n/I18nContext';
+import { MarketDisclaimer } from './MarketDisclaimer';
+import { ModelVsMarketChart } from './ModelVsMarketChart';
+import { pct } from '../../lib/format';
+import { DataKindBadge, DataKindLegend } from '../ui/DataKindBadge';
 &nbsp;
 type Props = {
   payload: MarketSignalsPayload | null;
   loading?: boolean;
 };
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function MarketSignalPanel({ payload, loading }: Props) {</span>
-<span class="cstat-no" title="statement not covered" >  const { t } = useI18n();</span>
+export function MarketSignalPanel({ payload, loading }: Props) {
+  const { t } = useI18n();
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  const signals = payload?.signals;</span>
-<span class="cstat-no" title="statement not covered" >  if (loading || !signals) return null;</span>
+  const signals = payload?.signals;
+  if (loading || !signals) return null;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
-<span class="cstat-no" title="statement not covered" >    &lt;section className="panel-elevated space-y-4 border-yellow/20"&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;div&gt;</span>
-<span class="cstat-no" title="statement not covered" >        &lt;div className="flex flex-wrap items-center gap-2"&gt;</span>
-<span class="cstat-no" title="statement not covered" >          &lt;h2 className="font-heading text-xl text-foreground"&gt;{t('market.chartTitle')}&lt;/h2&gt;</span>
-<span class="cstat-no" title="statement not covered" >          &lt;DataKindBadge kind="predicted" compact /&gt;</span>
-<span class="cstat-no" title="statement not covered" >        &lt;/div&gt;</span>
-<span class="cstat-no" title="statement not covered" >        &lt;p className="mt-1 text-sm text-muted"&gt;{t('market.subtitle')}&lt;/p&gt;</span>
-<span class="cstat-no" title="statement not covered" >        &lt;DataKindLegend className="mt-2" /&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;/div&gt;</span>
+  return (
+    &lt;section className="panel-elevated space-y-4 border-yellow/20"&gt;
+      &lt;div&gt;
+        &lt;div className="flex flex-wrap items-center gap-2"&gt;
+          &lt;h2 className="font-heading text-xl text-foreground"&gt;{t('market.chartTitle')}&lt;/h2&gt;
+          &lt;DataKindBadge kind="predicted" compact /&gt;
+        &lt;/div&gt;
+        &lt;p className="mt-1 text-sm text-muted"&gt;{t('market.subtitle')}&lt;/p&gt;
+        &lt;DataKindLegend className="mt-2" /&gt;
+      &lt;/div&gt;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >      &lt;ModelVsMarketChart data={signals} /&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;p className="font-mono-data text-xs text-muted"&gt;</span>
-<span class="cstat-no" title="statement not covered" >        {t('market.volatility')} {pct(signals.volatilityScore)} · {t('common.updated')}{' '}</span>
-<span class="cstat-no" title="statement not covered" >        {signals.updatedAt ? new Date(signals.updatedAt).toLocaleString() : '—'}</span>
-<span class="cstat-no" title="statement not covered" >      &lt;/p&gt;</span>
-<span class="cstat-no" title="statement not covered" >      &lt;MarketDisclaimer className="border-t border-border/40 pt-3" /&gt;</span>
-<span class="cstat-no" title="statement not covered" >    &lt;/section&gt;</span>
+      &lt;ModelVsMarketChart data={signals} /&gt;
+      &lt;p className="font-mono-data text-xs text-muted"&gt;
+        {t('market.volatility')} {pct(signals.volatilityScore)} · {t('common.updated')}{' '}
+        {signals.updatedAt ? new Date(signals.updatedAt).toLocaleString() : '—'}
+      &lt;/p&gt;
+      &lt;MarketDisclaimer className="border-t border-border/40 pt-3" /&gt;
+    &lt;/section&gt;
   );
-<span class="cstat-no" title="statement not covered" >}</span>
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -184,7 +184,7 @@ type Props = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

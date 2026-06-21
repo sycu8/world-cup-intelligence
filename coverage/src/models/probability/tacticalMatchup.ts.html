@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.18% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>15/22</span>
+                <span class='fraction'>22/22</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">14.28% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/7</span>
+                <span class='fraction'>16/16</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.18% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>15/22</span>
+                <span class='fraction'>22/22</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -94,56 +94,56 @@
 <a name='L29'></a><a href='#L29'>29</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">45x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">45x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">43x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">45x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { LineupFeatures } from './types';
 &nbsp;
 export function tacticalMatchupModifier(home?: LineupFeatures, away?: LineupFeatures): { home: number; away: number } {
-  const homeForm = <span class="branch-0 cbranch-no" title="branch not covered" >home?.formation ?? '</span>4-3-3';
-  const awayForm = <span class="branch-0 cbranch-no" title="branch not covered" >away?.formation ?? '</span>4-3-3';
+  const homeForm = home?.formation ?? '4-3-3';
+  const awayForm = away?.formation ?? '4-3-3';
   let homeMod = 1;
   let awayMod = 1;
 &nbsp;
-  const homeAttacking = homeForm.startsWith('4-3'<span class="branch-0 cbranch-no" title="branch not covered" >) || homeForm.startsWith('3-');</span>
+  const homeAttacking = homeForm.startsWith('4-3') || homeForm.startsWith('3-');
   const awayLowBlock = awayForm.startsWith('5-') || awayForm.startsWith('5-3') || awayForm.startsWith('5-4');
 &nbsp;
-  if (homeAttacking &amp;&amp; awayLowBlock) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
-<span class="cstat-no" title="statement not covered" >    homeMod *= 1.05;</span>
-<span class="cstat-no" title="statement not covered" >    awayMod *= 0.88;</span>
+  if (homeAttacking &amp;&amp; awayLowBlock) {
+    homeMod *= 1.05;
+    awayMod *= 0.88;
   } else if (homeForm.includes('3') &amp;&amp; awayForm.includes('4')) {
     homeMod *= 1.03;
     awayMod *= 0.98;
-<span class="branch-0 cbranch-no" title="branch not covered" >  } else if (homeForm.includes('5') &amp;&amp; awayForm.includes('3')) {</span>
-<span class="cstat-no" title="statement not covered" >    homeMod *= 0.97;</span>
-<span class="cstat-no" title="statement not covered" >    awayMod *= 1.02;</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
+  } else if (homeForm.includes('5') &amp;&amp; awayForm.includes('3')) {
+    homeMod *= 0.97;
+    awayMod *= 1.02;
+  }
 &nbsp;
-  if (awayLowBlock) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
-<span class="cstat-no" title="statement not covered" >    awayMod *= 0.95;</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
+  if (awayLowBlock) {
+    awayMod *= 0.95;
+  }
 &nbsp;
   return { home: homeMod, away: awayMod };
 }
@@ -154,7 +154,7 @@ export function tacticalMatchupModifier(home?: LineupFeatures, away?: LineupFeat
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

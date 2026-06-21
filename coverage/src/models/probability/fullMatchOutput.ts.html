@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">9.37% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>3/32</span>
+                <span class='fraction'>32/32</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">9.37% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>3/32</span>
+                <span class='fraction'>32/32</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -145,36 +145,36 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">31x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { MatchFeatureInput } from './types';
 import { computeProbability, MODEL_VERSION } from './engine';
 import { buildTeamSystemProfile, type TeamSystemProfile } from './teamSystemStrength';
@@ -201,36 +201,36 @@ export type MatchProbabilityOutput = {
   confidence: number;
 };
 &nbsp;
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >export async function computeFullMatchProbability(</span></span>
-<span class="cstat-no" title="statement not covered" >  input: MatchFeatureInput,</span>
-<span class="cstat-no" title="statement not covered" >  homeFormation = '4-3-3',</span>
-<span class="cstat-no" title="statement not covered" >  awayFormation = '4-3-3',</span>
-<span class="cstat-no" title="statement not covered" >): Promise&lt;MatchProbabilityOutput&gt; {</span>
-<span class="cstat-no" title="statement not covered" >  const base = await computeProbability(input);</span>
-<span class="cstat-no" title="statement not covered" >  const homeSystem = buildTeamSystemProfile(input.homeTeam, homeFormation);</span>
-<span class="cstat-no" title="statement not covered" >  const awaySystem = buildTeamSystemProfile(input.awayTeam, awayFormation);</span>
-<span class="cstat-no" title="statement not covered" >  const scenarios = computeScenarioLikelihoods(input, base, homeSystem, awaySystem);</span>
+export async function computeFullMatchProbability(
+  input: MatchFeatureInput,
+  homeFormation = '4-3-3',
+  awayFormation = '4-3-3',
+): Promise&lt;MatchProbabilityOutput&gt; {
+  const base = await computeProbability(input);
+  const homeSystem = buildTeamSystemProfile(input.homeTeam, homeFormation);
+  const awaySystem = buildTeamSystemProfile(input.awayTeam, awayFormation);
+  const scenarios = computeScenarioLikelihoods(input, base, homeSystem, awaySystem);
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return {</span>
-<span class="cstat-no" title="statement not covered" >    matchId: base.matchId,</span>
-<span class="cstat-no" title="statement not covered" >    modelVersion: MODEL_VERSION,</span>
-<span class="cstat-no" title="statement not covered" >    inputHash: base.inputHash,</span>
-<span class="cstat-no" title="statement not covered" >    timestamp: base.timestamp,</span>
-<span class="cstat-no" title="statement not covered" >    homeWinProb: base.homeWinProb,</span>
-<span class="cstat-no" title="statement not covered" >    drawProb: base.drawProb,</span>
-<span class="cstat-no" title="statement not covered" >    awayWinProb: base.awayWinProb,</span>
-<span class="cstat-no" title="statement not covered" >    expectedHomeGoals: base.expectedHomeGoals,</span>
-<span class="cstat-no" title="statement not covered" >    expectedAwayGoals: base.expectedAwayGoals,</span>
-<span class="cstat-no" title="statement not covered" >    mostLikelyScore: base.mostLikelyScore,</span>
-<span class="cstat-no" title="statement not covered" >    scorelineDistribution: base.scorelineDistribution,</span>
-<span class="cstat-no" title="statement not covered" >    intervalDistribution: base.intervalDistribution,</span>
-<span class="cstat-no" title="statement not covered" >    scenarioLikelihoods: scenarios,</span>
-<span class="cstat-no" title="statement not covered" >    teamSystemFactors: { home: homeSystem, away: awaySystem },</span>
-<span class="cstat-no" title="statement not covered" >    topPositiveFactors: base.topPositiveFactors,</span>
-<span class="cstat-no" title="statement not covered" >    topNegativeFactors: base.topNegativeFactors,</span>
-<span class="cstat-no" title="statement not covered" >    confidence: base.confidence,</span>
-<span class="cstat-no" title="statement not covered" >  };</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+  return {
+    matchId: base.matchId,
+    modelVersion: MODEL_VERSION,
+    inputHash: base.inputHash,
+    timestamp: base.timestamp,
+    homeWinProb: base.homeWinProb,
+    drawProb: base.drawProb,
+    awayWinProb: base.awayWinProb,
+    expectedHomeGoals: base.expectedHomeGoals,
+    expectedAwayGoals: base.expectedAwayGoals,
+    mostLikelyScore: base.mostLikelyScore,
+    scorelineDistribution: base.scorelineDistribution,
+    intervalDistribution: base.intervalDistribution,
+    scenarioLikelihoods: scenarios,
+    teamSystemFactors: { home: homeSystem, away: awaySystem },
+    topPositiveFactors: base.topPositiveFactors,
+    topNegativeFactors: base.topNegativeFactors,
+    confidence: base.confidence,
+  };
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -238,7 +238,7 @@ export type MatchProbabilityOutput = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

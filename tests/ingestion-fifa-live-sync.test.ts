@@ -6,6 +6,7 @@ import {
   needsFullFifaMatchInfo,
 } from '../src/ingestion/fifa/fifaLiveSync';
 import { createIngestionEnv } from './helpers/ingestionMockDb';
+import { createMockDb, createMockEnv } from './helpers/mockEnv';
 import { FIXTURE_MATCH, FIXTURE_TEAMS } from './helpers/fixtures';
 import { WC2026_COMPETITION_ID } from '../src/ingestion/fifa/constants';
 import type { FifaCalendarMatch, FifaMatchInfo } from '../src/ingestion/fifa/fifaApiClient';
@@ -225,6 +226,17 @@ describe('ingestion fifaLiveSync', () => {
     expect(await syncFifaMatchByRef(env2, FIXTURE_MATCH.id)).toBe(false);
   });
 
+  it('syncFifaMatchByRef returns false when calendar rows cannot resolve team ids', async () => {
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaCalendarMatches).mockResolvedValue([
+      calendarRow({ Home: null, Away: { IdCountry: 'RSA', TeamName: [{ Locale: 'en-GB', Description: 'South Africa' }] } }),
+    ]);
+    const { env } = createIngestionEnv({
+      matches: [{ ...FIXTURE_MATCH, fifa_match_id: null }],
+    });
+    expect(await syncFifaMatchByRef(env, FIXTURE_MATCH.id)).toBe(false);
+  });
+
   it('syncFifaMatchByRef returns false when match info missing', async () => {
     const api = await import('../src/ingestion/fifa/fifaApiClient');
     vi.mocked(api.fetchFifaMatchInfo).mockResolvedValue(null);
@@ -321,6 +333,33 @@ describe('ingestion fifaLiveSync', () => {
     });
     const result = await syncFifaWc2026Matches(env);
     expect(result.updatedIds).toContain(FIXTURE_MATCH.id);
+  });
+
+  it('syncFifaWc2026Matches tolerates undefined team and match query result arrays', async () => {
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaWc2026FixturesCalendar).mockResolvedValue([calendarRow()]);
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: (sql) => {
+          if (sql.includes("SELECT id, name FROM teams WHERE id LIKE")) return {} as never;
+          if (sql.includes('FROM matches WHERE tournament_id = ?')) return {} as never;
+          return { results: [] };
+        },
+      }),
+      R2_RAW: { put: vi.fn(async () => undefined) } as never,
+    });
+    const result = await syncFifaWc2026Matches(env as never);
+    expect(result.synced).toBe(0);
+    expect(result.skipped).toBe(1);
+  });
+
+  it('syncFifaWc2026Matches skips unresolved team-day lookups when internal kickoff is missing', async () => {
+    const { env } = createIngestionEnv({
+      matches: [{ ...FIXTURE_MATCH, fifa_match_id: null, kickoff_utc: null }],
+    });
+    const result = await syncFifaWc2026Matches(env);
+    expect(result.synced).toBe(0);
+    expect(result.skipped).toBe(1);
   });
 
   it('applyFifaCalendarRow updates when calendar scores change', async () => {
@@ -427,5 +466,180 @@ describe('ingestion fifaLiveSync', () => {
     });
     await syncFifaWc2026Matches(env);
     expect(emitter.emitMatchStatusChange).toHaveBeenCalled();
+  });
+
+  it('syncMatchEvents skips players without shirt numbers and ingests red cards', async () => {
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    const blog = await import('../src/ingestion/fifa/fifaLiveBlogSync');
+    const lineup = await import('../src/ingestion/fifa/fifaLineupSync');
+    vi.mocked(blog.shouldSyncFifaBlogAndStats).mockResolvedValue(false);
+    vi.mocked(lineup.shouldSyncFifaLineupForKickoff).mockReturnValue(false);
+    vi.mocked(api.fetchFifaMatchInfo).mockResolvedValue(
+      matchInfo({
+        HomeTeam: {
+          ...matchInfo().HomeTeam!,
+          Players: [{ IdPlayer: 'p-red', ShirtNumber: 5, Status: 1 }],
+          Goals: [{ IdPlayer: 'p-missing', Minute: "12'", Period: 3 }],
+          Bookings: [{ IdPlayer: 'p-red', Minute: "70'", Period: 5, Card: 2 }],
+        },
+        BallPossession: { OverallHome: 60, OverallAway: null },
+      }),
+    );
+    const { env, db } = createIngestionEnv({
+      matches: [{ ...FIXTURE_MATCH, fifa_match_id: '400021443', status: 'live' }],
+      teamMatchStats: [],
+    });
+    await syncFifaWc2026Matches(env);
+    expect(db.batch).toHaveBeenCalled();
+  });
+
+  it('applyFifaPayload skips completion emit when already completed', async () => {
+    const emitter = await import('../src/services/publicApi/emitter');
+    const blog = await import('../src/ingestion/fifa/fifaLiveBlogSync');
+    const lineup = await import('../src/ingestion/fifa/fifaLineupSync');
+    vi.mocked(blog.shouldSyncFifaBlogAndStats).mockResolvedValue(false);
+    vi.mocked(lineup.shouldSyncFifaLineupForKickoff).mockReturnValue(false);
+    vi.mocked(emitter.emitMatchCompleted).mockClear();
+
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaMatchInfo).mockResolvedValue(
+      matchInfo({
+        MatchStatus: 0,
+        Period: 10,
+        MatchTime: "90'",
+        HomeTeamScore: 2,
+        AwayTeamScore: 1,
+      }),
+    );
+
+    const { env } = createIngestionEnv({
+      matches: [
+        {
+          ...FIXTURE_MATCH,
+          fifa_match_id: '400021443',
+          status: 'completed',
+          minute: 90,
+          home_score: 2,
+          away_score: 1,
+        },
+      ],
+    });
+    await syncFifaWc2026Matches(env);
+    expect(emitter.emitMatchCompleted).not.toHaveBeenCalled();
+  });
+
+  it('syncFifaWc2026Matches falls back to the calendar row when full match info is unavailable', async () => {
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaMatchInfo).mockResolvedValue(null);
+    const blog = await import('../src/ingestion/fifa/fifaLiveBlogSync');
+    vi.mocked(blog.shouldSyncFifaBlogAndStats).mockResolvedValue(false);
+    const lineup = await import('../src/ingestion/fifa/fifaLineupSync');
+    vi.mocked(lineup.shouldSyncFifaLineupForKickoff).mockReturnValue(false);
+
+    const { env } = createIngestionEnv({
+      matches: [{ ...FIXTURE_MATCH, fifa_match_id: '400021443', status: 'live', minute: 50 }],
+    });
+    const result = await syncFifaWc2026Matches(env);
+    expect(result.synced).toBe(1);
+    expect(env.R2_RAW.put).toHaveBeenCalled();
+  });
+
+  it('applyFifaPayload tolerates missing player lists and partial possession updates', async () => {
+    const blog = await import('../src/ingestion/fifa/fifaLiveBlogSync');
+    vi.mocked(blog.shouldSyncFifaBlogAndStats).mockResolvedValue(false);
+    const lineup = await import('../src/ingestion/fifa/fifaLineupSync');
+    vi.mocked(lineup.shouldSyncFifaLineupForKickoff).mockReturnValue(false);
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaMatchInfo).mockResolvedValue(
+      matchInfo({
+        HomeTeam: {
+          ...matchInfo().HomeTeam!,
+          Players: undefined,
+          Goals: undefined,
+          Bookings: [{ IdPlayer: undefined, Minute: "55'", Period: 5, Card: 1 }],
+          Substitutions: [{ IdPlayer: undefined, IdSubstitute: undefined, Minute: "60'", Period: 5 }],
+        },
+        AwayTeam: {
+          ...matchInfo().AwayTeam!,
+          Players: undefined,
+          Goals: undefined,
+          Bookings: undefined,
+          Substitutions: undefined,
+        },
+        BallPossession: { OverallHome: null, OverallAway: 41 },
+      }),
+    );
+
+    const { env } = createIngestionEnv({
+      matches: [{ ...FIXTURE_MATCH, fifa_match_id: '400021443', status: 'live' }],
+      teamMatchStats: [],
+    });
+    const result = await syncFifaWc2026Matches(env);
+    expect(result.updatedIds).toContain(FIXTURE_MATCH.id);
+  });
+
+  it('syncFifaMatchByRef resolves by current day when kickoff is missing', async () => {
+    const { env } = createIngestionEnv({
+      matches: [{ ...FIXTURE_MATCH, fifa_match_id: null, kickoff_utc: null, status: 'live' }],
+    });
+    const ok = await syncFifaMatchByRef(env, FIXTURE_MATCH.id);
+    expect(ok).toBe(true);
+  });
+
+  it('syncFifaMatchByRef skips blog sync for scheduled matches', async () => {
+    const blog = await import('../src/ingestion/fifa/fifaLiveBlogSync');
+    vi.mocked(blog.syncFifaMatchBlogAndStats).mockClear();
+    vi.mocked(blog.shouldSyncFifaBlogAndStats).mockResolvedValue(false);
+    const { env } = createIngestionEnv({
+      matches: [{ ...FIXTURE_MATCH, fifa_match_id: '400021443', status: 'scheduled' }],
+    });
+    expect(await syncFifaMatchByRef(env, FIXTURE_MATCH.id)).toBe(true);
+    expect(blog.syncFifaMatchBlogAndStats).not.toHaveBeenCalled();
+  });
+
+  it('syncFifaMatchByRef uses calendar score fallbacks and leaves unchanged live state without emits', async () => {
+    const blog = await import('../src/ingestion/fifa/fifaLiveBlogSync');
+    const lineup = await import('../src/ingestion/fifa/fifaLineupSync');
+    const emitter = await import('../src/services/publicApi/emitter');
+    vi.mocked(blog.shouldSyncFifaBlogAndStats).mockResolvedValue(false);
+    vi.mocked(lineup.shouldSyncFifaLineupForKickoff).mockReturnValue(false);
+    vi.mocked(emitter.emitMatchScoreUpdate).mockClear();
+    vi.mocked(emitter.emitMatchStatusChange).mockClear();
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaMatchInfo).mockResolvedValue(
+      matchInfo({
+        MatchStatus: 3,
+        Period: 5,
+        MatchTime: "55'",
+        HomeTeamScore: 1,
+        AwayTeamScore: 0,
+        HomeTeam: { ...matchInfo().HomeTeam!, Score: null },
+        AwayTeam: { ...matchInfo().AwayTeam!, Score: null },
+      }),
+    );
+    const { env } = createIngestionEnv({
+      matches: [{ ...FIXTURE_MATCH, fifa_match_id: '400021443', status: 'live', minute: 55, home_score: 1, away_score: 0 }],
+    });
+    expect(await syncFifaMatchByRef(env, FIXTURE_MATCH.id)).toBe(true);
+    expect(emitter.emitMatchScoreUpdate).not.toHaveBeenCalled();
+    expect(emitter.emitMatchStatusChange).not.toHaveBeenCalled();
+  });
+
+  it('syncFifaMatchByRef passes payload IdMatch to blog sync when local fifa id is still null', async () => {
+    const blog = await import('../src/ingestion/fifa/fifaLiveBlogSync');
+    vi.mocked(blog.shouldSyncFifaBlogAndStats).mockResolvedValue(true);
+    vi.mocked(blog.syncFifaMatchBlogAndStats).mockClear();
+    const { env } = createIngestionEnv({
+      matches: [{ ...FIXTURE_MATCH, fifa_match_id: null, status: 'live' }],
+    });
+    expect(await syncFifaMatchByRef(env, FIXTURE_MATCH.id)).toBe(true);
+    expect(blog.syncFifaMatchBlogAndStats).toHaveBeenCalledWith(
+      expect.anything(),
+      FIXTURE_MATCH.id,
+      FIXTURE_MATCH.home_team_id,
+      FIXTURE_MATCH.away_team_id,
+      expect.anything(),
+      '400021443',
+    );
   });
 });

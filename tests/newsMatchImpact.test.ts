@@ -44,6 +44,28 @@ describe('newsMatchImpact', () => {
     expect(level).toBe('medium');
   });
 
+  it('classifies high impact from injury entities even without injury keywords in text', () => {
+    const level = classifyNewsImpact('Mexico prepare for the opener', {
+      teams: ['Mexico'],
+      players: [],
+      injuries: ['late fitness issue'],
+      tacticalNotes: [],
+      formations: [],
+    });
+    expect(level).toBe('high');
+  });
+
+  it('classifies medium impact from formation entities alone', () => {
+    const level = classifyNewsImpact('Preview update', {
+      teams: [],
+      players: [],
+      injuries: [],
+      tacticalNotes: [],
+      formations: ['4-3-3'],
+    });
+    expect(level).toBe('medium');
+  });
+
   it('builds Vietnamese impact summary when matches affected', () => {
     const summary = buildImpactSummaryVi(
       ['Mexico', 'South Africa'],
@@ -59,8 +81,20 @@ describe('newsMatchImpact', () => {
     expect(buildImpactSummaryVi([], [], 'none', null)).toBeNull();
   });
 
+  it('builds fallback summary text when team names are missing', () => {
+    const summary = buildImpactSummaryVi([], ['m-1'], 'low', null);
+    expect(summary).toContain('đội liên quan');
+    expect(summary).toContain('mức thấp');
+  });
+
   it('classifies low impact when two teams mentioned', () => {
     expect(classifyNewsImpact('Mexico and South Africa prepare', { teams: ['Mexico', 'South Africa'], players: [], injuries: [], tacticalNotes: [], formations: [] })).toBe('low');
+  });
+
+  it('ignores aliases shorter than three characters when matching team ids', () => {
+    const ids = findTeamIdsInText('CAN face Mexico', index);
+    expect(ids).toContain('team-w26-a1');
+    expect(ids).not.toContain('team-w26-b1');
   });
 });
 
@@ -103,6 +137,139 @@ describe('processNewsDocumentImpact', () => {
     expect(result.matchIds).toContain(FIXTURE_MATCH.id);
     expect(result.triggeredRecompute).toBe(true);
     expect(queueSend).toHaveBeenCalled();
+  });
+
+  it('stores null affected matches when no teams can be resolved', async () => {
+    const runBinds: unknown[][] = [];
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: (sql) => {
+          if (sql.includes("GLOB 'team-w26-")) {
+            return { results: [...mockTeams] };
+          }
+          return { results: [] };
+        },
+        run: (_sql, binds) => {
+          runBinds.push([...binds]);
+          return { success: true, meta: { changes: 1 } } as never;
+        },
+      }),
+    });
+
+    const result = await processNewsDocumentImpact(env, 'doc-empty', 'General tournament note', null);
+    expect(result).toMatchObject({
+      matchIds: [],
+      impactLevel: 'none',
+      summaryVi: null,
+      triggeredRecompute: false,
+    });
+    expect(runBinds.at(-1)?.[0]).toBeNull();
+  });
+
+  it('uses pair match lookup when both teams are scheduled against each other', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: (sql) => {
+          if (sql.includes("GLOB 'team-w26-")) {
+            return {
+              results: [
+                { id: 'team-w26-a1', name: 'Mexico', short_name: 'MEX', country_code: 'MEX' },
+                { id: 'team-w26-a2', name: 'South Africa', short_name: 'RSA', country_code: 'RSA' },
+              ],
+            };
+          }
+          if (sql.includes('AND home_team_id IN') && sql.includes('AND away_team_id IN')) {
+            return { results: [{ id: 'm-pair' }] };
+          }
+          return { results: [] };
+        },
+        run: () => ({ success: true, meta: { changes: 1 } }) as never,
+      }),
+    });
+
+    const result = await processNewsDocumentImpact(
+      env,
+      'doc-pair',
+      'Mexico and South Africa prepare',
+      { teams: ['Mexico', 'South Africa'], players: [], injuries: [], tacticalNotes: [], formations: [] },
+    );
+    expect(result.matchIds).toEqual(['m-pair']);
+  });
+
+  it('resolves team ids from entity aliases and falls back to OR match lookup', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: (sql) => {
+          if (sql.includes("GLOB 'team-w26-")) {
+            return {
+              results: [
+                { id: 'team-w26-a1', name: 'Mexico', short_name: 'MEX', country_code: 'MEX' },
+                { id: 'team-w26-a2', name: 'South Africa', short_name: 'RSA', country_code: 'RSA' },
+              ],
+            };
+          }
+          if (sql.includes('AND home_team_id IN') && sql.includes('AND away_team_id IN')) {
+            return { results: [] };
+          }
+          if (sql.includes('OR away_team_id IN')) {
+            return { results: [{ id: 'm-fallback' }] };
+          }
+          if (sql.includes('country_code = ?')) {
+            return { results: undefined };
+          }
+          return { results: [] };
+        },
+        first: (sql) => {
+          if (sql.includes('country_code FROM teams')) return { country_code: 'MEX' };
+          return null;
+        },
+        run: () => ({ success: true, meta: { changes: 1 } }) as never,
+      }),
+    });
+
+    const result = await processNewsDocumentImpact(
+      env,
+      'doc-alias',
+      'No direct nation names here',
+      {
+        teams: ['El Tri'],
+        players: [],
+        injuries: [],
+        tacticalNotes: ['Formation tweak expected'],
+        formations: [],
+      },
+    );
+    expect(result.matchIds).toEqual(['m-fallback']);
+    expect(result.impactLevel).toBe('medium');
+  });
+
+  it('returns empty match ids when OR lookup omits results and entity alias is unknown', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: (sql) => {
+          if (sql.includes("GLOB 'team-w26-")) {
+            return { results: [...mockTeams] };
+          }
+          if (sql.includes('AND home_team_id IN') && sql.includes('AND away_team_id IN')) {
+            return {};
+          }
+          if (sql.includes('OR away_team_id IN')) {
+            return {};
+          }
+          return { results: [] };
+        },
+        run: () => ({ success: true, meta: { changes: 1 } }) as never,
+      }),
+    });
+
+    const result = await processNewsDocumentImpact(env, 'doc-unknown', 'Preview', {
+      teams: ['Unknown Nation FC'],
+      players: [],
+      injuries: [],
+      tacticalNotes: [],
+      formations: [],
+    });
+    expect(result.matchIds).toEqual([]);
   });
 });
 

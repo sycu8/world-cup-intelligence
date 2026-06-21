@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">13.04% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>3/23</span>
+                <span class='fraction'>23/23</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>7/7</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">13.04% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>3/23</span>
+                <span class='fraction'>23/23</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -99,60 +99,60 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { AppEnv } from '../env';
 import { getTeamFormSnapshot } from './teamFormStats';
 import { logInfo } from '../utils/logger';
 import { nowIso } from '../utils/time';
 &nbsp;
 /** Recompute collective_strength_rating from recent completed-match form. */
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >export async function refreshTeamRatingsFromForm(env: AppEnv): Promise&lt;number&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >  const { results: teams } = await env.DB.prepare(</span>
-<span class="cstat-no" title="statement not covered" >    `SELECT id FROM teams WHERE collective_strength_rating IS NOT NULL`,</span>
-<span class="cstat-no" title="statement not covered" >  ).all&lt;{ id: string }&gt;();</span>
+export async function refreshTeamRatingsFromForm(env: AppEnv): Promise&lt;number&gt; {
+  const { results: teams } = await env.DB.prepare(
+    `SELECT id FROM teams WHERE collective_strength_rating IS NOT NULL`,
+  ).all&lt;{ id: string }&gt;();
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  let updated = 0;</span>
-<span class="cstat-no" title="statement not covered" >  for (const t of teams ?? []) {</span>
-<span class="cstat-no" title="statement not covered" >    const tournamentId = t.id.startsWith('team-w26-') ? 't-2026' : undefined;</span>
-<span class="cstat-no" title="statement not covered" >    const form = await getTeamFormSnapshot(env.DB, t.id, 8, tournamentId);</span>
-<span class="cstat-no" title="statement not covered" >    if (!form || form.matchesPlayed &lt; 2) continue;</span>
+  let updated = 0;
+  for (const t of teams ?? []) {
+    const tournamentId = t.id.startsWith('team-w26-') ? 't-2026' : undefined;
+    const form = await getTeamFormSnapshot(env.DB, t.id, 8, tournamentId);
+    if (!form || form.matchesPlayed &lt; 2) continue;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    const attack = Math.min(0.98, 0.45 + form.xgForPerGame * 0.22 + form.recentForm * 0.25);</span>
-<span class="cstat-no" title="statement not covered" >    const defense = Math.max(0.35, 0.95 - form.xgAgainstPerGame * 0.18);</span>
-<span class="cstat-no" title="statement not covered" >    const blended = Math.max(0.35, Math.min(0.98, attack * 0.55 + defense * 0.45));</span>
+    const attack = Math.min(0.98, 0.45 + form.xgForPerGame * 0.22 + form.recentForm * 0.25);
+    const defense = Math.max(0.35, 0.95 - form.xgAgainstPerGame * 0.18);
+    const blended = Math.max(0.35, Math.min(0.98, attack * 0.55 + defense * 0.45));
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    await env.DB.prepare(`UPDATE teams SET collective_strength_rating = ?, updated_at = ? WHERE id = ?`)</span>
-<span class="cstat-no" title="statement not covered" >      .bind(Number(blended.toFixed(3)), nowIso(), t.id)</span>
-<span class="cstat-no" title="statement not covered" >      .run();</span>
-<span class="cstat-no" title="statement not covered" >    updated += 1;</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
+    await env.DB.prepare(`UPDATE teams SET collective_strength_rating = ?, updated_at = ? WHERE id = ?`)
+      .bind(Number(blended.toFixed(3)), nowIso(), t.id)
+      .run();
+    updated += 1;
+  }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  logInfo('team ratings refreshed from form', { updated });</span>
-<span class="cstat-no" title="statement not covered" >  return updated;</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+  logInfo('team ratings refreshed from form', { updated });
+  return updated;
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -160,7 +160,7 @@ import { nowIso } from '../utils/time';
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

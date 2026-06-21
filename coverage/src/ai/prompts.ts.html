@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">40% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>4/10</span>
+                <span class='fraction'>10/10</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">40% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>4/10</span>
+                <span class='fraction'>10/10</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -110,9 +110,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -126,7 +126,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -135,11 +135,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -150,10 +150,10 @@ CRITICAL: Never invent numeric win probabilities, xG, or scores. Only explain nu
 Cite uncertainty when source confidence is low. Output valid JSON when asked.
 All user-facing text fields must be bilingual objects: { "vi": "...", "en": "..." }. Write natural Vietnamese (vi) first; English (en) is a faithful translation.`;
 &nbsp;
-export const multiVariableSynthesisPrompt = <span class="fstat-no" title="function not covered" >(ctx: Record&lt;string, unknown&gt;) =&gt;</span>
-<span class="cstat-no" title="statement not covered" >  `Synthesize a multi-factor World Cup match analysis from these structured inputs (all variables pre-computed by the statistical engine and data pipeline):</span>
+export const multiVariableSynthesisPrompt = (ctx: Record&lt;string, unknown&gt;) =&gt;
+  `Synthesize a multi-factor World Cup match analysis from these structured inputs (all variables pre-computed by the statistical engine and data pipeline):
 &nbsp;
-<span class="cstat-no" title="statement not covered" >${JSON.stringify(ctx, null, 2)}</span>
+${JSON.stringify(ctx, null, 2)}
 &nbsp;
 Return JSON:
 {
@@ -166,8 +166,8 @@ Return JSON:
   "confidence": number
 }`;
 &nbsp;
-export const entityExtractPrompt = <span class="fstat-no" title="function not covered" >(text: string) =&gt;</span>
-<span class="cstat-no" title="statement not covered" >  `Extract from this football article (JSON only):</span>
+export const entityExtractPrompt = (text: string) =&gt;
+  `Extract from this football article (JSON only):
 {
   "teams": string[],
   "players": string[],
@@ -176,11 +176,11 @@ export const entityExtractPrompt = <span class="fstat-no" title="function not co
   "formations": string[]
 }
 Article:
-<span class="cstat-no" title="statement not covered" >${text.slice(0, 3000)}`;</span>
+${text.slice(0, 3000)}`;
 &nbsp;
-export const tacticalBriefingPrompt = <span class="fstat-no" title="function not covered" >(matchId: string, probability: Record&lt;string, unknown&gt;) =&gt;</span>
-<span class="cstat-no" title="statement not covered" >  `Generate tactical briefing JSON for match ${matchId}. Use ONLY these model outputs for probability fields:</span>
-<span class="cstat-no" title="statement not covered" >${JSON.stringify(probability)}</span>
+export const tacticalBriefingPrompt = (matchId: string, probability: Record&lt;string, unknown&gt;) =&gt;
+  `Generate tactical briefing JSON for match ${matchId}. Use ONLY these model outputs for probability fields:
+${JSON.stringify(probability)}
 &nbsp;
 Every text field (summary, tacticalThemes.title/detail, collectiveTeamFactors.factor/explanation, lineupRisks.risk, keyPlayers.reason/impactArea, probabilityExplanation items, uncertaintyNotes items) MUST be:
 { "vi": "tiếng Việt", "en": "English" }
@@ -193,7 +193,7 @@ Schema: matchId, generatedAt (ISO), summary, tacticalThemes[], collectiveTeamFac
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-21T02:52:54.319Z
+                at 2026-06-21T09:03:36.304Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

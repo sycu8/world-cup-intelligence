@@ -95,6 +95,13 @@ describe('tournamentProgression async helpers', () => {
     expect(standings[0].points).toBe(3);
   });
 
+  it('computeGroupStandings tolerates undefined result arrays', async () => {
+    const db = createMockDb({
+      all: () => ({} as never),
+    });
+    await expect(computeGroupStandings(db, 'Z')).resolves.toEqual([]);
+  });
+
   it('collectThirdPlaceCandidates returns sorted third-place teams', async () => {
     const db = createMockDb({
       all: (sql) => {
@@ -148,6 +155,62 @@ describe('tournamentProgression async helpers', () => {
     expect(await applyBestThirdQualifiers(env)).toEqual([]);
   });
 
+  it('applyBestThirdQualifiers skips assignments when the target slot already has the same team', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: (sql) => {
+          if (sql.includes('COUNT(*) AS total')) return { total: 6, done: 6 };
+          if (sql.includes('AS team_id FROM matches')) return { team_id: 't2' };
+          return null;
+        },
+        all: (sql) => {
+          if (sql.includes("stage = 'Group'")) {
+            return {
+              results: [
+                { group_code: 'A', home_team_id: 't1', away_team_id: 't2', home_score: 1, away_score: 0, status: 'completed' },
+                { group_code: 'A', home_team_id: 't3', away_team_id: 't4', home_score: 1, away_score: 0, status: 'completed' },
+                { group_code: 'A', home_team_id: 't1', away_team_id: 't3', home_score: 0, away_score: 0, status: 'completed' },
+              ],
+            };
+          }
+          return { results: [] };
+        },
+      }),
+    });
+    expect(await applyBestThirdQualifiers(env)).toEqual([]);
+  });
+
+  it('breaks ties on goals scored when points and goal difference match', () => {
+    const rows = [
+      {
+        group_code: 'C',
+        home_team_id: 't1',
+        away_team_id: 't2',
+        home_score: 3,
+        away_score: 0,
+        status: 'completed',
+      },
+      {
+        group_code: 'C',
+        home_team_id: 't3',
+        away_team_id: 't1',
+        home_score: 0,
+        away_score: 0,
+        status: 'completed',
+      },
+      {
+        group_code: 'C',
+        home_team_id: 't2',
+        away_team_id: 't3',
+        home_score: 2,
+        away_score: 2,
+        status: 'completed',
+      },
+    ];
+    const standings = computeGroupStandingsFromMatchRows(rows, 'C');
+    expect(standings[0]?.teamId).toBe('t1');
+  });
+
   it('processMatchCompletion advances knockout winners', async () => {
     const completedMatch = {
       ...FIXTURE_MATCH,
@@ -192,5 +255,130 @@ describe('tournamentProgression async helpers', () => {
     const affected = await processMatchCompletion(env, completedMatch.id);
     expect(affected).toContain('m-w26-qf-1');
     expect(runCalls.some((sql) => sql.includes('UPDATE matches SET'))).toBe(true);
+  });
+
+  it('processMatchCompletion skips noop group qualifier links', async () => {
+    const completedGroupMatch = {
+      ...FIXTURE_MATCH,
+      status: 'completed',
+      stage: 'Group',
+      group_code: 'A',
+      home_score: 1,
+      away_score: 0,
+    };
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: (sql) => {
+          if (sql.includes('FROM matches WHERE id') && sql.includes('AS team_id')) {
+            return { team_id: 't1' };
+          }
+          if (sql.includes('FROM matches WHERE id')) return completedGroupMatch;
+          if (sql.includes('COUNT(*) AS total')) return { total: 6, done: 6 };
+          return null;
+        },
+        all: (sql) => {
+          if (sql.includes("stage = 'Group'")) {
+            return {
+              results: [
+                { group_code: 'A', home_team_id: 't1', away_team_id: 't2', home_score: 1, away_score: 0, status: 'completed' },
+                { group_code: 'A', home_team_id: 't3', away_team_id: 't4', home_score: 1, away_score: 0, status: 'completed' },
+                { group_code: 'A', home_team_id: 't1', away_team_id: 't3', home_score: 0, away_score: 0, status: 'completed' },
+              ],
+            };
+          }
+          if (sql.includes("FROM match_bracket_links") && sql.includes("rule_type = 'group_rank'")) {
+            return {
+              results: [
+                {
+                  id: 'no-json',
+                  source_match_id: null,
+                  target_match_id: 'm-no-json',
+                  target_slot: 'home',
+                  rule_type: 'group_rank',
+                  rule_json: null,
+                },
+                {
+                  id: 'wrong-group',
+                  source_match_id: null,
+                  target_match_id: 'm-wrong-group',
+                  target_slot: 'home',
+                  rule_type: 'group_rank',
+                  rule_json: JSON.stringify({ group: 'B', rank: 1 }),
+                },
+                {
+                  id: 'missing-rank',
+                  source_match_id: null,
+                  target_match_id: 'm-missing-rank',
+                  target_slot: 'home',
+                  rule_type: 'group_rank',
+                  rule_json: JSON.stringify({ group: 'A', rank: 5 }),
+                },
+              ],
+            };
+          }
+          return { results: [] };
+        },
+      }),
+    });
+    const affected = await processMatchCompletion(env, completedGroupMatch.id);
+    expect(affected).not.toContain('m-no-json');
+    expect(affected).not.toContain('m-wrong-group');
+    expect(affected).not.toContain('m-missing-rank');
+  });
+
+  it('processMatchCompletion returns early when group is incomplete', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: () => ({ ...FIXTURE_MATCH, status: 'completed', group_code: 'A' }),
+        all: (sql) => {
+          if (sql.includes('FROM matches') && sql.includes('group_code')) {
+            return {
+              results: [
+                { group_code: 'A', home_team_id: 't1', away_team_id: 't2', home_score: 1, away_score: 0, status: 'scheduled' },
+              ],
+            };
+          }
+          return {};
+        },
+      }),
+    });
+    expect(await processMatchCompletion(env, FIXTURE_MATCH.id)).toEqual([]);
+  });
+
+  it('processMatchCompletion skips unsupported knockout link rules', async () => {
+    const knockoutMatch = {
+      ...FIXTURE_MATCH,
+      status: 'completed',
+      stage: 'R16',
+      group_code: null,
+      home_score: 2,
+      away_score: 1,
+    };
+    const env = createMockEnv({
+      DB: createMockDb({
+        first: (sql) => {
+          if (sql.includes('FROM matches WHERE id')) return knockoutMatch;
+          return null;
+        },
+        all: (sql) => {
+          if (sql.includes('source_match_id = ?')) {
+            return {
+              results: [
+                {
+                  id: 'unsupported-link',
+                  source_match_id: knockoutMatch.id,
+                  target_match_id: 'm-unsupported',
+                  target_slot: 'away',
+                  rule_type: 'group_rank',
+                  rule_json: null,
+                },
+              ],
+            };
+          }
+          return { results: [] };
+        },
+      }),
+    });
+    await expect(processMatchCompletion(env, knockoutMatch.id)).resolves.toEqual([]);
   });
 });
