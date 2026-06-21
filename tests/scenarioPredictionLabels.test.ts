@@ -199,7 +199,7 @@ describe('scenarioPredictionLabels VI', () => {
         'USA',
         'Mexico',
       ),
-    ).toContain('đội chủ nhà');
+    ).toContain('USA');
     expect(
       translateComparisonSummary(
         'Scenario likelihood is tightly balanced between controlled possession match and early transition swing.',

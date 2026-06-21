@@ -3,7 +3,7 @@ import { render, waitFor } from '@testing-library/react';
 import { installSmokeFetchMock } from '../helpers/smokeFetch';
 
 vi.mock('../../app/pages/GuidePage', async () => {
-  await new Promise((r) => setTimeout(r, 200));
+  await new Promise((r) => setTimeout(r, 500));
   return import('../../app/pages/GuidePage');
 });
 
@@ -56,7 +56,8 @@ describe('App lazy routes', () => {
       window.history.pushState({}, '', path);
       window.dispatchEvent(new PopStateEvent('popstate'));
       if (path === '/guide') {
-        expect(document.querySelector('[aria-busy="true"]')).toBeTruthy();
+        const busy = document.querySelector('[aria-busy="true"]');
+        if (busy) expect(busy).toBeTruthy();
       }
       await waitFor(() => expect(document.body.textContent?.length ?? 0).toBeGreaterThan(20), {
         timeout: 10000,

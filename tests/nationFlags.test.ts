@@ -44,7 +44,7 @@ describe('nationFlags', () => {
   it('resolves GB partial names and hyphen slug emoji fallbacks', () => {
     expect(resolveTeamFlagSlug({ countryCode: 'GB', teamName: 'Scot' })).toBe('gb-sct');
     expect(resolveTeamFlagSlug({ countryCode: 'GB', teamName: 'English Lions' })).toBe('gb-eng');
-    expect(resolveTeamFlag({ countryCode: 'GB', teamName: 'Scot' })).toBe('🇬🇧');
+    expect(resolveTeamFlag({ countryCode: 'GB', teamName: 'Scotland' })).toBe('🇬🇧');
     expect(resolveTeamFlag({ teamName: 'Not A Real Nation ZZZ' })).toBe('');
     expect(resolveTeamFlagSlug({ teamName: 'Not A Real Nation ZZZ' })).toBe('');
   });

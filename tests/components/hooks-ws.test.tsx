@@ -57,4 +57,23 @@ describe('useMatchScenarioLive websocket', () => {
     expect(onUpdate).not.toHaveBeenCalled();
     unmount();
   });
+
+  it('reconnects after close and handles onerror', async () => {
+    vi.useFakeTimers();
+    const onUpdate = vi.fn();
+    const { unmount } = renderHook(() => useMatchScenarioLive(SMOKE_MATCH_ID, onUpdate, true));
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(MockWebSocket.instances.length).toBe(1);
+    act(() => {
+      MockWebSocket.instances[0].onerror?.();
+      MockWebSocket.instances[0].onclose?.();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2500);
+    });
+    expect(MockWebSocket.instances.length).toBeGreaterThan(1);
+    unmount();
+  }, 15000);
 });
