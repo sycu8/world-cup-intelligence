@@ -92,6 +92,8 @@ export type MatchFeatureInput = {
   awayCountryCode?: string;
 };
 
+export type IntervalKey = '15' | '30' | '45' | '60' | '75' | '90';
+
 export type ProbabilityResult = {
   matchId: string;
   timestamp: string;

@@ -2,7 +2,7 @@ import type { AppEnv } from '../../env';
 import { nowIso } from '../../utils/time';
 import { logError, logInfo } from '../../utils/logger';
 import { FIFA_SOURCE_ID, WC2026_TOURNAMENT_ID } from './constants';
-import { fetchFifaTimeline, fetchFifaMatchInfo, type FifaMatchInfo } from './fifaApiClient';
+import { fetchFifaTimeline, fetchFifaMatchInfo, type FifaMatchInfo, type FifaTimelinePayload } from './fifaApiClient';
 import { fetchFifaGamedayTeamMatchStats } from './fifaGamedayClient';
 import {
   deriveShotsFromTimeline,
