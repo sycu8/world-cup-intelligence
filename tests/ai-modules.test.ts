@@ -20,6 +20,7 @@ import { explainModelVsMarket } from '../src/ai/explainModelVsMarket';
 import { explainScenarioLikelihood } from '../src/ai/explainScenarioLikelihood';
 import { explainTeamSystemStrength } from '../src/ai/explainTeamSystemStrength';
 import { explainScenarioRealtimeShift } from '../src/ai/explainScenarioRealtimeShift';
+import * as probabilityRepo from '../src/db/repositories/probabilityRepo';
 import { createMockEnv, createMockKv } from './helpers/mockEnv';
 import { mockScenario } from './helpers/scenarioFixtures';
 import type { MatchScenarioSet } from '../src/models/scenarios/types';
@@ -593,6 +594,29 @@ describe('multiVariableAnalysis', () => {
     });
     const result = await runMultiVariableAnalysis(env, 'm-1');
     expect(result?.matchId).toBe('m-1');
+    expect(env.KV.put).toHaveBeenCalled();
+  });
+
+  it('getCachedAnalysis rejects invalid JSON and runMultiVariableAnalysis handles a missing probability snapshot', async () => {
+    const badCacheEnv = createMockEnv({ KV: createMockKv({ 'analysis:m-bad': '{not-json' }) });
+    expect(await getCachedAnalysis(badCacheEnv, 'm-bad')).toBeNull();
+
+    vi.mocked(gatewayChatJson).mockResolvedValueOnce({
+      executiveSummary: 'Context only',
+      variableInsights: [{ variable: 'form', impact: 'medium', direction: 'home', explanation: 'Better recent profile' }],
+      tacticalRecommendations: ['Stay compact'],
+      riskFactors: ['No live probability snapshot'],
+      confidence: 0.64,
+    });
+    vi.mocked(probabilityRepo.getLatestSnapshot).mockResolvedValueOnce(null as never);
+
+    const env = createMockEnv({
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      OPENAI_API_KEY: 'sk-test',
+    });
+    const result = await runMultiVariableAnalysis(env, 'm-no-snap');
+    expect(result?.matchId).toBe('m-no-snap');
     expect(env.KV.put).toHaveBeenCalled();
   });
 });

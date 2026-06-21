@@ -241,6 +241,35 @@ describe('officialLineupSync', () => {
     expect(upserts[0]?.sourceType).toBe('match_official');
   });
 
+  it('syncOfficialSquadToMatch replaces a non-official projected lineup', async () => {
+    const { env, upserts } = mockEnv({
+      lineup: {
+        id: 'lu-projected',
+        formation: '4-2-3-1',
+        is_official: 0,
+        source_type: 'projected',
+      },
+      squad: {
+        id: 'sq-fra',
+        team_id: 'team-fra',
+        source_id: 'src-mock',
+        confidence: 0.9,
+        announced_at: '2026-05-01',
+      },
+      squadPlayers: Array.from({ length: 11 }, (_, i) => ({
+        player_id: `p-${i}`,
+        shirt_number: i + 1,
+        listed_position: i === 0 ? 'GK' : i < 5 ? 'CB' : 'FW',
+        position: 'FW',
+        name: `Player ${i}`,
+      })),
+    });
+
+    const changed = await syncOfficialSquadToMatch(env, 'm-2', 'team-fra');
+    expect(changed).toBe(true);
+    expect(upserts[0]?.sourceType).toBe('squad_official');
+  });
+
   it('syncOfficialLineupsToMatches bulk recompute when many matches updated', async () => {
     const matches = Array.from({ length: 7 }, (_, i) => ({
       id: `m-${i}`,

@@ -18,7 +18,7 @@ describe('coverage target line gaps', () => {
   });
 
   it('parseFifaTimeline maps fallback locales and own goals', async () => {
-    const { parseFifaTimelineCommentary, timelinePeriodLabel } = await import(
+    const { parseFifaTimelineCommentary, timelinePeriodLabel, deriveShotsFromTimeline } = await import(
       '../src/ingestion/fifa/parseFifaTimeline'
     );
     expect(timelinePeriodLabel(99)).toBe('PRE');
@@ -40,6 +40,21 @@ describe('coverage target line gaps', () => {
       'm-fr',
     );
     expect(lines).toHaveLength(2);
+
+    const derived = deriveShotsFromTimeline(
+      {
+        Event: [
+          {
+            EventId: 'no-label',
+            IdTeam: 'home',
+            EventDescription: [{ Locale: 'en-GB', Description: 'Loose ball' }],
+          },
+        ],
+      },
+      'home',
+      'away',
+    );
+    expect(derived).toEqual({ homeShots: 0, awayShots: 0, homeSot: 0, awaySot: 0 });
   });
 
   it('fifaGamedayClient rejects invalid teams payload', async () => {

@@ -190,6 +190,51 @@ describe('coverage final — remaining line gaps (backend)', () => {
     expect(payload.groups.A?.rows.length).toBeGreaterThan(0);
   });
 
+  it('tournamentStandings — third-place ranking falls back to team id when stats are tied', async () => {
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: (sql) => {
+          if (sql.includes("stage = 'Group'") && sql.includes('home_team_id')) {
+            return {
+              results: [
+                { group_code: 'A', home_team_id: 'a1', away_team_id: 'a2', home_score: 1, away_score: 0, status: 'completed' },
+                { group_code: 'A', home_team_id: 'a3', away_team_id: 'a1', home_score: 1, away_score: 0, status: 'completed' },
+                { group_code: 'A', home_team_id: 'a2', away_team_id: 'a3', home_score: 1, away_score: 0, status: 'completed' },
+                { group_code: 'B', home_team_id: 'b1', away_team_id: 'b2', home_score: 1, away_score: 0, status: 'completed' },
+                { group_code: 'B', home_team_id: 'b3', away_team_id: 'b1', home_score: 1, away_score: 0, status: 'completed' },
+                { group_code: 'B', home_team_id: 'b2', away_team_id: 'b3', home_score: 1, away_score: 0, status: 'completed' },
+              ],
+            };
+          }
+          if (sql.includes('GROUP BY group_code')) {
+            return {
+              results: [
+                { group_code: 'A', total: 3, done: 3 },
+                { group_code: 'B', total: 3, done: 3 },
+              ],
+            };
+          }
+          if (sql.includes('FROM teams WHERE id LIKE')) {
+            return {
+              results: [
+                { id: 'a1', name: 'Alpha 1', short_name: 'A1', country_code: 'AA' },
+                { id: 'a2', name: 'Alpha 2', short_name: 'A2', country_code: 'AA' },
+                { id: 'a3', name: 'Alpha 3', short_name: 'A3', country_code: 'AA' },
+                { id: 'b1', name: 'Beta 1', short_name: 'B1', country_code: 'BB' },
+                { id: 'b2', name: 'Beta 2', short_name: 'B2', country_code: 'BB' },
+                { id: 'b3', name: 'Beta 3', short_name: 'B3', country_code: 'BB' },
+              ],
+            };
+          }
+          return { results: [] };
+        },
+      }),
+    });
+
+    const payload = await buildGroupStandingsPayload(env);
+    expect(payload.thirdPlaceRanking.slice(0, 2).map((row) => row.teamId)).toEqual(['a3', 'b3']);
+  });
+
   it('scenarioEngine — default branch, missing inputs, and trigger statuses', () => {
     const ctx = mockScenarioContext({
       minute: 20,
