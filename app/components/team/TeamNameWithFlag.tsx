@@ -67,6 +67,10 @@ type MatchProps = {
   separator?: string;
   className?: string;
   flagClassName?: string;
+  /** Keep home/away on one line (board rows). */
+  nowrap?: boolean;
+  /** Shorter team labels for tight layouts. */
+  compact?: boolean;
 };
 
 export function MatchTeamsWithFlags({
@@ -79,21 +83,29 @@ export function MatchTeamsWithFlags({
   separator = ' - ',
   className = '',
   flagClassName,
+  nowrap = false,
+  compact = false,
 }: MatchProps) {
   return (
-    <span className={`inline-flex flex-wrap items-center gap-x-1 ${className}`}>
+    <span
+      className={`inline-flex items-center gap-x-0.5 ${nowrap ? 'max-w-full flex-nowrap' : 'flex-wrap'} ${className}`}
+    >
       <TeamNameWithFlag
         name={homeShort?.trim() || homeName}
         flagName={homeName}
         countryCode={homeCountryCode}
+        compact={compact}
         flagClassName={flagClassName}
+        className="min-w-0 shrink"
       />
-      <span className="text-muted">{separator.trim()}</span>
+      <span className="shrink-0 text-muted">{separator.trim()}</span>
       <TeamNameWithFlag
         name={awayShort?.trim() || awayName}
         flagName={awayName}
         countryCode={awayCountryCode}
+        compact={compact}
         flagClassName={flagClassName}
+        className="min-w-0 shrink"
       />
     </span>
   );

@@ -53,66 +53,52 @@ function BoardMatchRow({
   const { t } = useI18n();
   const showScore = hasMatchResult(match.status);
 
-  const kickoff = (
-    <time className="whitespace-nowrap font-mono-data text-[10px] leading-tight text-muted">
-      <MatchKickoffDisplay
-        kickoffUtc={match.kickoff_utc}
-        showDate={showDate}
-        inlineDate={showDate}
-        showLocalReference={false}
-      />
-    </time>
-  );
-
-  const teams = (
-    <MatchTeamsWithFlags
-      homeName={match.home_name}
-      awayName={match.away_name}
-      homeShort={match.home_short}
-      awayShort={match.away_short}
-      homeCountryCode={match.home_country_code}
-      awayCountryCode={match.away_country_code}
-      separator="–"
-      flagClassName="h-2 w-3 rounded-sm object-cover ring-1 ring-white/10 sm:h-2.5 sm:w-4"
-    />
-  );
-
-  const scoreBlock = (
-    <span className="flex shrink-0 items-center justify-end gap-1">
-      {showScore ? (
-        <MatchResultScore
-          homeScore={match.home_score}
-          awayScore={match.away_score}
-          status={match.status}
-          variant={match.status === 'completed' || match.status === 'finished' ? 'badge' : 'compact'}
-        />
-      ) : (
-        <span className="font-mono-data text-[10px] text-muted/35">–</span>
-      )}
-      {match.status === 'live' && (
-        <span className="text-[9px] font-bold uppercase text-live">{t('common.live')}</span>
-      )}
-    </span>
-  );
-
   return (
     <Link
       to={resolveMatchHref(match)}
-      className={`group block rounded-md transition hover:bg-pressing/10 ${
-        dense ? 'px-2 py-2 sm:px-3' : 'px-1 py-1.5'
+      className={`group flex items-center gap-1.5 rounded-md transition hover:bg-pressing/10 sm:gap-2 ${
+        dense ? 'px-2 py-1 sm:px-3' : 'px-1 py-0.5'
       }`}
     >
-      <div
-        className={`grid items-center gap-x-2 ${
-          showDate
-            ? 'grid-cols-[minmax(5.75rem,auto)_minmax(0,1fr)_auto] text-[10px] sm:text-xs'
-            : 'grid-cols-[2.5rem_minmax(0,1fr)_auto] text-[11px] sm:text-xs'
-        }`}
-      >
-        {kickoff}
-        <span className="min-w-0 truncate font-medium text-foreground/90">{teams}</span>
-        {scoreBlock}
-      </div>
+      <time className="shrink-0 whitespace-nowrap font-mono-data text-[10px] leading-none text-muted">
+        <MatchKickoffDisplay
+          kickoffUtc={match.kickoff_utc}
+          showDate={showDate}
+          inlineDate={showDate}
+          showLocalReference={false}
+        />
+      </time>
+
+      <span className="min-w-0 flex-1 truncate text-[10px] font-medium leading-tight text-foreground/90 sm:text-[11px]">
+        <MatchTeamsWithFlags
+          homeName={match.home_name}
+          awayName={match.away_name}
+          homeShort={match.home_short}
+          awayShort={match.away_short}
+          homeCountryCode={match.home_country_code}
+          awayCountryCode={match.away_country_code}
+          separator="–"
+          nowrap
+          compact
+          flagClassName="h-2 w-3 shrink-0 rounded-sm object-cover ring-1 ring-white/10"
+        />
+      </span>
+
+      <span className="flex shrink-0 items-center justify-end gap-1">
+        {showScore ? (
+          <MatchResultScore
+            homeScore={match.home_score}
+            awayScore={match.away_score}
+            status={match.status}
+            variant={match.status === 'completed' || match.status === 'finished' ? 'badge' : 'compact'}
+          />
+        ) : (
+          <span className="font-mono-data text-[10px] text-muted/35">–</span>
+        )}
+        {match.status === 'live' && (
+          <span className="text-[9px] font-bold uppercase leading-none text-live">{t('common.live')}</span>
+        )}
+      </span>
     </Link>
   );
 }
@@ -202,7 +188,7 @@ function GroupCard({
         </tbody>
       </table>
 
-      <ul className="space-y-0.5 border-t border-border/40 pt-1.5">
+      <ul className="space-y-0 border-t border-border/40 pt-1">
         {fixtures.map((m) => (
           <li key={m.id}>
             <BoardMatchRow match={m} showDate />
