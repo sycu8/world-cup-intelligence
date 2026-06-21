@@ -89,19 +89,23 @@ async function main() {
       let removed = 0;
       for (let attempt = 1; attempt <= 3; attempt += 1) {
         try {
-          removed = deleteBatch(batchSize);
+          removed = deleteBatch(attempt === 1 ? batchSize : Math.max(500, Math.floor(batchSize / 2)));
           break;
         } catch (err) {
           const message = String(err?.message ?? err);
-          if (!message.includes('7429') || attempt === 3) throw err;
-          console.log(`Batch ${i} attempt ${attempt} timed out, retrying smaller batch...`);
-          removed = deleteBatch(Math.max(500, Math.floor(batchSize / 2)));
-          break;
+          if (attempt === 3) {
+            console.log(`Batch ${i} failed after retries: ${message.split('\n')[0]}`);
+            removed = 0;
+            break;
+          }
+          console.log(`Batch ${i} attempt ${attempt} failed, retrying...`);
         }
       }
 
+      if (removed === 0 && i > 1) break;
+      if (removed === 0) continue;
+
       totalRemoved += removed;
-      if (removed === 0) break;
       if (i % 10 === 0 || removed < batchSize) {
         console.log(`Batch ${i}: removed ${removed} (total ${totalRemoved})`);
       }
