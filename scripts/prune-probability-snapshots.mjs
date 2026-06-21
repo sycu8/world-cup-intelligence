@@ -21,7 +21,7 @@ const batchSize = batchArg ? Math.max(500, Number(batchArg.slice(8)) || 2000) : 
 const maxBatchesArg = process.argv.find((a) => a.startsWith('--max-batches='));
 const maxBatches = maxBatchesArg ? Math.max(1, Number(maxBatchesArg.slice(14)) || 500) : 500;
 
-const dbName = production ? 'wc-tactical-db' : 'wc-tactical-db-uat';
+const dbName = production ? 'wc-tactical-db' : 'wc-tactical-db-uat-v2';
 const envArgs = production ? ['--env', 'production'] : [];
 const locationArgs = remote ? ['--remote'] : ['--local'];
 
