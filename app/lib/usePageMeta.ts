@@ -20,7 +20,7 @@ function upsertMeta(attr: 'name' | 'property', key: string, content: string) {
 
 const DEFAULT_TITLE = 'PitchIntel — Tình báo chiến thuật World Cup';
 const DEFAULT_DESCRIPTION =
-  'Phân tích trận, xác suất mô hình, kịch bản và tin World Cup 2026 — miễn phí, ưu tiên tiếng Việt.';
+  'Dự đoán trận, phân tích chiến thuật, kịch bản và tin World Cup 2026 — miễn phí, ưu tiên tiếng Việt.';
 const DEFAULT_IMAGE = '/og-cover.jpg';
 
 export function usePageMeta(meta: PageMeta | null) {

@@ -12,7 +12,7 @@ describe('scenarioPredictionLabels VI', () => {
   it('translates Scenario likelihood explanation lines', () => {
     expect(
       translateScenarioDriver('Scenario likelihood 42.5% with model confidence 71%.', 'vi'),
-    ).toBe('Xác suất kịch bản 42.5% · độ tin cậy mô hình 71%.');
+    ).toBe('Xác suất kịch bản 42.5% · độ tin cậy 71%.');
     expect(translateScenarioDriver('Conditional W/D/L: 45/28/27.', 'vi')).toBe(
       'W/D/L có điều kiện: 45/28/27.',
     );
