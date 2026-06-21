@@ -29,8 +29,10 @@
     "deploy:both": "npm run db:migrate:uat && npm run deploy:uat && npm run db:migrate:production && npm run deploy:production",
     "db:migrate:local": "node scripts/wrangler-with-env.mjs d1 migrations apply wc-tactical-db --local",
     "db:migrate:remote": "node scripts/wrangler-with-env.mjs d1 migrations apply wc-tactical-db --remote",
-    "db:migrate:uat": "node scripts/wrangler-with-env.mjs d1 migrations apply wc-tactical-db-uat --remote",
+    "db:migrate:uat": "node scripts/wrangler-with-env.mjs d1 migrations apply wc-tactical-db-uat-v2 --remote",
     "db:migrate:production": "node scripts/wrangler-with-env.mjs d1 migrations apply wc-tactical-db --remote --env production",
+    "db:prune:snapshots:uat": "node scripts/prune-probability-snapshots.mjs --remote --keep-latest",
+    "db:prune:snapshots:production": "node scripts/prune-probability-snapshots.mjs --remote --production --keep-latest",
     "seed": "wrangler d1 execute wc-tactical-db --local --file=./migrations/0003_seed_reference.sql",
     "worker:dev": "wrangler dev",
     "preview": "wrangler dev"

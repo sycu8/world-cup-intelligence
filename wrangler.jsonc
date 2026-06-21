@@ -44,8 +44,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "wc-tactical-db-uat",
-      "database_id": "956310d8-5ca1-49db-b188-7d0b435109ce",
+      "database_name": "wc-tactical-db-uat-v2",
+      "database_id": "8cdc6c74-3521-4ebc-a3ac-dbfd0126eaef",
       "migrations_dir": "migrations"
     }
   ],

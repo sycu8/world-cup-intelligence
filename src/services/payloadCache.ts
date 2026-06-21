@@ -9,12 +9,22 @@ export async function getCachedJson<T>(
   ttlSec = DEFAULT_TTL_SEC,
 ): Promise<T> {
   const hit = await env.KV.get(key);
-  if (hit) return JSON.parse(hit) as T;
+  if (hit) {
+    try {
+      return JSON.parse(hit) as T;
+    } catch {
+      await env.KV.delete(key).catch(() => undefined);
+    }
+  }
 
   const value = await build();
-  await env.KV.put(key, JSON.stringify(value), {
-    expirationTtl: Math.max(15, ttlSec),
-  });
+  try {
+    await env.KV.put(key, JSON.stringify(value), {
+      expirationTtl: Math.max(15, ttlSec),
+    });
+  } catch {
+    // KV write failure should not break API responses.
+  }
   return value;
 }
 

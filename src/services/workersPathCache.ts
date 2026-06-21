@@ -36,7 +36,7 @@ export async function withPathCache(
 
   const response = await build();
   if (response.ok) {
-    await putPathCachedResponse(key, response, ttlSec);
+    await putPathCachedResponse(key, response, ttlSec).catch(() => undefined);
   }
   return response;
 }

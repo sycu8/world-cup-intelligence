@@ -3,6 +3,7 @@ import type { IngestJob } from '../queues/types';
 import { logInfo } from '../utils/logger';
 import { runBulkRecomputeIfPending } from '../services/bulkRecomputeRunner';
 import { crawlWorldCupNews } from '../ingestion/newsCrawler';
+import { runProbabilitySnapshotRetention } from '../services/probabilitySnapshotRetention';
 
 export async function handleScheduledCron(
   env: AppEnv,
@@ -44,6 +45,12 @@ export async function handleScheduledCron(
   }
 
   if (cron === '0 3 * * 1' || cron === 'weekly-statsbomb') {
+    const retention = runProbabilitySnapshotRetention(env).catch((err) =>
+      console.error('[probability-retention] weekly prune failed', err),
+    );
+    if (ctx) ctx.waitUntil(retention);
+    else await retention;
+
     if (await runBulkRecomputeIfPending(env)) return;
 
     const job: IngestJob = {
