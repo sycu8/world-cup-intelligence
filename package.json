@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:scenarios": "node scripts/run-capability-scenarios.mjs",
     "test:perf": "node scripts/measure-page-load.mjs",
+    "warm:caches": "node scripts/warm-production-caches.mjs",
     "lint": "eslint src app --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "deploy": "npm run deploy:uat",
