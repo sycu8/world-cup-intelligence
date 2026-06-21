@@ -283,9 +283,17 @@ export async function getPitchMapPayload(env: AppEnv, ref: string): Promise<Pitc
        WHERE match_id = ? AND x IS NOT NULL AND y IS NOT NULL ORDER BY minute ASC`,
     )
       .bind(matchId)
-      .all<
-        PitchMapEvent & { event_type: string; end_x: number | null; end_y: number | null }
-      >(),
+      .all<{
+        id: string;
+        x: number;
+        y: number;
+        end_x: number | null;
+        end_y: number | null;
+        event_type: string;
+        team_id: string;
+        player_id: string | null;
+        minute: number;
+      }>(),
   ]);
 
   const subs = subEvents.results ?? [];

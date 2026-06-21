@@ -72,7 +72,15 @@ export const WC_NEWS_FEEDS = [
   },
 ] as const;
 
-export type NewsFeed = (typeof WC_NEWS_FEEDS)[number];
+export type NewsFeed =
+  | (typeof WC_NEWS_FEEDS)[number]
+  | {
+      readonly id: 'rss-fifa-wc2026';
+      readonly name: string;
+      readonly publisher: string;
+      readonly url: string;
+      readonly reliability: number;
+    };
 
 export function newsFeedSourceId(feedId: string): string {
   return `src-${feedId}`;

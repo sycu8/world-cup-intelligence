@@ -158,6 +158,7 @@ setInterval(async () => {
         method: 'DELETE',
         path: '/api/v1/webhooks/:id',
         title: 'Remove webhook',
+        description: 'Deletes a webhook subscription by id.',
         auth: 'api-key',
       },
       {

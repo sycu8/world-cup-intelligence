@@ -208,7 +208,7 @@ export async function processNewsDocumentImpact(
     }
     logInfo('news impact applied', {
       documentId,
-      matchIds,
+      match_ids: matchIds.join(','),
       impactLevel,
       recompute: triggeredRecompute,
     });

@@ -345,8 +345,8 @@ async function applyFifaCalendarRow(
   internal: MatchRow,
   row: FifaCalendarMatch,
 ): Promise<'updated' | 'unchanged'> {
-  const homeScore = row.HomeTeamScore ?? row.Home?.Score ?? 0;
-  const awayScore = row.AwayTeamScore ?? row.Away?.Score ?? 0;
+  const homeScore = row.HomeTeamScore ?? 0;
+  const awayScore = row.AwayTeamScore ?? 0;
   const minute = parseFifaMinute(row.MatchTime);
   const status = resolveFifaPlatformStatus(row);
   const now = nowIso();
