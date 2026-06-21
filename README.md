@@ -344,7 +344,8 @@ npx wrangler dev --remote --port 8787
 | `npm run dev` | Frontend Vite |
 | `npm run dev:uat` | Wrangler dev (UAT bindings) |
 | `npm run build` | Build client + Worker |
-| `npm run test` | Vitest (unit) |
+| `npm run test` | Vitest (unit) — 100% line/branch coverage enforced |
+| `npm run test:coverage` | Vitest with v8 coverage report (`coverage/`) |
 | `npm run test:scenarios` | 22 capability scenarios (pass/fail + `reports/capability-scenarios.json`) |
 | `npm run sync:fifa-schedule` | Fetch FIFA calendar → generate kickoff/results migrations |
 | `npm run pull:statsbomb` | Pull StatsBomb open-data → D1 + R2 |
