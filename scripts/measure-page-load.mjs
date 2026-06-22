@@ -46,6 +46,7 @@ const TARGETS = [
   { id: 'api-standings', kind: 'api', path: '/api/tournaments/2026/standings' },
   { id: 'api-match', kind: 'api', path: '/api/matches/m-w26-ga-1v2' },
   { id: 'api-probability', kind: 'api', path: '/api/matches/m-w26-ga-1v2/probability' },
+  { id: 'api-probability-favorite', kind: 'api', path: '/api/matches/m-w26-ga-1v2/probability' },
 ];
 
 function curlTtfbMs(url) {

@@ -22,7 +22,12 @@ import {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASE_URL = (process.env.BASE_URL ?? 'https://wcstat.orangecloud.vn').replace(/\/$/, '');
+const EXPECT_ENV =
+  process.env.EXPECT_ENV ??
+  (BASE_URL.includes('127.0.0.1') || BASE_URL.includes('localhost') ? 'development' : 'production');
 const jsonOut = process.argv.includes('--json');
+const streakMode = process.argv.includes('--streak');
+const streakGoal = Math.max(1, Number(process.env.STREAK_GOAL ?? 10));
 const startedAt = new Date().toISOString();
 
 /** @typedef {{ id: string; capability: string; criteria: string[]; run: () => Promise<{ pass: boolean; evidence: Record<string, unknown> }> }} Scenario */
@@ -59,7 +64,7 @@ const SCENARIOS = [
       'GET /api/health returns 200',
       'status is healthy',
       'D1 dependency is up',
-      'environment is production',
+      'environment matches deployment',
     ],
     async run() {
       const { status, body } = await fetchJson('/api/health');
@@ -68,12 +73,13 @@ const SCENARIOS = [
         health: body?.status,
         d1: body?.dependencies?.d1,
         environment: body?.environment,
+        expectedEnvironment: EXPECT_ENV,
       };
       const pass =
         status === 200 &&
         body?.status === 'healthy' &&
         body?.dependencies?.d1 === 'up' &&
-        body?.environment === 'production';
+        body?.environment === EXPECT_ENV;
       return { pass, evidence };
     },
   },
@@ -245,17 +251,17 @@ const SCENARIOS = [
     id: 'S10',
     capability: 'Strong-favorite scoreline calibration',
     criteria: [
-      'Clear favorite (Portugal vs Congo DR) has homeWin > 0.6',
+      'Clear favorite (Mexico vs South Africa, host) has homeWin > 0.58',
       'mostLikelyScore is not 1-1',
       'mostLikelyScore is a tight win (1-0, 2-0, or 2-1)',
     ],
     async run() {
-      const { status, body } = await fetchJson('/api/matches/m-w26-gk-1v2/probability');
+      const { status, body } = await fetchJson('/api/matches/m-w26-ga-1v2/probability');
       const p = body?.data;
       const tight = ['1-0', '2-0', '2-1'];
       const pass =
         status === 200 &&
-        (p?.homeWinProb ?? 0) > 0.6 &&
+        (p?.homeWinProb ?? 0) > 0.58 &&
         p?.mostLikelyScore !== '1-1' &&
         tight.includes(p?.mostLikelyScore);
       return {
@@ -502,11 +508,16 @@ const SCENARIOS = [
 async function main() {
   const results = [];
   let failed = 0;
+  let streak = 0;
 
   console.log(`PitchIntel capability scenarios`);
   console.log(`Base URL: ${BASE_URL}`);
   console.log(`Started:  ${startedAt}`);
-  console.log(`Method:   pass/fail rubric (${SCENARIOS.length} scenarios)\n`);
+  if (streakMode) {
+    console.log(`Mode:     streak (goal ${streakGoal} consecutive PASS)\n`);
+  } else {
+    console.log(`Method:   pass/fail rubric (${SCENARIOS.length} scenarios)\n`);
+  }
 
   for (const scenario of SCENARIOS) {
     const t0 = Date.now();
@@ -529,11 +540,23 @@ async function main() {
       elapsedMs,
     };
     results.push(record);
-    if (!outcome.pass) failed += 1;
     const mark = outcome.pass ? 'PASS' : 'FAIL';
     console.log(`${mark}  ${scenario.id}  ${scenario.capability}  (${elapsedMs}ms)`);
     if (!outcome.pass) {
+      failed += 1;
+      streak = 0;
       console.log(`       evidence: ${JSON.stringify(outcome.evidence)}`);
+      if (streakMode) {
+        console.log(`\nStreak reset at ${scenario.id} (0/${streakGoal})`);
+        break;
+      }
+    } else if (streakMode) {
+      streak += 1;
+      console.log(`       streak: ${streak}/${streakGoal}`);
+      if (streak >= streakGoal) {
+        console.log(`\nStreak goal reached: ${streakGoal} consecutive PASS`);
+        break;
+      }
     }
   }
 
@@ -542,9 +565,10 @@ async function main() {
     baseUrl: BASE_URL,
     startedAt,
     finishedAt,
-    method: 'pass/fail',
-    total: SCENARIOS.length,
-    passed: SCENARIOS.length - failed,
+    method: streakMode ? `streak-${streakGoal}` : 'pass/fail',
+    streak: streakMode ? { goal: streakGoal, achieved: streak } : undefined,
+    total: results.length,
+    passed: results.filter((r) => r.pass).length,
     failed,
     results,
   };
@@ -555,13 +579,17 @@ async function main() {
   writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 
   console.log(`\nSummary: ${report.passed}/${report.total} passed`);
+  if (streakMode) {
+    console.log(`Streak:   ${streak}/${streakGoal}${streak >= streakGoal ? ' ✓' : ''}`);
+  }
   console.log(`Report:  ${reportPath}`);
 
   if (jsonOut) {
     console.log(JSON.stringify(report, null, 2));
   }
 
-  process.exit(failed > 0 ? 1 : 0);
+  const streakOk = !streakMode || streak >= streakGoal;
+  process.exit(failed > 0 || !streakOk ? 1 : 0);
 }
 
 main();

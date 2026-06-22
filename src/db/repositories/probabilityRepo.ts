@@ -63,6 +63,23 @@ export async function getPreMatchSnapshot(
     .first<ProbabilitySnapshotRow>();
 }
 
+/** Snapshot for public API — live uses latest minute; completed uses kickoff (minute 0) only. */
+export async function getDisplaySnapshot(
+  db: D1Database,
+  matchId: string,
+  status: string,
+): Promise<ProbabilitySnapshotRow | null> {
+  if (status === 'live') {
+    return getLatestSnapshot(db, matchId);
+  }
+  if (status === 'completed') {
+    const pre = await getPreMatchSnapshot(db, matchId);
+    if (pre && (pre.minute ?? 0) === 0) return pre;
+    return null;
+  }
+  return getLatestSnapshot(db, matchId);
+}
+
 export async function saveSnapshot(db: D1Database, result: ProbabilityResult, r2Key?: string): Promise<string> {
   const id = newId('ps');
   await db

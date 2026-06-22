@@ -12,6 +12,7 @@ vi.mock('../../src/db/repositories/teamsRepo', () => ({
 }));
 
 vi.mock('../../src/db/repositories/probabilityRepo', () => ({
+  getDisplaySnapshot: vi.fn(),
   getLatestSnapshot: vi.fn(),
   saveSnapshot: vi.fn(async () => undefined),
 }));
@@ -44,7 +45,8 @@ describe('probability routes branch fallbacks', () => {
       (FIXTURE_TEAMS.find((team) => team.id === teamId) ?? null) as never,
     );
     const probabilityRepo = await import('../../src/db/repositories/probabilityRepo');
-    vi.mocked(probabilityRepo.getLatestSnapshot).mockResolvedValue(null);
+    vi.mocked(probabilityRepo.getDisplaySnapshot).mockResolvedValue(null);
+    vi.mocked(probabilityRepo.getDisplaySnapshot).mockResolvedValue(null);
     const engine = await import('../../src/models/probability/engine');
     vi.mocked(engine.computeProbability).mockResolvedValue({
       matchId: FIXTURE_MATCH.id,
@@ -73,7 +75,7 @@ describe('probability routes branch fallbacks', () => {
 
   it('uses snapshot payload defaults when explanation and created_at are null', async () => {
     const probabilityRepo = await import('../../src/db/repositories/probabilityRepo');
-    vi.mocked(probabilityRepo.getLatestSnapshot).mockResolvedValue({
+    vi.mocked(probabilityRepo.getDisplaySnapshot).mockResolvedValue({
       id: 'snap-1',
       home_win_prob: 0.55,
       draw_prob: 0.25,
@@ -100,7 +102,7 @@ describe('probability routes branch fallbacks', () => {
 
   it('recomputes when snapshot JSON is null or empty and falls back to explanation and timestamp', async () => {
     const probabilityRepo = await import('../../src/db/repositories/probabilityRepo');
-    vi.mocked(probabilityRepo.getLatestSnapshot).mockResolvedValue({
+    vi.mocked(probabilityRepo.getDisplaySnapshot).mockResolvedValue({
       id: 'snap-bad',
       home_win_prob: 0.55,
       draw_prob: 0.25,
@@ -148,7 +150,7 @@ describe('probability routes branch fallbacks', () => {
 
   it('treats empty scoreline and interval objects as incomplete snapshot payloads', async () => {
     const probabilityRepo = await import('../../src/db/repositories/probabilityRepo');
-    vi.mocked(probabilityRepo.getLatestSnapshot).mockResolvedValue({
+    vi.mocked(probabilityRepo.getDisplaySnapshot).mockResolvedValue({
       id: 'snap-empty-objects',
       home_win_prob: 0.51,
       draw_prob: 0.27,
@@ -175,7 +177,7 @@ describe('probability routes branch fallbacks', () => {
 
   it('recomputes when only the interval payload is nullish or empty', async () => {
     const probabilityRepo = await import('../../src/db/repositories/probabilityRepo');
-    vi.mocked(probabilityRepo.getLatestSnapshot).mockResolvedValue({
+    vi.mocked(probabilityRepo.getDisplaySnapshot).mockResolvedValue({
       id: 'snap-missing-intervals',
       home_win_prob: 0.44,
       draw_prob: 0.31,
@@ -197,7 +199,7 @@ describe('probability routes branch fallbacks', () => {
     expect(probability.json.data.drivers).toEqual(['Fallback driver']);
     expect(probability.json.data.updatedAt).toBe('2026-06-01T00:00:00Z');
 
-    vi.mocked(probabilityRepo.getLatestSnapshot).mockResolvedValue({
+    vi.mocked(probabilityRepo.getDisplaySnapshot).mockResolvedValue({
       id: 'snap-empty-intervals',
       home_win_prob: 0.44,
       draw_prob: 0.31,

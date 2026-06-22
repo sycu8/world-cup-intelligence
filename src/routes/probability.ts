@@ -94,7 +94,7 @@ async function resolveProbability(
   const match = resolved;
   const matchId = resolved.id;
   if (!recompute) {
-    const snap = await probabilityRepo.getLatestSnapshot(c.env.DB, matchId);
+    const snap = await probabilityRepo.getDisplaySnapshot(c.env.DB, matchId, match.status);
     if (snap && snapshotIsComplete(snap)) {
       const cacheKey = `cache:prob:${matchId}:${snap.id}`;
       return getCachedJson(
