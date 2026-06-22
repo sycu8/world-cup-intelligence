@@ -4,11 +4,21 @@ import { LangSwitch } from '../i18n/LangSwitch';
 import { BrandLogo } from '../brand/BrandLogo';
 
 const links = [
-  { to: '/', k: 'nav.home' as const, match: (p: string) => p === '/' },
-  { to: '/matches', k: 'nav.matches' as const, match: (p: string) => p === '/matches' || p.startsWith('/matches/') },
-  { to: '/tournaments', k: 'nav.tournaments' as const },
-  { to: '/news-intelligence', k: 'nav.articles' as const },
-  { to: '/guide', k: 'nav.guide' as const },
+  { to: '/', k: 'nav.home' as const, match: (p: string, search: string) => p === '/' },
+  {
+    to: '/matches',
+    k: 'nav.matches' as const,
+    match: (p: string, search: string) =>
+      (p === '/matches' && new URLSearchParams(search).get('tab') !== 'standings') ||
+      (p.startsWith('/matches/') && !p.endsWith('/analysis')),
+  },
+  {
+    to: '/matches?tab=standings',
+    k: 'nav.tournaments' as const,
+    match: (p: string, search: string) => p === '/matches' && new URLSearchParams(search).get('tab') === 'standings',
+  },
+  { to: '/news-intelligence', k: 'nav.articles' as const, match: (p: string) => p.startsWith('/news-intelligence') },
+  { to: '/guide', k: 'nav.guide' as const, match: (p: string) => p === '/guide' },
   { to: '/docs/api', k: 'nav.api' as const, match: (p: string) => p.startsWith('/docs/api') },
 ];
 
@@ -20,7 +30,7 @@ export function TopNav() {
         <BrandLogo />
         <nav className="hidden gap-1 md:flex">
           {links.map((l) => {
-            const active = l.match ? l.match(loc.pathname) : loc.pathname === l.to;
+            const active = l.match ? l.match(loc.pathname, loc.search) : loc.pathname === l.to;
             return (
               <Link
                 key={l.k}

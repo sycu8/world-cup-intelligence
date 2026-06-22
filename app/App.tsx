@@ -46,7 +46,7 @@ export default function App() {
             <Route element={<AppShell />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/matches" element={<MatchesPage />} />
-              <Route path="/tournaments" element={<Navigate to="/" replace />} />
+              <Route path="/tournaments" element={<Navigate to="/matches?tab=standings" replace />} />
               <Route path="/matches/:matchId/analysis" element={<MatchAnalysisPage />} />
               <Route path="/matches/:matchId" element={<MatchPage />} />
               <Route path="/teams/:teamId" element={<TeamPage />} />
