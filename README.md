@@ -26,7 +26,8 @@ Demo live: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-b
 | **FIFA lịch & kết quả** | Kickoff UTC + `fifa_match_id` cho 104 trận từ FIFA Match Centre (`0031`); backfill kết quả FT (`0032`). |
 | **FIFA live sync** | Cron mỗi phút: tỉ số, sự kiện, possession, lineup pre-kickoff; blog/stats qua `fifaLiveBlogSync`. |
 | **Public API v1** | `GET /api/v1/feed`, snapshot, SSE stream, webhooks — `X-API-Key` bắt buộc trên production. |
-| **Capability scenarios** | 22 scenario pass/fail — `npm run test:scenarios` → `docs/CAPABILITY_SCENARIOS.md`. |
+| **Capability scenarios** | 22 scenario pass/fail — `npm run test:scenarios`; streak 10 liên tiếp: `npm run test:scenarios:streak` → [docs/CAPABILITY_SCENARIOS.md](./docs/CAPABILITY_SCENARIOS.md). |
+| **Xác suất trận FT** | Trận `completed`: API trả snapshot **pre-match** (minute 0), không leak tỉ số live vào W/D/L (`getDisplaySnapshot`). |
 | **CI deploy** | GitHub Actions chạy D1 migrations **trước** deploy (UAT + production). |
 | **Trang chủ — hướng dẫn** | Quick-start 4 bước: khối thu gọn + **4 tab full-width** (mobile: 1–4) + panel một bước/lần. |
 | **Trang chủ — tải nhanh** | KV + Workers cache cho `/api/home`; progressive load schedule/standings. |
@@ -46,11 +47,14 @@ Demo live: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-b
 | **Recap & staff** | Tóm tắt trận FIFA (`MatchRecapPanel`), HLV/trọng tài (`MatchStaffPanel`, migration `0025`). |
 | **News → trận** | Pipeline FIFA WC2026 + RSS mở rộng; dịch VI, publish, ảnh hưởng dự đoán khi tin liên quan trận (`newsMatchImpact`, migration `0029`). |
 | **FIFA live sync** | Lineup/stats/events từ FIFA Match Centre; Mexico–SA seed + lịch sử WC (`0023`–`0027`). |
-| **Deploy an toàn** | `scripts/wrangler-with-env.mjs` + GitHub Actions `CLOUDFLARE_API_TOKEN`; migrations trước deploy. |
+| **Deploy an toàn** | `npm run deploy:both` (migrate UAT → deploy UAT → migrate prod → deploy prod); token qua `cf-deploy.token` + GitHub Actions. |
 | **Bảng đấu — xác suất trận** | Trận đã phân tích hiện **C · H · K** (% mô hình); trận chưa có hiện **«Chưa có»**. API gap-fill (xem [Thuật toán gap-fill](#gap-fill-xác-suất-bảng-đấu)). |
 | **Mobile UX trang trận** | Thanh tỉ số dính, điều hướng section (`MatchSectionNav`), panel dự đoán/tóm tắt/analytics. |
 | **SEO tiếng Việt** | 8 landing page + `sitemap.xml`. |
-| **UAT tách biệt** | `npm run deploy:uat` / `deploy:production` — [docs/UAT.md](./docs/UAT.md). |
+| **Tài liệu API** | `/docs/api` (HTML) · `/docs/api.md` · `/.well-known/openapi.json` — Core / Tournament / Teams & news / Admin. |
+| **UAT tách biệt** | `npm run deploy:uat` / `deploy:production` / `deploy:both` — [docs/UAT.md](./docs/UAT.md). |
+
+Tài liệu API: [/docs/api](https://wcstat.orangecloud.vn/docs/api) · [OpenAPI](https://wcstat.orangecloud.vn/.well-known/openapi.json)
 
 Chụp lại screenshot sau deploy: `node scripts/capture-screenshots.mjs`.  
 Demo trận đã có dữ liệu FIFA: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-bang-a-mexico-vs-south-africa).
@@ -349,6 +353,7 @@ BASE_URL=http://127.0.0.1:8790 npm run test:qa-local
 | `npm run test` | Vitest (unit) — 100% line/branch coverage enforced |
 | `npm run test:coverage` | Vitest with v8 coverage report (`coverage/`) |
 | `npm run test:scenarios` | 22 capability scenarios (pass/fail + `reports/capability-scenarios.json`) |
+| `npm run test:scenarios:streak` | Chạy S01→… cho đến **10 PASS liên tiếp** (dừng sớm nếu FAIL) |
 | `npm run test:qa-local` | 14 local QA checks → `reports/local-qa-inventory.json` |
 | `npm run bootstrap:local-qa` | Migrate + seed news + bulk recompute (local D1) |
 | `npm run backtest:scores` | Offline scoreline backtest harness (`wc-prob-v5`) |
@@ -358,6 +363,7 @@ BASE_URL=http://127.0.0.1:8790 npm run test:qa-local
 | `npm run deploy` | **UAT** — `npm run deploy:uat` (default) |
 | `npm run deploy:uat` | Build + deploy Worker UAT |
 | `npm run deploy:production` | Build + deploy production (`wrangler.jsonc --env production`; token qua `cf-deploy.token` hoặc env) |
+| `npm run deploy:both` | Migrate UAT → deploy UAT → migrate production → deploy production |
 | `npm run db:migrate:local` | Migration D1 local (`wc-tactical-db-uat-v2`) |
 | `npm run db:migrate:uat` | Migration D1 UAT remote |
 | `npm run db:migrate:production` | Migration D1 production remote |
@@ -388,8 +394,8 @@ curl -X POST https://wcstat.orangecloud.vn/api/admin/lineups/sync-squads \
 
 Local dev: đặt `ADMIN_TOKEN` trong `.dev.vars` (xem `.env.example`). Nếu không set token trong `development`, POST admin vẫn mở.
 
-4. Deploy UAT trước: `npm run deploy:uat` — xem [docs/UAT.md](./docs/UAT.md)
-5. Sau khi UAT pass: `npm run deploy:production` (không chạy mặc định)
+4. Deploy UAT trước: `npm run deploy:uat` — hoặc cả hai: `npm run deploy:both` — xem [docs/UAT.md](./docs/UAT.md)
+5. Sau khi UAT pass: `npm run deploy:production` (hoặc dùng bước 4 với `deploy:both`)
 
 Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [auth.md](https://wcstat.orangecloud.vn/auth.md).
 
@@ -416,7 +422,7 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 | `GET /api/matches/:ref` | Chi tiết trận (`ref` = slug hoặc id cũ `m-*`; trả thêm `slug`) |
 | `GET /api/matches/:ref/lineups` | Đội hình hai bên (official only trên UI) |
 | `GET /api/matches/:ref/preview` | Phân tích trước trận (lineup, form, bảng) |
-| `GET /api/matches/:ref/probability` | Snapshot xác suất (+ `updatedAt`, `topScorelines`, `drivers`) |
+| `GET /api/matches/:ref/probability` | Snapshot xác suất pre-match (trận FT dùng minute-0, không leak live state) |
 | `GET /api/matches/:ref/history` | Đối đầu WC (`worldCupHistory`, `worldCupSummary`) |
 | `GET /api/matches/:ref/tactical-briefing` | Briefing AI |
 | `GET /api/matches/:ref/scenarios` | Kịch bản sự kiện (legacy 10 loại) |
@@ -443,7 +449,7 @@ Production yêu cầu header `X-API-Key: pi_live_…` (`PUBLIC_API_REQUIRE_KEY=t
 | `GET /api/v1/stream?cursor=` | Server-Sent Events |
 | `POST /api/v1/webhooks` | Đăng ký webhook (signed delivery) |
 
-Tạo API client: `POST /api/admin/api-clients` (admin token). Chi tiết: `/docs/api` → mục **Public API v1**.
+Tạo API client: `POST /api/admin/api-clients` (admin token). Chi tiết: [/docs/api](https://wcstat.orangecloud.vn/docs/api) (HTML) · [/docs/api.md](https://wcstat.orangecloud.vn/docs/api.md) (Markdown) · mục **Public API v1**.
 
 **Admin** (cần header `X-Admin-Token` = secret `ADMIN_TOKEN`):
 
@@ -472,12 +478,24 @@ Tạo API client: `POST /api/admin/api-clients` (admin token). Chi tiết: `/doc
 
 ```bash
 npm run typecheck
-npm test                  # Vitest unit suite (1719+ tests)
+npm test                  # Vitest unit suite (1720+ tests)
 npm run test:scenarios    # 22 capability scenarios vs production (pass/fail)
+npm run test:scenarios:streak   # 10 consecutive PASS (S01–S10+)
 npm run test:qa-local     # 14 local API checks — docs/QA_INVENTORY.md
 ```
 
-Bộ scenario: [docs/CAPABILITY_SCENARIOS.md](./docs/CAPABILITY_SCENARIOS.md) · Inventory QA: [docs/QA_INVENTORY.md](./docs/QA_INVENTORY.md)
+Bộ scenario: [docs/CAPABILITY_SCENARIOS.md](./docs/CAPABILITY_SCENARIOS.md) (bug log + streak loop) · Inventory QA: [docs/QA_INVENTORY.md](./docs/QA_INVENTORY.md)
+
+```bash
+# Streak trên production (mặc định)
+npm run test:scenarios:streak
+
+# Local Worker (8790)
+BASE_URL=http://127.0.0.1:8790 EXPECT_ENV=development npm run test:scenarios:streak
+
+# UAT
+BASE_URL=https://wc-tactical-uat.sycu-lee.workers.dev EXPECT_ENV=uat npm run test:scenarios:streak
+```
 
 **Deploy (GitHub Actions):** workflow `Deploy Cloudflare` — push `main` deploy cả UAT + production; migrations D1 chạy trước deploy.
 
@@ -511,7 +529,8 @@ Bộ scenario: [docs/CAPABILITY_SCENARIOS.md](./docs/CAPABILITY_SCENARIOS.md) ·
 - **FIFA kickoff/results sync** (`wc2026-fifa-kickoffs.json`, migrations `0031`–`0032`, `fifaLiveSync.ts`)
 - **FIFA lineup pre-kickoff** (`fifaLineupSync.test.ts`)
 - **Public API v1** (`publicApi.test.ts`, scenario S17)
-- **Capability scenario suite** (`scripts/run-capability-scenarios.mjs`, 22/22 pass)
+- **Capability scenario suite** (`scripts/run-capability-scenarios.mjs`, streak 10/10 trên prod + UAT)
+- **Pre-match probability on FT** (`getDisplaySnapshot`, `probabilityRepoDisplay.test.ts`)
 
 ---
 
@@ -531,9 +550,9 @@ src/
   ingestion/   fifa/, espn/, adapters/ (RSS, FIFA news)
   queues/      ingest + model consumers
   scheduled/   cron
-docs/          UAT.md, CAPABILITY_SCENARIOS.md, ROADMAP_EXECUTION.md
-migrations/    D1 SQL (0001–0032)
-scripts/       run-capability-scenarios.mjs, sync:fifa-schedule, smoke-*.ps1, …
+docs/          UAT.md, CAPABILITY_SCENARIOS.md, QA_INVENTORY.md, ROADMAP_EXECUTION.md
+migrations/    D1 SQL (0001–0033)
+scripts/       run-capability-scenarios.mjs, run-scenario-streak.mjs, sync:fifa-schedule, …
 tests/         Vitest
 ```
 
@@ -548,6 +567,7 @@ tests/         Vitest
 | `0026_fifa_match_ids.sql` | Liên kết `fifa_match_id` ban đầu |
 | `0031_fifa_kickoff_times.sql` | **104 kickoff UTC** từ FIFA Match Centre API |
 | `0032_fifa_completed_results.sql` | Backfill FT cho các trận đã đá (FIFA scores-fixtures) |
+| `0033_diverse_news_sources.sql` | Seed **24 RSS** + nguồn tin đa dạng (`source_registry`) |
 
 Script tái tạo / cập nhật lịch FIFA:
 
@@ -608,7 +628,8 @@ Migration `0013_wc_historical_h2h.sql` seed các kỳ WC (1930–2022) và trậ
 - [x] **FIFA Match Centre live sync** — scores, events, lineups, blog/stats; ESPN fallback
 - [x] **Kickoff UTC từ FIFA** — migration `0031` + `wc2026-fifa-kickoffs.json`
 - [x] **Public API v1** — feed, snapshot, SSE, webhooks + admin API clients
-- [x] **Capability scenario suite** — 22 pass/fail checks (`npm run test:scenarios`)
+- [x] **Capability scenario suite** — 22 pass/fail + streak runner (`npm run test:scenarios:streak`)
+- [x] **Pre-match snapshot on completed matches** — `getDisplaySnapshot` (S10 regression)
 - [x] **CI migrations-before-deploy** — `.github/workflows/deploy.yml`
 - [x] **SEO landing VI** — 8 trang + sitemap; API stats + probability enrichment
 - [x] **i18n VI-first sync** — Đà trận, Vòng loại trực tiếp, Tỉ số khả dĩ nhất
