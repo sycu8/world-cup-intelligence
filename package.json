@@ -20,6 +20,8 @@
     "test:seo": "vitest run tests/seo-geo-audit.integration.test.ts tests/spaSeoMeta.test.ts",
     "test:seo:crawl": "node scripts/run-seo-geo-audit.mjs",
     "test:perf": "node scripts/measure-page-load.mjs",
+    "backtest:scores": "vitest run tests/scorelineMetrics.test.ts tests/offlineBacktest.test.ts",
+    "calibrate:model": "node scripts/calibrate-probability-model.mjs",
     "warm:caches": "node scripts/warm-production-caches.mjs",
     "lint": "eslint src app --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
