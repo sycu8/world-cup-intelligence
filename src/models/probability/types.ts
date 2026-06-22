@@ -1,5 +1,6 @@
 import type { LiveMatchStatsInput } from './liveMatchStatsModifier';
 import type { H2hFeatures } from './h2hModifier';
+import type { GroupPointsPressureSnapshot } from './groupPointsPressure';
 
 export type IntervalProbability = {
   homeWinProb: number;
@@ -96,6 +97,8 @@ export type MatchFeatureInput = {
   awayFormMatchesPlayed?: number;
   /** Historical WC head-to-head summary for this fixture orientation. */
   h2h?: H2hFeatures;
+  /** Group-stage table context — boosts attack lambda as points pressure rises. */
+  groupPointsPressure?: GroupPointsPressureSnapshot;
 };
 
 export type IntervalKey = '15' | '30' | '45' | '60' | '75' | '90';

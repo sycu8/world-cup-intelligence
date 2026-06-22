@@ -64,6 +64,26 @@ export function buildExplanationFactors(input: MatchFeatureInput): {
       evidenceType: 'official',
     });
   }
+  if (input.groupPointsPressure) {
+    const { homePressure, awayPressure, groupProgress } = input.groupPointsPressure;
+    const peak = Math.max(homePressure, awayPressure);
+    if (peak >= 0.12) {
+      const side: 'home' | 'away' | 'neutral' =
+        Math.abs(homePressure - awayPressure) < 0.08
+          ? 'neutral'
+          : homePressure >= awayPressure
+            ? 'home'
+            : 'away';
+      factors.push({
+        key: 'group_points_pressure',
+        label: 'Group-stage points pressure',
+        direction: side,
+        impact: peak * (0.25 + groupProgress * 0.15),
+        confidence: 0.74,
+        evidenceType: 'statistical',
+      });
+    }
+  }
   if (input.liveMatchStats) {
     const { home, away } = input.liveMatchStats;
     const homePoss = home.possession ?? 50;

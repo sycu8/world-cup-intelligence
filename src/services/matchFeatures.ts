@@ -18,6 +18,12 @@ import {
   getWorldCupHeadToHeadBetween,
   summarizePairFromPerspective,
 } from './matchHistory';
+import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
+import {
+  buildGroupPointsPressure,
+  type GroupPointsPressureSnapshot,
+} from '../models/probability/groupPointsPressure';
+import type { GroupStageMatchRow } from './tournamentProgression';
 
 function teamToFeatures(team: TeamRow, form?: TeamFormSnapshot | null): TeamFeatures {
   const elo = team.elo_rating ?? 1700;
@@ -171,6 +177,32 @@ async function loadLiveMatchStats(
   };
 }
 
+async function loadGroupPointsPressure(
+  db: D1Database,
+  match: MatchRow,
+): Promise<GroupPointsPressureSnapshot | undefined> {
+  if (match.stage !== 'Group' || !match.group_code) return undefined;
+
+  const { results } = await db
+    .prepare(
+      `SELECT group_code, home_team_id, away_team_id, home_score, away_score, status
+       FROM matches
+       WHERE tournament_id = ? AND stage = 'Group' AND group_code = ?`,
+    )
+    .bind(match.tournament_id ?? WC2026_TOURNAMENT_ID, match.group_code)
+    .all<GroupStageMatchRow>();
+
+  const snapshot = buildGroupPointsPressure(
+    results ?? [],
+    match.group_code,
+    match.home_team_id,
+    match.away_team_id,
+  );
+  if (!snapshot) return undefined;
+  if (snapshot.homePressure <= 0 && snapshot.awayPressure <= 0) return undefined;
+  return snapshot;
+}
+
 export async function buildMatchFeaturesWithForm(
   env: AppEnv,
   match: MatchRow,
@@ -178,7 +210,7 @@ export async function buildMatchFeaturesWithForm(
   away: TeamRow,
   tournamentYear: number,
 ): Promise<MatchFeatureInput> {
-  const [homeForm, awayForm, homeLineup, awayLineup, staff, liveMatchStats, h2hMeetings] =
+  const [homeForm, awayForm, homeLineup, awayLineup, staff, liveMatchStats, h2hMeetings, groupPointsPressure] =
     await Promise.all([
     getTeamFormSnapshot(env.DB, home.id, 6, match.tournament_id),
     getTeamFormSnapshot(env.DB, away.id, 6, match.tournament_id),
@@ -195,6 +227,7 @@ export async function buildMatchFeaturesWithForm(
     ),
     loadLiveMatchStats(env.DB, match),
     getWorldCupHeadToHeadBetween(env, home.id, away.id, match.id),
+    loadGroupPointsPressure(env.DB, match),
   ]);
 
   const features = buildMatchFeatures(match, home, away, tournamentYear, {
@@ -220,6 +253,7 @@ export async function buildMatchFeaturesWithForm(
       avgGoalsAway: summary.avgGoalsAway,
     };
   }
+  if (groupPointsPressure) features.groupPointsPressure = groupPointsPressure;
 
   const lineupConfidence =
     (homeLineup ? 0.04 : 0) + (awayLineup ? 0.04 : 0);

@@ -14,6 +14,7 @@ import { matchContextModifier, rankingGapModifier } from './matchContext';
 import { coachModifier, refereeModifier } from './staffModifiers';
 import { h2hLambdaModifier } from './h2hModifier';
 import { mergeCalibration, type CalibrationOverrides } from './calibration';
+import { groupPointsPressureModifier } from './groupPointsPressure';
 
 export const MODEL_VERSION = 'wc-prob-v5';
 const LAMBDA_MIN = 0.05;
@@ -42,6 +43,7 @@ export async function computeProbability(
     input.awayTeam.fifaRanking,
   );
   const h2h = h2hLambdaModifier(input.h2h, calibration.baseGoalRate);
+  const pointsPressure = groupPointsPressureModifier(input.groupPointsPressure, calibration);
 
   const homeRatings = deriveAttackDefenseRatings(
     input.homeTeam,
@@ -65,7 +67,8 @@ export async function computeProbability(
       rankGap.home *
       coaches.home *
       official.home *
-      h2h.home,
+      h2h.home *
+      pointsPressure.home,
   );
 
   const lambdaAway = clampLambda(
@@ -81,12 +84,17 @@ export async function computeProbability(
       rankGap.away *
       coaches.away *
       official.away *
-      h2h.away,
+      h2h.away *
+      pointsPressure.away,
   );
 
+  const drawInflation = Math.max(
+    0.92,
+    calibration.drawInflation + pointsPressure.drawInflationAdjust,
+  );
   const matrix = buildScorelineMatrix(lambdaHome, lambdaAway, {
     rho: calibration.dixonColesRho,
-    drawInflation: calibration.drawInflation,
+    drawInflation,
   });
   const wdl = aggregateWdl(matrix);
   const intervals = buildIntervalDistribution(
