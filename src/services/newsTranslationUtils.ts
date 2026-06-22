@@ -37,5 +37,6 @@ export function resolvePublisherLabel(row: Pick<NewsDocRow, 'source_url' | 'sour
   if (url.includes('bbc.') || url.includes('bbci.')) return 'BBC';
   if (url.includes('theguardian.')) return 'The Guardian';
   if (url.includes('fifa.')) return 'FIFA';
+  if (url.includes('vnexpress.')) return 'VnExpress';
   return name || 'RSS';
 }

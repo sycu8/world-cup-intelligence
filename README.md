@@ -33,7 +33,8 @@ Demo live: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-b
 | **Trang chủ — tải nhanh** | KV + Workers cache cho `/api/home`; progressive load schedule/standings. |
 | **Độ chính xác dự đoán** | Panel homepage: favorite hit rate, top-3 scoreline, Brier, avg actual-score prob (`wc-prob-v5`). |
 | **Mô hình wc-prob-v5** | Attack/defense split, H2H modifier, calibration grid; bulk recompute 104 trận. |
-| **Tin tức đa nguồn** | **24 RSS** (BBC, Guardian, UEFA, MARCA, Olé, US/Canada Soccer, The Athletic, …) + FIFA WC2026; crawl 15 phút. |
+| **Tin tức đa nguồn** | **24 RSS** + **VnExpress WC2026** (HTML blog) + FIFA WC2026; crawl 15 phút. |
+| **Vua phá lưới (homepage)** | Leaderboard ghi bàn cầu thủ từ `match_events` — hiển thị trên trang chủ. |
 | **QA local** | `docs/QA_INVENTORY.md`, `npm run bootstrap:local-qa`, `npm run test:qa-local` (14 checks). |
 | **Nav Giải đấu** | Menu *Tournaments* → `/matches?tab=standings` (deep-link tab URL). |
 | **Xác suất live 15p** | Cron + `liveMatchStatsModifier` cập nhật xác suất từ thống kê trận đang diễn ra. |
@@ -76,6 +77,7 @@ Demo trận đã có dữ liệu FIFA: [Mexico vs South Africa](https://wcstat.o
 - **Cờ quốc gia** — PNG qua `flagcdn.com` (hiển thị đúng trên Windows, không phụ thuộc emoji)
 - **Giờ thi đấu** — múi giờ trình duyệt + tham chiếu giờ Việt Nam (`MatchKickoffDisplay`)
 - Tin nóng tự dịch VI; làm mới mỗi 30 giây
+- **Vua phá lưới** (`TopScorersPanel`) — top cầu thủ ghi bàn từ trận FT, cập nhật qua `/api/home`
 
 ### Trung tâm trận đấu (`/matches`)
 - Hub 4 tab: **Lịch thi đấu** · **Bảng xếp hạng** · **Yêu thích** · **Đội** — deep-link `?tab=standings|favorites|teams`
@@ -185,7 +187,7 @@ Mỗi trận có **≥ 2 kịch bản phân tích** (baseline + alternative), do
 - Xác suất, hệ thống đội, **hai kịch bản quan trọng nhất**, thị trường, lịch sử đối đầu WC — cập nhật real-time
 
 ### Bài viết / News Intelligence (`/news-intelligence`)
-- RSS từ **24 nguồn** tin cậy (BBC, Guardian, FIFA, Reuters, AP, Sky, ESPN, GOAL, FourFourTwo, CONCACAF, UEFA, U.S. Soccer, Canada Soccer, The Athletic, MARCA, Olé, CBS Sports, …) + **FIFA WC2026 news page** (`FifaWc2026NewsAdapter`)
+- RSS từ **24 nguồn** tin cậy (BBC, Guardian, FIFA, Reuters, AP, Sky, ESPN, GOAL, FourFourTwo, CONCACAF, UEFA, U.S. Soccer, Canada Soccer, The Athletic, MARCA, Olé, CBS Sports, …) + **VnExpress World Cup 2026** ([tin tức WC2026](https://vnexpress.net/the-thao/world-cup-2026/tin-tuc), crawl HTML) + **FIFA WC2026 news page**
 - Crawl tự động mỗi **15 phút**; tối đa **5 bài/feed/lần** để cân bằng đa dạng nguồn
 - Danh sách tin + **thẻ nóng** (hot strip tách khỏi paginated list — `meta.total + hotCount` = tổng bài)
 - **Mỗi bài một trang riêng** (`/news-intelligence/:articleId`)
@@ -410,7 +412,7 @@ Chi tiết AI Gateway: xem [BRANDING.md](./BRANDING.md). Chính sách agent: [au
 | `GET /api/schedule` | Lịch 104 trận theo ngày (+ `home_country_code` / `away_country_code`) |
 | `GET /api/teams` | Danh sách 48 đội WC 2026 |
 | `GET /api/tournaments/2026/standings` | Bảng xếp hạng 12 bảng + xếp hạng đội thứ 3 |
-| `GET /api/home` | Bundle trang chủ (dashboard, schedule, standings, probabilities) |
+| `GET /api/home` | Bundle trang chủ (dashboard, schedule, standings, probabilities, **top scorers**) |
 | `GET /api/tournaments/2026/champion-odds` | Xác suất vô địch (Monte Carlo) |
 | `GET /api/tournaments/2026/prediction-accuracy` | Độ chính xác dự đoán (favorite hit, top-3 scoreline, Brier) |
 | `GET /api/tournaments/2026/upcoming-probability-verification` | Kiểm tra trận sắp đá thiếu snapshot (`?refresh=1`) |
@@ -568,6 +570,7 @@ tests/         Vitest
 | `0031_fifa_kickoff_times.sql` | **104 kickoff UTC** từ FIFA Match Centre API |
 | `0032_fifa_completed_results.sql` | Backfill FT cho các trận đã đá (FIFA scores-fixtures) |
 | `0033_diverse_news_sources.sql` | Seed **24 RSS** + nguồn tin đa dạng (`source_registry`) |
+| `0034_vnexpress_wc2026.sql` | Nguồn **VnExpress World Cup 2026** (HTML listing) |
 
 Script tái tạo / cập nhật lịch FIFA:
 

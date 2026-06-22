@@ -242,6 +242,9 @@ export type LocaleKey =
   | 'home.championOdds.subtitle'
   | 'home.championOdds.simulations'
   | 'home.championOdds.disclaimer'
+  | 'home.topScorers.title'
+  | 'home.topScorers.subtitle'
+  | 'home.topScorers.empty'
   | 'home.quickStart'
   | 'home.headlines'
   | 'home.loadingHeadlines'
@@ -978,6 +981,18 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'home.championOdds.disclaimer': {
     vi: 'Chỉ mang tính tham khảo — không phải dự đoán chính thức.',
     en: 'For reference only — not an official forecast.',
+  },
+  'home.topScorers.title': {
+    vi: 'Vua phá lưới',
+    en: 'Top scorers',
+  },
+  'home.topScorers.subtitle': {
+    vi: 'Cầu thủ ghi nhiều bàn nhất tại World Cup 2026 (trận đã kết thúc)',
+    en: 'Most goals at World Cup 2026 (completed matches)',
+  },
+  'home.topScorers.empty': {
+    vi: 'Chưa có bàn thắng được ghi — bảng cập nhật sau mỗi trận FT.',
+    en: 'No goals recorded yet — updates after each full-time result.',
   },
   'home.quickStart': { vi: 'Lần đầu vào? Bắt đầu trong 4 bước', en: 'New here? Start in 4 steps' },
   'home.headlines': { vi: 'Tin nổi bật', en: 'Headlines' },

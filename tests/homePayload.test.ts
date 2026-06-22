@@ -28,6 +28,14 @@ vi.mock('../src/services/tournamentMatchProbabilities', () => ({
   })),
 }));
 
+vi.mock('../src/services/tournamentTopScorers', () => ({
+  buildTopScorersPayload: vi.fn(async () => ({
+    tournamentId: 't-2026',
+    updatedAt: '2026-06-22T00:00:00.000Z',
+    scorers: [{ rank: 1, playerId: 'p1', playerName: 'Messi', teamId: 't1', teamName: 'Argentina', countryCode: 'AR', goals: 2 }],
+  })),
+}));
+
 describe('buildHomePayloadData', () => {
   it('aggregates schedule, dashboard, news, standings, and probabilities', async () => {
     const env = createMockEnv();
@@ -39,6 +47,7 @@ describe('buildHomePayloadData', () => {
     expect(payload.hotNews).toHaveLength(1);
     expect(payload.standings.tournamentId).toBe('t-2026');
     expect(payload.matchProbabilities['m-1']).toBeDefined();
+    expect(payload.topScorers.scorers).toHaveLength(1);
   });
 
   it('forwards custom tournament param to schedule builder', async () => {

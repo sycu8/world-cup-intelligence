@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import type { GroupStandingsPayload } from '../lib/api';
-import { api, type DashboardData, type NewsArticle, type ScheduleMatch, type ChampionOddsPayload, type PredictionAccuracyReport, type UpcomingProbabilityVerification } from '../lib/api';
+import { api, type DashboardData, type NewsArticle, type ScheduleMatch, type ChampionOddsPayload, type PredictionAccuracyReport, type UpcomingProbabilityVerification, type TopScorersPayload } from '../lib/api';
 import { consumeHomePrefetch } from '../lib/homePrefetch';
 import { FeaturedMatchHero } from '../components/home/FeaturedMatchHero';
 import { WorldCupCountdown } from '../components/home/WorldCupCountdown';
 import { PlatformSnapshot } from '../components/home/PlatformSnapshot';
 import { ChampionOddsPanel } from '../components/home/ChampionOddsPanel';
+import { TopScorersPanel } from '../components/home/TopScorersPanel';
 import { PredictionAccuracyPanel } from '../components/home/PredictionAccuracyPanel';
 import { NewUserQuickStart } from '../components/home/NewUserQuickStart';
 import { Bilingual } from '../components/i18n/Bilingual';
@@ -48,6 +49,7 @@ export function HomePage() {
   const [hotNews, setHotNews] = useState<NewsArticle[]>([]);
   const [standings, setStandings] = useState<GroupStandingsPayload | null>(null);
   const [championOdds, setChampionOdds] = useState<ChampionOddsPayload | null>(null);
+  const [topScorers, setTopScorers] = useState<TopScorersPayload | null>(null);
   const [predictionAccuracy, setPredictionAccuracy] = useState<PredictionAccuracyReport | null>(null);
   const [upcomingVerification, setUpcomingVerification] = useState<UpcomingProbabilityVerification | null>(null);
   const [predictionLoading, setPredictionLoading] = useState(true);
@@ -60,6 +62,7 @@ export function HomePage() {
     setHotNews(payload.data.hotNews.slice(0, 3));
     setStandings(payload.data.standings ?? null);
     setChampionOdds(payload.data.championOdds ?? null);
+    setTopScorers(payload.data.topScorers ?? null);
     setBoardReady(true);
     setExtrasReady(true);
   }, []);
@@ -95,6 +98,7 @@ export function HomePage() {
         setDashboard(null);
         setHotNews([]);
         setChampionOdds(null);
+        setTopScorers(null);
         setBoardReady(true);
         setExtrasReady(true);
       }
@@ -183,6 +187,7 @@ export function HomePage() {
         <HomeExtrasSkeleton />
       ) : (
         <>
+          <TopScorersPanel data={topScorers} loading={!topScorers} />
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-stretch">
             <div className="flex flex-col gap-4">
               <WorldCupCountdown />

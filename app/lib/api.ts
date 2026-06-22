@@ -275,6 +275,22 @@ export type ChampionOddsPayload = {
   all: ChampionOddsEntry[];
 };
 
+export type TopScorerEntry = {
+  rank: number;
+  playerId: string;
+  playerName: string;
+  teamId: string;
+  teamName: string;
+  countryCode: string | null;
+  goals: number;
+};
+
+export type TopScorersPayload = {
+  tournamentId: string;
+  updatedAt: string;
+  scorers: TopScorerEntry[];
+};
+
 export type PredictionOutcome = 'home' | 'draw' | 'away';
 
 export type MatchPredictionEvaluation = {

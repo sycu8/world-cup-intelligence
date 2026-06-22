@@ -5,6 +5,7 @@ import { buildSchedulePayload } from './schedulePayload';
 import { fetchHotNewsArticles } from './newsListPayload';
 import { buildGroupStandingsPayload } from './tournamentStandings';
 import { buildTournamentMatchProbabilitiesPayload } from './tournamentMatchProbabilities';
+import { buildTopScorersPayload, type TopScorersPayload } from './tournamentTopScorers';
 
 export type HomePayloadData = {
   schedule: Awaited<ReturnType<typeof buildSchedulePayload>>['data'];
@@ -13,10 +14,11 @@ export type HomePayloadData = {
   hotNews: Awaited<ReturnType<typeof fetchHotNewsArticles>>;
   standings: Awaited<ReturnType<typeof buildGroupStandingsPayload>>;
   matchProbabilities: Awaited<ReturnType<typeof buildTournamentMatchProbabilitiesPayload>>['data'];
+  topScorers: TopScorersPayload;
 };
 
 export async function buildHomePayloadData(env: AppEnv, tournament = 't-2026'): Promise<HomePayloadData> {
-  const [schedule, dashboard, hot, standings, matchProbabilities] = await Promise.all([
+  const [schedule, dashboard, hot, standings, matchProbabilities, topScorers] = await Promise.all([
     buildSchedulePayload(env, tournament),
     buildDashboardPayload(env),
     fetchHotNewsArticles(env, 3),
@@ -25,6 +27,7 @@ export async function buildHomePayloadData(env: AppEnv, tournament = 't-2026'): 
       scheduleBackgroundFill: true,
       skipInlineFill: true,
     }),
+    buildTopScorersPayload(env),
   ]);
 
   return {
@@ -34,5 +37,6 @@ export async function buildHomePayloadData(env: AppEnv, tournament = 't-2026'): 
     hotNews: hot,
     standings,
     matchProbabilities: matchProbabilities.data,
+    topScorers,
   };
 }

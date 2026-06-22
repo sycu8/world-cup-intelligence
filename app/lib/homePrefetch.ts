@@ -1,4 +1,4 @@
-import type { DashboardData, GroupStandingsPayload, NewsArticle, ScheduleMatch, ChampionOddsPayload } from './api';
+import type { DashboardData, GroupStandingsPayload, NewsArticle, ScheduleMatch, ChampionOddsPayload, TopScorersPayload } from './api';
 
 export type HomePayload = {
   data: {
@@ -17,6 +17,7 @@ export type HomePayload = {
     standings: GroupStandingsPayload;
     matchProbabilities: Record<string, { homeWin: number; draw: number; awayWin: number }>;
     championOdds: ChampionOddsPayload | null;
+    topScorers: TopScorersPayload;
   };
 };
 

@@ -178,6 +178,14 @@ export type NewsFeed =
       readonly publisher: string;
       readonly url: string;
       readonly reliability: number;
+    }
+  | {
+      readonly id: 'rss-vnexpress-wc2026';
+      readonly name: string;
+      readonly publisher: string;
+      readonly url: string;
+      readonly reliability: number;
+      readonly contentLocale: 'vi';
     };
 
 export function newsFeedSourceId(feedId: string): string {
