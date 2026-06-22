@@ -63,7 +63,19 @@ describe('ingestion TrustedNewsRssAdapter', () => {
 
   it('isWorldCupRelated matches keywords', () => {
     expect(isWorldCupRelated('Mexico lineup', 'World Cup 2026')).toBe(true);
+    expect(isWorldCupRelated('USMNT roster', 'Concacaf qualifier in Atlanta')).toBe(true);
+    expect(isWorldCupRelated('Mundial 2026', 'Selección mexicana en Monterrey')).toBe(true);
+    expect(isWorldCupRelated('Vinicius injury', 'Brazil squad for Copa del Mundo')).toBe(true);
     expect(isWorldCupRelated('Local cricket', 'County championship')).toBe(false);
+  });
+
+  it('includes diverse regional news feeds', () => {
+    const ids = WC_NEWS_FEEDS.map((f) => f.id);
+    expect(ids).toContain('rss-uefa-news');
+    expect(ids).toContain('rss-ussoccer');
+    expect(ids).toContain('rss-marca-futbol');
+    expect(ids).toContain('rss-ole-argentina');
+    expect(WC_NEWS_FEEDS.length).toBeGreaterThanOrEqual(20);
   });
 });
 
