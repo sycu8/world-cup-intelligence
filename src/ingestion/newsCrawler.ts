@@ -7,6 +7,9 @@ import { NEWS_CRAWL_KV_KEY } from '../constants/pipeline';
 import { nowIso } from '../utils/time';
 import { logInfo, logError } from '../utils/logger';
 
+const RSS_PARSE_LIMIT = 25;
+const MAX_ITEMS_PER_FEED = 5;
+
 const FIFA_WC2026_FEED = {
   id: 'rss-fifa-wc2026',
   name: 'FIFA World Cup 2026',
@@ -29,11 +32,11 @@ export async function crawlWorldCupNews(env: AppEnv): Promise<number> {
         continue;
       }
       const xml = await res.text();
-      const items = parseRssItems(xml, 20).filter((i) =>
+      const items = parseRssItems(xml, RSS_PARSE_LIMIT).filter((i) =>
         isWorldCupRelated(i.title, i.description),
       );
 
-      for (const item of items.slice(0, 8)) {
+      for (const item of items.slice(0, MAX_ITEMS_PER_FEED)) {
         const docId = await publishNewsArticle(env, feed, item);
         if (docId) inserted++;
       }
