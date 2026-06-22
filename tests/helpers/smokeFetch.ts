@@ -400,8 +400,11 @@ export function mockApiBody(url: string): unknown {
         drawHits: 1,
         scorelineHits: 2,
         scorelineHitRate: 0.2,
+        scorelineTop3Hits: 4,
+        scorelineTop3HitRate: 0.4,
         avgBrier: 0.42,
-        modelVersions: { 'wc-prob-v4': 10 },
+        avgActualScoreProb: 0.11,
+        modelVersions: { 'wc-prob-v5': 10 },
         recent: [],
       },
     };

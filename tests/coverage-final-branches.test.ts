@@ -86,11 +86,16 @@ vi.mock('../src/services/officialLineupSync', () => ({
 vi.mock('../src/services/matchGroupContext', () => ({
   getGroupContextForMatch: vi.fn(async () => ({ fixtures: [] })),
 }));
-vi.mock('../src/services/matchHistory', () => ({
-  getHeadToHead: vi.fn(async () => ({
-    summary: { recentFormHome: 'W', recentFormAway: 'L', totalMatches: 1 },
-  })),
-}));
+vi.mock('../src/services/matchHistory', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/services/matchHistory')>();
+  return {
+    ...actual,
+    getHeadToHead: vi.fn(async () => ({
+      summary: { recentFormHome: 'W', recentFormAway: 'L', totalMatches: 1 },
+    })),
+    getWorldCupHeadToHeadBetween: vi.fn(async () => []),
+  };
+});
 vi.mock('../src/services/recomputeMatch', () => ({
   recomputeMatchProbability: vi.fn(async () => null),
 }));

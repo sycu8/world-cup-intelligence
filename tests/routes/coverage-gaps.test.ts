@@ -61,12 +61,17 @@ vi.mock('../../src/services/pipelineBootstrap', () => ({
   ensureNewsCrawlFresh: vi.fn(async () => undefined),
 }));
 
-vi.mock('../../src/services/matchHistory', () => ({
-  getHeadToHead: vi.fn(async () => ({
-    current: { home_name: 'Mexico', away_name: 'South Africa' },
-    summary: { homeTeamWins: 1, awayTeamWins: 0, draws: 0, totalMatches: 1 },
-  })),
-}));
+vi.mock('../../src/services/matchHistory', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/services/matchHistory')>();
+  return {
+    ...actual,
+    getHeadToHead: vi.fn(async () => ({
+      current: { home_name: 'Mexico', away_name: 'South Africa' },
+      summary: { homeTeamWins: 1, awayTeamWins: 0, draws: 0, totalMatches: 1 },
+    })),
+    getWorldCupHeadToHeadBetween: vi.fn(async () => []),
+  };
+});
 
 vi.mock('../../src/services/matchStats', () => ({
   getMatchStats: vi.fn(async () => ({ possession: { home: 50, away: 50 } })),

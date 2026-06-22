@@ -14,6 +14,10 @@ import {
   hasUsableLiveStats,
   type LiveSideStats,
 } from '../models/probability/liveMatchStatsModifier';
+import {
+  getWorldCupHeadToHeadBetween,
+  summarizePairFromPerspective,
+} from './matchHistory';
 
 function teamToFeatures(team: TeamRow, form?: TeamFormSnapshot | null): TeamFeatures {
   const elo = team.elo_rating ?? 1700;
@@ -174,7 +178,8 @@ export async function buildMatchFeaturesWithForm(
   away: TeamRow,
   tournamentYear: number,
 ): Promise<MatchFeatureInput> {
-  const [homeForm, awayForm, homeLineup, awayLineup, staff, liveMatchStats] = await Promise.all([
+  const [homeForm, awayForm, homeLineup, awayLineup, staff, liveMatchStats, h2hMeetings] =
+    await Promise.all([
     getTeamFormSnapshot(env.DB, home.id, 6, match.tournament_id),
     getTeamFormSnapshot(env.DB, away.id, 6, match.tournament_id),
     loadLineupFeaturesForTeam(env.DB, match.id, home.id),
@@ -189,6 +194,7 @@ export async function buildMatchFeaturesWithForm(
       away.country_code,
     ),
     loadLiveMatchStats(env.DB, match),
+    getWorldCupHeadToHeadBetween(env, home.id, away.id, match.id),
   ]);
 
   const features = buildMatchFeatures(match, home, away, tournamentYear, {
@@ -202,6 +208,18 @@ export async function buildMatchFeaturesWithForm(
   if (staff.awayCoach) features.awayCoach = staff.awayCoach;
   if (staff.referee) features.referee = staff.referee;
   if (liveMatchStats) features.liveMatchStats = liveMatchStats;
+
+  features.homeFormMatchesPlayed = homeForm?.matchesPlayed ?? 0;
+  features.awayFormMatchesPlayed = awayForm?.matchesPlayed ?? 0;
+
+  if (h2hMeetings.length) {
+    const summary = summarizePairFromPerspective(h2hMeetings, home.id, away.id);
+    features.h2h = {
+      totalMatches: summary.totalMatches,
+      avgGoalsHome: summary.avgGoalsHome,
+      avgGoalsAway: summary.avgGoalsAway,
+    };
+  }
 
   const lineupConfidence =
     (homeLineup ? 0.04 : 0) + (awayLineup ? 0.04 : 0);

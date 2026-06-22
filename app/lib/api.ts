@@ -288,6 +288,8 @@ export type MatchPredictionEvaluation = {
   favoriteHit: boolean;
   predictedScore: string | null;
   scorelineHit: boolean;
+  scorelineTop3Hit: boolean;
+  actualScoreProb: number;
   brierScore: number;
   modelVersion: string;
   predictedProbs: { home: number; draw: number; away: number };
@@ -304,7 +306,10 @@ export type PredictionAccuracyReport = {
   drawHits: number;
   scorelineHits: number;
   scorelineHitRate: number | null;
+  scorelineTop3Hits: number;
+  scorelineTop3HitRate: number | null;
   avgBrier: number | null;
+  avgActualScoreProb: number | null;
   modelVersions: Record<string, number>;
   recent: MatchPredictionEvaluation[];
 };

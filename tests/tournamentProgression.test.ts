@@ -18,6 +18,7 @@ vi.mock('../src/services/bulkRecomputeRunner', () => ({
 
 vi.mock('../src/services/teamRatingRefresh', () => ({
   refreshTeamRatingsFromForm: vi.fn(async () => undefined),
+  applyPostMatchStrengthNudge: vi.fn(async () => undefined),
 }));
 
 describe('computeGroupStandingsFromMatchRows', () => {

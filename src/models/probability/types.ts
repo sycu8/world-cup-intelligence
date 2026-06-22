@@ -1,4 +1,5 @@
 import type { LiveMatchStatsInput } from './liveMatchStatsModifier';
+import type { H2hFeatures } from './h2hModifier';
 
 export type IntervalProbability = {
   homeWinProb: number;
@@ -90,6 +91,11 @@ export type MatchFeatureInput = {
   isHomeHost?: boolean;
   homeCountryCode?: string;
   awayCountryCode?: string;
+  /** Completed matches in current tournament form window. */
+  homeFormMatchesPlayed?: number;
+  awayFormMatchesPlayed?: number;
+  /** Historical WC head-to-head summary for this fixture orientation. */
+  h2h?: H2hFeatures;
 };
 
 export type IntervalKey = '15' | '30' | '45' | '60' | '75' | '90';
