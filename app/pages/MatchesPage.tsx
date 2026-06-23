@@ -90,13 +90,16 @@ export function MatchesPage() {
         />
       </header>
 
-      <nav className="flex flex-wrap gap-2 border-b border-border/60 pb-3" aria-label={t('matches.hubNav')}>
+      <nav
+        className="-mx-4 flex gap-2 overflow-x-auto border-b border-border/60 px-4 pb-3 scrollbar-none md:mx-0 md:flex-wrap md:overflow-visible"
+        aria-label={t('matches.hubNav')}
+      >
         {TABS.map(({ id, key }) => (
           <button
             key={id}
             type="button"
             onClick={() => selectTab(id)}
-            className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+            className={`mobile-touch-target shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
               tab === id
                 ? 'border-pressing bg-pressing/15 text-pressing'
                 : 'border-border text-muted hover:border-pressing/40 hover:text-foreground'

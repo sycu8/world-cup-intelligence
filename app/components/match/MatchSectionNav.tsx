@@ -22,9 +22,10 @@ type Props = {
   active: MatchSectionId;
   onSelect: (id: MatchSectionId) => void;
   sectionRefs: Record<MatchSectionId, RefObject<HTMLElement | null>>;
+  scoreBarVisible?: boolean;
 };
 
-export function MatchSectionNav({ active, onSelect, sectionRefs }: Props) {
+export function MatchSectionNav({ active, onSelect, sectionRefs, scoreBarVisible = false }: Props) {
   const { t } = useI18n();
   const ids = Object.keys(SECTION_KEYS) as MatchSectionId[];
 
@@ -34,17 +35,19 @@ export function MatchSectionNav({ active, onSelect, sectionRefs }: Props) {
   };
 
   return (
-      <nav
-        className="sticky top-[3.25rem] z-20 -mx-4 w-[calc(100%+2rem)] max-w-[100vw] border-b border-border/60 bg-background/95 px-4 py-1.5 backdrop-blur-md md:top-0 md:mx-0 md:w-full"
-        aria-label={t('match.sectionNav')}
-      >
-      <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-none">
+    <nav
+      className={`mobile-sticky-section-nav -mx-4 border-b border-border/60 bg-background/95 px-4 py-2 backdrop-blur-md md:static md:mx-0 md:w-full md:border-b-0 md:bg-transparent md:px-0 md:py-0 ${
+        scoreBarVisible ? 'mobile-sticky-section-nav--with-score' : ''
+      }`}
+      aria-label={t('match.sectionNav')}
+    >
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none md:flex-wrap md:overflow-visible">
         {ids.map((id) => (
           <button
             key={id}
             type="button"
             onClick={() => scrollTo(id)}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`mobile-touch-target shrink-0 rounded-full px-3.5 py-2 text-xs font-medium transition-colors sm:text-sm ${
               active === id
                 ? 'bg-cyan/15 text-cyan ring-1 ring-cyan/30'
                 : 'text-muted hover:bg-panel2/60 hover:text-foreground'

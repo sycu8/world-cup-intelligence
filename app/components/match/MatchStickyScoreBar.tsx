@@ -40,7 +40,7 @@ export function MatchStickyScoreBar({
 
   return (
     <div
-      className="sticky top-0 z-30 -mx-4 border-b border-cyan/20 bg-background/95 px-4 py-2 backdrop-blur-md md:hidden"
+      className="mobile-sticky-score -mx-4 border-b border-cyan/20 bg-background/95 px-4 py-2.5 backdrop-blur-md md:hidden"
       role="status"
       aria-live="polite"
     >
@@ -49,11 +49,11 @@ export function MatchStickyScoreBar({
           name={home}
           flagName={home}
           countryCode={homeCountryCode}
-          className="min-w-0 flex-1 justify-end text-xs font-medium"
+          className="min-w-0 flex-1 justify-end text-xs font-medium sm:text-sm"
           flagClassName="h-4 w-6 rounded-sm object-cover"
         />
         <div className="shrink-0 text-center">
-          <p className="font-display text-lg tabular-nums leading-none">
+          <p className="font-display text-lg tabular-nums leading-none sm:text-xl">
             {homeScore}
             <span className="mx-0.5 text-cyan/60">–</span>
             {awayScore}
@@ -70,7 +70,7 @@ export function MatchStickyScoreBar({
           name={away}
           flagName={away}
           countryCode={awayCountryCode}
-          className="min-w-0 flex-1 text-xs font-medium"
+          className="min-w-0 flex-1 text-xs font-medium sm:text-sm"
           flagClassName="h-4 w-6 rounded-sm object-cover"
         />
       </div>

@@ -56,8 +56,8 @@ function BoardMatchRow({
   return (
     <Link
       to={resolveMatchHref(match)}
-      className={`group flex items-center gap-1.5 rounded-md transition hover:bg-pressing/10 sm:gap-2 ${
-        dense ? 'px-2 py-1 sm:px-3' : 'px-1 py-0.5'
+      className={`group flex min-h-[2.75rem] items-center gap-1.5 rounded-md transition hover:bg-pressing/10 sm:gap-2 ${
+        dense ? 'px-2 py-2 sm:px-3' : 'px-2 py-1.5'
       }`}
     >
       <time className="shrink-0 whitespace-nowrap font-mono-data text-[10px] leading-none text-muted">
@@ -445,7 +445,7 @@ export function GroupStageBoard({
                   role="tab"
                   aria-selected={knockoutStage === stage}
                   onClick={() => setKnockoutStage(stage)}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition sm:text-xs ${
+                  className={`mobile-touch-target shrink-0 rounded-full px-3.5 py-2 text-xs font-medium transition sm:text-sm ${
                     knockoutStage === stage
                       ? 'bg-cyan/15 text-cyan ring-1 ring-cyan/30'
                       : 'text-muted hover:bg-panel2/60 hover:text-foreground'
