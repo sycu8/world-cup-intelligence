@@ -26,13 +26,14 @@ Demo live: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-b
 | **FIFA lịch & kết quả** | Kickoff UTC + `fifa_match_id` cho 104 trận từ FIFA Match Centre (`0031`); backfill kết quả FT (`0032`). |
 | **FIFA live sync** | Cron mỗi phút: tỉ số, sự kiện, possession, lineup pre-kickoff; blog/stats qua `fifaLiveBlogSync`. |
 | **Public API v1** | `GET /api/v1/feed`, snapshot, SSE stream, webhooks — `X-API-Key` bắt buộc trên production. |
-| **Capability scenarios** | 22 scenario pass/fail — `npm run test:scenarios`; streak 10 liên tiếp: `npm run test:scenarios:streak` → [docs/CAPABILITY_SCENARIOS.md](./docs/CAPABILITY_SCENARIOS.md). |
+| **Capability scenarios** | 23 scenario pass/fail — `npm run test:scenarios`; streak 10 liên tiếp: `npm run test:scenarios:streak` → [docs/CAPABILITY_SCENARIOS.md](./docs/CAPABILITY_SCENARIOS.md). |
+| **Validate knockout** | `npm run validate:knockout` — kiểm W/D/L vòng 1/16 → chung kết (32 trận, sum≈1, TBD vs đội thật); scenario **S23**. |
 | **Xác suất trận FT** | Trận `completed`: API trả snapshot **pre-match** (minute 0), không leak tỉ số live vào W/D/L (`getDisplaySnapshot`). |
 | **CI deploy** | GitHub Actions chạy D1 migrations **trước** deploy (UAT + production). |
 | **Trang chủ — hướng dẫn** | Quick-start 4 bước: khối thu gọn + **4 tab full-width** (mobile: 1–4) + panel một bước/lần. |
 | **Trang chủ — tải nhanh** | KV + Workers cache cho `/api/home`; progressive load schedule/standings. |
 | **Độ chính xác dự đoán** | Panel homepage: favorite hit rate, top-3 scoreline, Brier, avg actual-score prob (`wc-prob-v5`). |
-| **Mô hình wc-prob-v5** | Attack/defense split, H2H modifier, calibration grid; bulk recompute 104 trận. |
+| **Mô hình wc-prob-v5** | Attack/defense split, H2H modifier, **áp lực lấy điểm vòng bảng** (`groupPointsPressureMax`), calibration grid; bulk recompute 104 trận. |
 | **Tin tức đa nguồn** | **24 RSS** + **VnExpress WC2026** (HTML blog) + FIFA WC2026; crawl 15 phút. |
 | **Vua phá lưới (homepage)** | Leaderboard ghi bàn cầu thủ từ `match_events` — hiển thị trên trang chủ. |
 | **QA local** | `docs/QA_INVENTORY.md`, `npm run bootstrap:local-qa`, `npm run test:qa-local` (14 checks). |
@@ -252,7 +253,7 @@ PitchIntel tách rõ **engine thống kê** (tạo số) và **lớp AI** (chỉ
    λ_away = (đối xứng)
    ```
 
-   `BASE_GOAL_RATE = 1.35`.
+   `BASE_GOAL_RATE = 1.32` (calibration: `dixonColesRho`, `drawInflation`, `groupPointsPressureMax`, `groupPointsPressureDrawDampen`).
 
 2. **Ma trận tỉ số** — `buildScorelineMatrix(λ_home, λ_away)` (Poisson + **Dixon–Coles** điều chỉnh tỉ số thấp, ma trận 0–6 bàn).
 
@@ -262,7 +263,9 @@ PitchIntel tách rõ **engine thống kê** (tạo số) và **lớp AI** (chỉ
 
 5. **Confidence** — `computeModelConfidence`: trọng số độ tin input (lineup có/không, form, tournament prior). **Không** phải độ chính xác dự báo.
 
-6. **Hash** — `inputHash = sha256(input + λ)` để phát hiện stale snapshot.
+6. **Áp lực vòng bảng** — `groupPointsPressure`: tăng attack λ và giảm draw khi đội chưa đá / bị bỏ lại trong bảng (tiến độ bảng + điểm đối thủ). Chỉ `stage === 'Group'`.
+
+7. **Hash** — `inputHash = sha256(input + λ)` để phát hiện stale snapshot.
 
 **Full recompute** (`recomputeMatchProbability`): engine + lưu D1 `probability_snapshots` + team system profiles + scenario likelihoods + market signal + generate scenarios.
 
@@ -291,6 +294,13 @@ UI (`GroupStageBoard`, `CompactMatchProb`) poll 30s — coverage tăng dần đ�
 
 **Ép toàn bộ ngay:** `POST /api/admin/recompute-all` (admin token).
 
+### 2b. Knockout (vòng 1/16 → chung kết)
+
+- **32 trận** R32 (16) + R16 (8) + QF (4) + SF (2) + hạng 3 (1) + chung kết (1) — cùng engine `wc-prob-v5`.
+- Trước khi bảng kết thúc: slot knockout dùng đội placeholder **TBD** (elo 1500) → xác suất mang tính placeholder; sau `processMatchCompletion` gán đội thật qua `match_bracket_links` + bulk recompute.
+- Kịch bản **hiệp phú / penalty** (`scenarioLikelihood`) cao hơn vòng bảng; W/D/L vẫn là phân phối 90 phút.
+- Kiểm tra: `npm run validate:knockout` → `reports/knockout-validation.json`; scenario **S23** trong `npm run test:scenarios`.
+
 ### 3. Multi-scenario engine (tóm tắt)
 
 Trên nền snapshot baseline, `scenarioEngine` chọn feature subset theo loại kịch bản (pressing breakthrough, set-piece, …), tính **scenario likelihood** và W/D/L có điều kiện. Chi tiết: mục *Dự đoán đa kịch bản* phía trên.
@@ -310,7 +320,7 @@ MODEL_QUEUE ──► recomputeMatch ──► generateMatchScenarios
               ├── SCENARIO_RECOMPUTE (live events)
               └── SCENARIO_BACKTEST
 
-Cron (*/15 * * * *) ──► crawl_news ──► RSS + FIFA WC2026 page ──► D1 + dịch VI
+Cron (*/15 * * * *) ──► crawl_news ──► RSS + VnExpress WC2026 + FIFA WC2026 page ──► D1 + dịch VI
 
 Cron (0 3 * * 1) ──► StatsBomb open-data pull (WC 2018/2022)
 
@@ -354,8 +364,9 @@ BASE_URL=http://127.0.0.1:8790 npm run test:qa-local
 | `npm run build` | Build client + Worker |
 | `npm run test` | Vitest (unit) — 100% line/branch coverage enforced |
 | `npm run test:coverage` | Vitest with v8 coverage report (`coverage/`) |
-| `npm run test:scenarios` | 22 capability scenarios (pass/fail + `reports/capability-scenarios.json`) |
+| `npm run test:scenarios` | 23 capability scenarios (pass/fail + `reports/capability-scenarios.json`) |
 | `npm run test:scenarios:streak` | Chạy S01→… cho đến **10 PASS liên tiếp** (dừng sớm nếu FAIL) |
+| `npm run validate:knockout` | Validate xác suất knockout R32→Final (32 trận, W/D/L sum≈1) → `reports/knockout-validation.json` |
 | `npm run test:qa-local` | 14 local QA checks → `reports/local-qa-inventory.json` |
 | `npm run bootstrap:local-qa` | Migrate + seed news + bulk recompute (local D1) |
 | `npm run backtest:scores` | Offline scoreline backtest harness (`wc-prob-v5`) |
@@ -481,7 +492,7 @@ Tạo API client: `POST /api/admin/api-clients` (admin token). Chi tiết: [/doc
 ```bash
 npm run typecheck
 npm test                  # Vitest unit suite (1720+ tests)
-npm run test:scenarios    # 22 capability scenarios vs production (pass/fail)
+npm run test:scenarios    # 23 capability scenarios vs production (pass/fail)
 npm run test:scenarios:streak   # 10 consecutive PASS (S01–S10+)
 npm run test:qa-local     # 14 local API checks — docs/QA_INVENTORY.md
 ```
