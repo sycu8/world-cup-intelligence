@@ -18,6 +18,7 @@
     "test:coverage": "node -e \"require('node:fs').mkdirSync('coverage/.tmp',{recursive:true})\" && vitest run --coverage --pool=forks --maxWorkers=1 --no-file-parallelism",
     "test:scenarios": "node scripts/run-capability-scenarios.mjs",
     "test:scenarios:streak": "node scripts/run-scenario-streak.mjs",
+    "validate:knockout": "node scripts/validate-knockout-probabilities.mjs",
     "test:seo": "vitest run tests/seo-geo-audit.integration.test.ts tests/spaSeoMeta.test.ts",
     "test:seo:crawl": "node scripts/run-seo-geo-audit.mjs",
     "test:perf": "node scripts/measure-page-load.mjs",

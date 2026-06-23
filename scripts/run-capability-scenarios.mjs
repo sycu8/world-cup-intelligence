@@ -503,6 +503,78 @@ const SCENARIOS = [
       };
     },
   },
+  {
+    id: 'S23',
+    capability: 'Knockout probabilities (R32 → Final)',
+    criteria: [
+      '32 knockout fixtures present across R32/R16/QF/SF/3rd/Final',
+      'Each knockout match has bulk W/D/L probabilities',
+      'All W/D/L triples sum to ~1',
+      'Bulk meta reports 104/104 tournament probabilities',
+    ],
+    async run() {
+      const stageCounts = {
+        'Round of 32': 16,
+        'Round of 16': 8,
+        'Quarter-final': 4,
+        'Semi-final': 2,
+        'Third place': 1,
+        Final: 1,
+      };
+      const [bracket, probs] = await Promise.all([
+        fetchJson('/api/tournaments/2026/bracket'),
+        fetchJson('/api/tournaments/2026/match-probabilities'),
+      ]);
+      const rounds = bracket.body?.data?.rounds ?? [];
+      const probMap = probs.body?.data ?? {};
+      const meta = probs.body?.meta ?? {};
+      let knockoutMatches = 0;
+      let withProb = 0;
+      let badSum = 0;
+      let resolvedTeams = 0;
+      for (const [stage, expected] of Object.entries(stageCounts)) {
+        const round = rounds.find((r) => r.stage === stage);
+        const matches = round?.matches ?? [];
+        if (matches.length !== expected) {
+          return {
+            pass: false,
+            evidence: { stage, expected, actual: matches.length },
+          };
+        }
+        for (const m of matches) {
+          knockoutMatches += 1;
+          const t = probMap[m.id];
+          if (t) withProb += 1;
+          const sum = (t?.homeWin ?? 0) + (t?.draw ?? 0) + (t?.awayWin ?? 0);
+          if (!approxOne(sum)) badSum += 1;
+          const home = m.homeName ?? '';
+          const away = m.awayName ?? '';
+          if (!/TBD|Winner|Loser/i.test(home) && !/TBD|Winner|Loser/i.test(away)) {
+            resolvedTeams += 1;
+          }
+        }
+      }
+      const pass =
+        bracket.status === 200 &&
+        probs.status === 200 &&
+        knockoutMatches === 32 &&
+        withProb === 32 &&
+        badSum === 0 &&
+        meta.withProbability === 104;
+      return {
+        pass,
+        evidence: {
+          bracketStatus: bracket.status,
+          probStatus: probs.status,
+          knockoutMatches,
+          withProb,
+          badSum,
+          resolvedTeams,
+          bulkMeta: meta,
+        },
+      };
+    },
+  },
 ];
 
 async function main() {
