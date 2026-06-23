@@ -187,11 +187,11 @@ export function HomePage() {
         <HomeExtrasSkeleton />
       ) : (
         <>
-          <TopScorersPanel data={topScorers} loading={!topScorers} />
+          <TopScorersPanel data={topScorers} loading={!extrasReady} />
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-stretch">
             <div className="flex flex-col gap-4">
               <WorldCupCountdown />
-              <ChampionOddsPanel odds={championOdds} loading={!championOdds} />
+              <ChampionOddsPanel odds={championOdds} loading={!extrasReady} />
               <PredictionAccuracyPanel
                 accuracy={predictionAccuracy}
                 upcoming={upcomingVerification}

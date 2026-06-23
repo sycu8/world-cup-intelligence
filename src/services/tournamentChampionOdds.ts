@@ -239,7 +239,7 @@ export async function getChampionOddsForDisplay(env: AppEnv): Promise<ChampionOd
 
 export async function getChampionOddsForHome(
   env: AppEnv,
-  ctx: ExecutionContext,
+  ctx: { waitUntil: (promise: Promise<unknown>) => void },
 ): Promise<ChampionOddsPayload | null> {
   const cached = await readCachedChampionOdds(env);
   if (cached) {

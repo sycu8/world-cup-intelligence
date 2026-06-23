@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { I18nProvider, useI18n } from './lib/i18n/I18nContext';
 import { AppShell } from './components/layout/AppShell';
+import { AppErrorBoundary } from './components/layout/AppErrorBoundary';
 import { SEO_PAGES } from './lib/seoPages';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
@@ -38,10 +39,11 @@ function RouteFallback() {
 
 export default function App() {
   return (
-    <I18nProvider>
-      <BrowserRouter>
-        <Suspense fallback={<RouteFallback />}>
-          <Routes>
+    <AppErrorBoundary>
+      <I18nProvider>
+        <BrowserRouter>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
             <Route path="/docs/api" element={<ApiDocsPage />} />
             <Route element={<AppShell />}>
               <Route path="/" element={<HomePage />} />
@@ -65,5 +67,6 @@ export default function App() {
         </Suspense>
       </BrowserRouter>
     </I18nProvider>
+    </AppErrorBoundary>
   );
 }

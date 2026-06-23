@@ -178,36 +178,47 @@ export function MatchPage() {
 
   useEffect(() => {
     const el = headerRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setStickyVisible(!entry.isIntersecting),
-      { threshold: 0, rootMargin: 'calc(-1 * var(--mobile-top-nav-h)) 0px 0px 0px' },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    let observer: IntersectionObserver | null = null;
+    try {
+      observer = new IntersectionObserver(
+        ([entry]) => setStickyVisible(!entry.isIntersecting),
+        { threshold: 0, rootMargin: '-52px 0px 0px 0px' },
+      );
+      observer.observe(el);
+    } catch {
+      return undefined;
+    }
+    return () => observer?.disconnect();
   }, [match]);
 
   useEffect(() => {
-    if (!match) return;
+    if (!match || viewMode !== 'tactical') return;
+    if (typeof IntersectionObserver === 'undefined') return;
     const ids = Object.keys(sectionRefs) as MatchSectionId[];
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        const hit = visible[0];
-        if (!hit) return;
-        const matched = ids.find((id) => sectionRefs[id].current === hit.target);
-        if (matched) setActiveSection(matched);
-      },
-      { rootMargin: '-42% 0px -48% 0px', threshold: 0 },
-    );
-    for (const id of ids) {
-      const node = sectionRefs[id].current;
-      if (node) observer.observe(node);
+    let observer: IntersectionObserver | null = null;
+    try {
+      observer = new IntersectionObserver(
+        (entries) => {
+          const visible = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+          const hit = visible[0];
+          if (!hit) return;
+          const matched = ids.find((id) => sectionRefs[id].current === hit.target);
+          if (matched) setActiveSection(matched);
+        },
+        { rootMargin: '-42% 0px -48% 0px', threshold: 0 },
+      );
+      for (const id of ids) {
+        const node = sectionRefs[id].current;
+        if (node) observer.observe(node);
+      }
+    } catch {
+      return undefined;
     }
-    return () => observer.disconnect();
-  }, [match]);
+    return () => observer?.disconnect();
+  }, [match, viewMode]);
 
   const home = teamNames.home || match?.home_name || '';
   const away = teamNames.away || match?.away_name || '';
