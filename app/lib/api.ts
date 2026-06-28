@@ -1,9 +1,8 @@
 import type { LocalizedString } from './briefingText';
-
-const BASE = '/api';
+import { apiUrl } from './apiOrigin';
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
+  const res = await fetch(apiUrl(`/api${path}`));
   if (!res.ok) throw new Error(`API ${res.status}`);
   return res.json() as Promise<T>;
 }

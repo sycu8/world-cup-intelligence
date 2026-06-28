@@ -28,7 +28,7 @@ Phiên bản production ([wcstat.orangecloud.vn](https://wcstat.orangecloud.vn))
 | **Bảng đấu — xác suất trận** | Trận đã phân tích hiện **C · H · K** (% mô hình); trận chưa có hiện **«Chưa có»**. API gap-fill (xem [Thuật toán gap-fill](#gap-fill-xác-suất-bảng-đấu)). |
 | **Mobile UX trang trận** | Thanh tỉ số dính, điều hướng section (`MatchSectionNav`), panel dự đoán/tóm tắt/analytics. |
 | **SEO tiếng Việt** | 8 landing page + `sitemap.xml`. |
-| **UAT tách biệt** | `npm run deploy:uat` / `deploy:production` — [docs/UAT.md](./docs/UAT.md). |
+| **Mobile (iOS / Android)** | Capacitor apps `vn.orangecloud.pitchintel` — `npm run build:mobile`, `./scripts/mobile-android-release.sh`, [docs/MOBILE_STORE_SUBMISSION.md](./docs/MOBILE_STORE_SUBMISSION.md). |
 
 Chụp lại screenshot sau deploy: `node scripts/capture-screenshots.mjs`.  
 Demo trận đã có dữ liệu FIFA: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-bang-a-mexico-vs-south-africa).

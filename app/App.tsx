@@ -16,6 +16,7 @@ const NewsArticlePage = lazy(() =>
   import('./pages/NewsArticlePage').then((m) => ({ default: m.NewsArticlePage })),
 );
 const GuidePage = lazy(() => import('./pages/GuidePage').then((m) => ({ default: m.GuidePage })));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
 const ApiDocsPage = lazy(() => import('./pages/ApiDocsPage').then((m) => ({ default: m.ApiDocsPage })));
 const MatchAnalysisPage = lazy(() =>
   import('./pages/MatchAnalysisPage').then((m) => ({ default: m.MatchAnalysisPage })),
@@ -55,6 +56,7 @@ export default function App() {
               <Route path="/news-intelligence" element={<NewsIntelligencePage />} />
               <Route path="/news-intelligence/:articleId" element={<NewsArticlePage />} />
               <Route path="/guide" element={<GuidePage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
               {SEO_PAGES.map((page) => (
                 <Route key={page.path} path={page.path} element={<SeoLandingPage />} />
               ))}

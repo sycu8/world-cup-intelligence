@@ -11,6 +11,12 @@
     "dev": "vite",
     "dev:uat": "wrangler dev",
     "build": "vite build",
+    "build:mobile": "VITE_API_ORIGIN=https://wcstat.orangecloud.vn vite build --config vite.mobile.config.ts",
+    "mobile:sync": "npm run build:mobile && npx cap sync",
+    "mobile:android": "npm run mobile:sync && npx cap open android",
+    "mobile:ios": "npm run mobile:sync && npx cap open ios",
+    "mobile:assets": "npx @capacitor/assets generate --assetPath mobile/store-assets --iosProject ios/App --androidProject android",
+    "mobile:android:bundle": "npm run mobile:sync && cd android && ./gradlew bundleRelease",
     "pull:statsbomb": "node scripts/pull-statsbomb-open-data.mjs",
     "pull:statsbomb:local": "node scripts/pull-statsbomb-open-data.mjs --local",
     "sync:fifa-schedule": "node scripts/fetch-fifa-wc2026-calendar.mjs && node scripts/generate-fifa-kickoff-migration.mjs && node scripts/generate-fifa-results-migration.mjs",
@@ -30,6 +36,14 @@
     "preview": "wrangler dev"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
+    "@capacitor/network": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
     "@hono/zod-validator": "^0.4.3",
     "@resvg/resvg-wasm": "^2.6.2",
     "hono": "^4.7.2",
@@ -39,6 +53,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@cloudflare/vite-plugin": "^1.2.0",
     "@cloudflare/workers-types": "^4.20250214.0",
     "@types/react": "^19.0.10",

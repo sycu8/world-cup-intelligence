@@ -43,7 +43,8 @@
       />
     </noscript>
     <script>
-      window.__PITCHINTEL_HOME__=fetch('/api/home').then(function(r){return r.ok?r.json():Promise.reject()}).catch(function(){return null});
+      window.__PITCHINTEL_API_BASE__='<!--VITE_API_BASE-->';
+      window.__PITCHINTEL_HOME__=fetch((window.__PITCHINTEL_API_BASE__||'')+'/api/home').then(function(r){return r.ok?r.json():Promise.reject()}).catch(function(){return null});
     </script>
   </head>
   <body class="bg-background font-sans text-base leading-relaxed text-foreground antialiased">

@@ -116,6 +116,11 @@ export type LocaleKey =
   | 'footer.analytics'
   | 'footer.builtBy'
   | 'footer.github'
+  | 'footer.privacy'
+  | 'privacy.title'
+  | 'privacy.effective'
+  | 'privacy.intro'
+  | 'privacy.disclaimer'
   | 'common.home'
   | 'common.draw'
   | 'common.win'
@@ -708,6 +713,17 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'footer.analytics': { vi: 'Phân tích', en: 'Analytics' },
   'footer.builtBy': { vi: 'Xây dựng bởi', en: 'Built by' },
   'footer.github': { vi: 'GitHub', en: 'GitHub' },
+  'footer.privacy': { vi: 'Chính sách quyền riêng tư', en: 'Privacy policy' },
+  'privacy.title': { vi: 'Chính sách quyền riêng tư', en: 'Privacy policy' },
+  'privacy.effective': { vi: 'Có hiệu lực', en: 'Effective' },
+  'privacy.intro': {
+    vi: 'Chính sách này mô tả cách PitchIntel xử lý thông tin khi bạn dùng ứng dụng di động hoặc website. URL công khai cho cửa hàng ứng dụng: https://wcstat.orangecloud.vn/privacy',
+    en: 'This policy describes how PitchIntel handles information when you use the mobile apps or website. Public URL for app stores: https://wcstat.orangecloud.vn/privacy',
+  },
+  'privacy.disclaimer': {
+    vi: 'Xác suất và tín hiệu thị trường chỉ mang tính phân tích — không phải lời khuyên cá cược. PitchIntel không phải nhà cái và không xử lý tiền cược.',
+    en: 'Probabilities and market signals are analytical context only — not betting advice. PitchIntel is not a bookmaker and does not handle wagers.',
+  },
   'common.home': { vi: 'Chủ nhà', en: 'Home' },
   'common.draw': { vi: 'Hòa', en: 'Draw' },
   'common.win': { vi: 'Thắng', en: 'Win' },
