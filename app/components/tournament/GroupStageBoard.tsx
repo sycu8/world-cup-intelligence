@@ -1,6 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type GroupStandingsPayload, type ScheduleMatch } from '../../lib/api';
+import {
+  areAllGroupsComplete,
+  inferActiveKnockoutStage,
+  isKnockoutRoundComplete,
+  knockoutRoundProgress,
+  type KnockoutStage,
+} from '../../lib/knockoutRound';
 import { resolveMatchHref } from '../../lib/matchPaths';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { groupStageLabel, KNOCKOUT_STAGE_ORDER, matchStageLabel } from '../../lib/i18n/stageLabels';
@@ -9,9 +16,9 @@ import { MatchKickoffDisplay } from '../match/MatchKickoffDisplay';
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
 
 const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as const;
+const STANDINGS_REFRESH_MS = 30_000;
 
 type MainTab = 'group' | 'knockout';
-type KnockoutStage = (typeof KNOCKOUT_STAGE_ORDER)[number];
 
 function formatGd(gd: number): string {
   return gd > 0 ? `+${gd}` : String(gd);
@@ -305,9 +312,11 @@ export function GroupStageBoard({
   const hasInitialBoard = !!initialStandings;
   const [mainTab, setMainTab] = useState<MainTab>('group');
   const [knockoutStage, setKnockoutStage] = useState<KnockoutStage>('Round of 32');
+  const [knockoutStagePinned, setKnockoutStagePinned] = useState(false);
   const [standings, setStandings] = useState<GroupStandingsPayload | null>(initialStandings);
   const [standingsError, setStandingsError] = useState(false);
   const [groupLoading, setGroupLoading] = useState(!hasInitialBoard);
+  const prevAllGroupsComplete = useRef(false);
 
   useEffect(() => {
     if (initialStandings) {
@@ -318,11 +327,10 @@ export function GroupStageBoard({
   }, [initialStandings]);
 
   useEffect(() => {
-    if (mainTab !== 'group' || hasInitialBoard) return;
     let cancelled = false;
 
     const load = (showLoading: boolean) => {
-      if (showLoading) setGroupLoading(true);
+      if (showLoading && mainTab === 'group') setGroupLoading(true);
 
       api
         .tournamentStandings(2026)
@@ -341,17 +349,18 @@ export function GroupStageBoard({
           }
         })
         .finally(() => {
-          if (!cancelled) setGroupLoading(false);
+          if (!cancelled && mainTab === 'group') setGroupLoading(false);
         });
     };
 
-    load(!hasInitialBoard);
-    const timer = setInterval(() => load(false), 30_000);
+    load(mainTab === 'group' && !standings && !standingsError);
+    const timer = setInterval(() => load(false), STANDINGS_REFRESH_MS);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [mainTab, hasInitialBoard]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- poll on tab change only; standings updated in-place
+  }, [mainTab]);
 
   const groupFixtures = useMemo(() => {
     const map: Record<string, ScheduleMatch[]> = {};
@@ -380,12 +389,45 @@ export function GroupStageBoard({
     [knockoutMatches],
   );
 
+  const allGroupsComplete = useMemo(
+    () => areAllGroupsComplete(standings?.groups, GROUPS),
+    [standings?.groups],
+  );
+
+  const activeKnockoutStage = useMemo(
+    () => inferActiveKnockoutStage(knockoutMatches),
+    [knockoutMatches],
+  );
+
   useEffect(() => {
-    if (knockoutStages.length === 0) return;
+    if (!allGroupsComplete || prevAllGroupsComplete.current) return;
+    prevAllGroupsComplete.current = true;
+    setMainTab('knockout');
+    setKnockoutStagePinned(false);
+  }, [allGroupsComplete]);
+
+  useEffect(() => {
+    if (knockoutStages.length === 0 || !activeKnockoutStage) return;
+
     if (!knockoutStages.includes(knockoutStage)) {
-      setKnockoutStage(knockoutStages[0]);
+      setKnockoutStage(activeKnockoutStage);
+      setKnockoutStagePinned(false);
+      return;
     }
-  }, [knockoutStages, knockoutStage]);
+
+    if (!knockoutStagePinned) {
+      setKnockoutStage(activeKnockoutStage);
+      return;
+    }
+
+    if (
+      isKnockoutRoundComplete(knockoutMatches, knockoutStage) &&
+      activeKnockoutStage !== knockoutStage
+    ) {
+      setKnockoutStage(activeKnockoutStage);
+      setKnockoutStagePinned(false);
+    }
+  }, [knockoutStages, knockoutStage, knockoutStagePinned, activeKnockoutStage, knockoutMatches]);
 
   const knockoutRoundLabels = useMemo(
     () =>
@@ -429,6 +471,11 @@ export function GroupStageBoard({
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-muted">{t('groupBoard.knockoutSubtitle')}</p>
+          {!allGroupsComplete && (
+            <p className="rounded-lg border border-border/50 bg-panel2/20 px-3 py-2 text-xs text-muted">
+              {t('groupBoard.knockoutLocked')}
+            </p>
+          )}
 
           <div
             className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin"
@@ -436,23 +483,33 @@ export function GroupStageBoard({
             aria-label={t('groupBoard.tabKnockout')}
           >
             {knockoutRoundLabels.map(({ stage, label }) => {
-              const count = knockoutMatches.filter((m) => m.stage === stage).length;
-              if (count === 0) return null;
+              const progress = knockoutRoundProgress(knockoutMatches, stage);
+              if (progress.total === 0) return null;
+              const isActive = activeKnockoutStage === stage;
+              const isSelected = knockoutStage === stage;
               return (
                 <button
                   key={stage}
                   type="button"
                   role="tab"
-                  aria-selected={knockoutStage === stage}
-                  onClick={() => setKnockoutStage(stage)}
+                  aria-selected={isSelected}
+                  onClick={() => {
+                    setKnockoutStage(stage);
+                    setKnockoutStagePinned(true);
+                  }}
                   className={`mobile-touch-target shrink-0 rounded-full px-3.5 py-2 text-xs font-medium transition sm:text-sm ${
-                    knockoutStage === stage
+                    isSelected
                       ? 'bg-cyan/15 text-cyan ring-1 ring-cyan/30'
-                      : 'text-muted hover:bg-panel2/60 hover:text-foreground'
+                      : isActive
+                        ? 'bg-live/10 text-live ring-1 ring-live/25'
+                        : 'text-muted hover:bg-panel2/60 hover:text-foreground'
                   }`}
                 >
                   {label}
-                  <span className="ml-1 font-mono-data text-[10px] opacity-70">({count})</span>
+                  <span className="ml-1 font-mono-data text-[10px] opacity-70">
+                    ({progress.done}/{progress.total}
+                    {progress.live > 0 ? ` · ${progress.live} ${t('common.live')}` : ''})
+                  </span>
                 </button>
               );
             })}
