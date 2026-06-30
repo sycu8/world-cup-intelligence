@@ -232,6 +232,7 @@ export type LocaleKey =
   | 'home.predictionAccuracy.favoriteHit'
   | 'home.predictionAccuracy.scorelineHit'
   | 'home.predictionAccuracy.scorelineTop3Hit'
+  | 'home.predictionAccuracy.avgActualScoreProb'
   | 'home.predictionAccuracy.avgBrier'
   | 'home.predictionAccuracy.evaluated'
   | 'home.predictionAccuracy.upcomingTitle'
@@ -955,6 +956,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'home.predictionAccuracy.scorelineTop3Hit': {
     vi: 'Tỉ số thật nằm trong top 3',
     en: 'Actual score in top 3 picks',
+  },
+  'home.predictionAccuracy.avgActualScoreProb': {
+    vi: 'Xác suất tỉ số thật (TB)',
+    en: 'Avg prob. of actual score',
   },
   'home.predictionAccuracy.avgBrier': {
     vi: 'Brier trung bình (W/D/L)',

@@ -1,7 +1,7 @@
 import type { MatchFeatureInput, ProbabilityResult } from './types';
 import { sha256Hex } from '../../utils/hash';
 import { nowIso } from '../../utils/time';
-import { collectiveModifier } from './teamStrength';
+import { collectiveModifier, teamAttackStrength, teamDefenseWeakness } from './teamStrength';
 import { deriveAttackDefenseRatings } from './attackDefenseRatings';
 import { lineupModifier } from './playerAvailability';
 import { tacticalMatchupModifier } from './tacticalMatchup';
@@ -13,10 +13,16 @@ import { buildExplanationFactors } from './explainFactors';
 import { matchContextModifier, rankingGapModifier } from './matchContext';
 import { coachModifier, refereeModifier } from './staffModifiers';
 import { h2hLambdaModifier } from './h2hModifier';
-import { mergeCalibration, type CalibrationOverrides } from './calibration';
+import { mergeCalibration, mergeCalibrationV4, type CalibrationOverrides } from './calibration';
 import { groupPointsPressureModifier } from './groupPointsPressure';
 
 export const MODEL_VERSION = 'wc-prob-v5';
+export const MODEL_VERSION_V4 = 'wc-prob-v4';
+export type ProbabilityEngineMode = 'v4' | 'v5';
+
+export type ProbabilityEngineOptions = {
+  mode?: ProbabilityEngineMode;
+};
 const LAMBDA_MIN = 0.05;
 const LAMBDA_MAX = 5.5;
 
@@ -27,8 +33,11 @@ function clampLambda(v: number): number {
 export async function computeProbability(
   input: MatchFeatureInput,
   calibrationOverrides?: CalibrationOverrides,
+  options?: ProbabilityEngineOptions,
 ): Promise<ProbabilityResult> {
-  const calibration = mergeCalibration(calibrationOverrides);
+  const mode = options?.mode ?? 'v5';
+  const calibration =
+    mode === 'v4' ? mergeCalibrationV4(calibrationOverrides) : mergeCalibration(calibrationOverrides);
   const tactical = tacticalMatchupModifier(input.homeLineup, input.awayLineup);
   const gameState = gameStateModifier(input.minute, input.currentScore.home, input.currentScore.away);
   const liveStats = input.liveMatchStats
@@ -42,51 +51,89 @@ export async function computeProbability(
     input.homeTeam.fifaRanking,
     input.awayTeam.fifaRanking,
   );
-  const h2h = h2hLambdaModifier(input.h2h, calibration.baseGoalRate);
-  const pointsPressure = groupPointsPressureModifier(input.groupPointsPressure, calibration);
+  const h2h =
+    mode === 'v4' ? { home: 1, away: 1 } : h2hLambdaModifier(input.h2h, calibration.baseGoalRate);
+  const pointsPressure =
+    mode === 'v4'
+      ? { home: 1, away: 1, drawInflationAdjust: 0 }
+      : groupPointsPressureModifier(input.groupPointsPressure, calibration);
 
-  const homeRatings = deriveAttackDefenseRatings(
-    input.homeTeam,
-    input.homeFormMatchesPlayed ?? 6,
-  );
-  const awayRatings = deriveAttackDefenseRatings(
-    input.awayTeam,
-    input.awayFormMatchesPlayed ?? 6,
-  );
+  let lambdaHome: number;
+  let lambdaAway: number;
 
-  const lambdaHome = clampLambda(
-    calibration.baseGoalRate *
-      homeRatings.attack *
-      awayRatings.defenseLeak *
-      collectiveModifier(input.homeTeam) *
-      lineupModifier(input.homeLineup) *
-      tactical.home *
-      gameState.home *
-      liveStats.home *
-      context.home *
-      rankGap.home *
-      coaches.home *
-      official.home *
-      h2h.home *
-      pointsPressure.home,
-  );
+  if (mode === 'v4') {
+    lambdaHome = clampLambda(
+      calibration.baseGoalRate *
+        teamAttackStrength(input.homeTeam) *
+        teamDefenseWeakness(input.awayTeam) *
+        collectiveModifier(input.homeTeam) *
+        lineupModifier(input.homeLineup) *
+        tactical.home *
+        gameState.home *
+        liveStats.home *
+        context.home *
+        rankGap.home *
+        coaches.home *
+        official.home,
+    );
+    lambdaAway = clampLambda(
+      calibration.baseGoalRate *
+        teamAttackStrength(input.awayTeam) *
+        teamDefenseWeakness(input.homeTeam) *
+        collectiveModifier(input.awayTeam) *
+        lineupModifier(input.awayLineup) *
+        tactical.away *
+        gameState.away *
+        liveStats.away *
+        context.away *
+        rankGap.away *
+        coaches.away *
+        official.away,
+    );
+  } else {
+    const homeRatings = deriveAttackDefenseRatings(
+      input.homeTeam,
+      input.homeFormMatchesPlayed ?? 6,
+    );
+    const awayRatings = deriveAttackDefenseRatings(
+      input.awayTeam,
+      input.awayFormMatchesPlayed ?? 6,
+    );
 
-  const lambdaAway = clampLambda(
-    calibration.baseGoalRate *
-      awayRatings.attack *
-      homeRatings.defenseLeak *
-      collectiveModifier(input.awayTeam) *
-      lineupModifier(input.awayLineup) *
-      tactical.away *
-      gameState.away *
-      liveStats.away *
-      context.away *
-      rankGap.away *
-      coaches.away *
-      official.away *
-      h2h.away *
-      pointsPressure.away,
-  );
+    lambdaHome = clampLambda(
+      calibration.baseGoalRate *
+        homeRatings.attack *
+        awayRatings.defenseLeak *
+        collectiveModifier(input.homeTeam) *
+        lineupModifier(input.homeLineup) *
+        tactical.home *
+        gameState.home *
+        liveStats.home *
+        context.home *
+        rankGap.home *
+        coaches.home *
+        official.home *
+        h2h.home *
+        pointsPressure.home,
+    );
+
+    lambdaAway = clampLambda(
+      calibration.baseGoalRate *
+        awayRatings.attack *
+        homeRatings.defenseLeak *
+        collectiveModifier(input.awayTeam) *
+        lineupModifier(input.awayLineup) *
+        tactical.away *
+        gameState.away *
+        liveStats.away *
+        context.away *
+        rankGap.away *
+        coaches.away *
+        official.away *
+        h2h.away *
+        pointsPressure.away,
+    );
+  }
 
   const drawInflation = Math.max(
     0.92,
@@ -116,7 +163,7 @@ export async function computeProbability(
     timestamp: nowIso(),
     minute: input.minute,
     second: input.second,
-    modelVersion: MODEL_VERSION,
+    modelVersion: mode === 'v4' ? MODEL_VERSION_V4 : MODEL_VERSION,
     inputHash,
     homeWinProb: wdl.homeWin,
     drawProb: wdl.draw,

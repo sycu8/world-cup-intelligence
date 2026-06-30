@@ -24,26 +24,38 @@ async function queryD1(
   sql: string,
   params: unknown[] = [],
 ): Promise<QueryResult> {
-  const res = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiToken()}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ sql, params }),
-    },
-  );
-  const json = (await res.json()) as {
-    success: boolean;
-    errors?: { message: string }[];
-    result?: QueryResult[];
-  };
-  if (!json.success) {
-    throw new Error(json.errors?.map((e) => e.message).join('; ') || `D1 query failed (${res.status})`);
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`;
+  const body = JSON.stringify({ sql, params });
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body,
+      });
+      const json = (await res.json()) as {
+        success: boolean;
+        errors?: { message: string }[];
+        result?: QueryResult[];
+      };
+      if (!json.success) {
+        throw new Error(json.errors?.map((e) => e.message).join('; ') || `D1 query failed (${res.status})`);
+      }
+      return json.result?.[0] ?? { success: true, results: [] };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+      }
+    }
   }
-  return json.result?.[0] ?? { success: true, results: [] };
+
+  throw lastError ?? new Error('D1 query failed');
 }
 
 class RestPreparedStatement implements D1PreparedStatement {

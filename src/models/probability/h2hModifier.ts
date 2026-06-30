@@ -17,7 +17,7 @@ export function h2hLambdaModifier(
 
   const homeDelta = h2h.avgGoalsHome / baseGoalRate - 1;
   const awayDelta = h2h.avgGoalsAway / baseGoalRate - 1;
-  const weight = Math.min(0.05, 0.02 + h2h.totalMatches * 0.005);
+  const weight = Math.min(0.03, 0.015 + h2h.totalMatches * 0.003);
 
   return {
     home: 1 + clamp(homeDelta * weight, -0.05, 0.05),

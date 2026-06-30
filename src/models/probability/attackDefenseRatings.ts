@@ -1,4 +1,5 @@
 import type { TeamFeatures } from './types';
+import { teamAttackStrength, teamDefenseWeakness } from './teamStrength';
 
 export type AttackDefenseRatings = {
   attack: number;
@@ -27,8 +28,16 @@ export function deriveAttackDefenseRatings(
   const defCompact = 1.08 - team.defensiveCompactness * 0.1;
   const rawDefenseLeak = defFromXga * 0.62 + defCompact * 0.38;
 
-  return {
-    attack: clamp(rawAttack * (1 - shrink) + tourMean * shrink, 0.45, 1.55),
-    defenseLeak: clamp(rawDefenseLeak * (1 - shrink) + tourMean * shrink, 0.55, 1.45),
-  };
+  let attack = clamp(rawAttack * (1 - shrink) + tourMean * shrink, 0.45, 1.55);
+  let defenseLeak = clamp(rawDefenseLeak * (1 - shrink) + tourMean * shrink, 0.55, 1.45);
+
+  if (formMatchesPlayed < 4) {
+    const bridge = ((4 - formMatchesPlayed) / 4) * 0.45;
+    const v4Attack = teamAttackStrength(team);
+    const v4DefLeak = teamDefenseWeakness(team);
+    attack = attack * (1 - bridge) + v4Attack * bridge;
+    defenseLeak = defenseLeak * (1 - bridge) + v4DefLeak * bridge;
+  }
+
+  return { attack, defenseLeak };
 }
