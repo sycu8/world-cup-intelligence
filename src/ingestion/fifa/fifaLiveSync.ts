@@ -29,6 +29,8 @@ import { syncFifaMatchLineupsFromInfo, shouldSyncFifaLineupForKickoff } from './
 import { FIFA_SOURCE_ID, WC2026_TOURNAMENT_ID } from './constants';
 import {
   deriveScoreDetailFromFifa,
+  mergeScoreDetails,
+  parseScoreDetailJson,
   serializeScoreDetail,
 } from '../../services/matchScoreDetail';
 import {
@@ -145,8 +147,6 @@ async function syncMatchEvents(
   const away = info.AwayTeam;
   if (!home || !away) return;
 
-  await db.prepare(`DELETE FROM match_events WHERE match_id = ? AND source_id = ?`).bind(matchId, FIFA_SOURCE_ID).run();
-
   const stmts: D1PreparedStatement[] = [];
   let seq = 0;
 
@@ -208,7 +208,10 @@ async function syncMatchEvents(
   ingestSubs(home.Substitutions, homeTeamId, home.Players);
   ingestSubs(away.Substitutions, awayTeamId, away.Players);
 
-  if (stmts.length) await db.batch(stmts);
+  if (!stmts.length) return;
+
+  await db.prepare(`DELETE FROM match_events WHERE match_id = ? AND source_id = ?`).bind(matchId, FIFA_SOURCE_ID).run();
+  await db.batch(stmts);
 }
 
 async function syncTeamStats(
@@ -261,7 +264,10 @@ async function applyFifaPayload(
   const status = resolveFifaPlatformStatus(payload);
   const now = nowIso();
 
-  const scoreDetail = deriveScoreDetailFromFifa(payload);
+  const fifaDetail = deriveScoreDetailFromFifa(payload);
+  const existingDetail = parseScoreDetailJson(internal.score_detail_json ?? null);
+  const scoreDetail =
+    fifaDetail && existingDetail ? mergeScoreDetails(fifaDetail, existingDetail) : fifaDetail ?? existingDetail;
   const scoreDetailJson = serializeScoreDetail(scoreDetail);
 
   const changed =
