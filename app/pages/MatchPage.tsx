@@ -390,6 +390,7 @@ export function MatchPage() {
         awayScore={match.away_score}
         status={match.status}
         minute={match.minute}
+        scoreDetail={match.scoreDetail}
         visible={stickyVisible}
       />
 
@@ -414,6 +415,7 @@ export function MatchPage() {
           draw={displayProb?.draw}
           awayWin={displayProb?.awayWin}
           mostLikelyScore={prob?.mostLikelyScore}
+          scoreDetail={match.scoreDetail}
         />
       </section>
 

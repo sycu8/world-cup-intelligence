@@ -34,6 +34,7 @@ export type MatchRow = {
   away_score: number;
   home_xg: number;
   away_xg: number;
+  score_detail_json?: string | null;
   fifa_match_id?: string | null;
   updated_at?: string | null;
 };

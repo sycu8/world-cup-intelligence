@@ -82,6 +82,11 @@ export type LocaleKey =
   | 'match.away'
   | 'match.live'
   | 'match.scheduled'
+  | 'match.score.half1'
+  | 'match.score.half2'
+  | 'match.score.stoppage'
+  | 'match.score.extraTime'
+  | 'match.score.penalties'
   | 'match.completed'
   | 'match.fullAnalysis'
   | 'match.notFound'
@@ -666,6 +671,11 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'match.away': { vi: 'Khách', en: 'Away' },
   'match.live': { vi: 'Đang diễn ra', en: 'Live' },
   'match.scheduled': { vi: 'Sắp diễn ra', en: 'Scheduled' },
+  'match.score.half1': { vi: 'H1', en: '1H' },
+  'match.score.half2': { vi: 'H2', en: '2H' },
+  'match.score.stoppage': { vi: 'Bù giờ', en: 'Added' },
+  'match.score.extraTime': { vi: 'HP', en: 'ET' },
+  'match.score.penalties': { vi: 'Pen', en: 'Pens' },
   'match.completed': { vi: 'Đã kết thúc', en: 'Completed' },
   'match.fullAnalysis': { vi: 'Phân tích chiến thuật đầy đủ', en: 'Full tactical analysis' },
   'match.notFound': {

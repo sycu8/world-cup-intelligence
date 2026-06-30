@@ -208,6 +208,20 @@ export type DashboardData = {
   statusCounts?: Record<string, number>;
 };
 
+export type MatchScoreDetail = {
+  ht?: { home: number; away: number };
+  secondHalf?: { home: number; away: number };
+  ft90?: { home: number; away: number };
+  extraTime?: { home: number; away: number };
+  penalties?: { home: number; away: number };
+  stoppage?: {
+    firstHalf?: number;
+    secondHalf?: number;
+    extraTimeFirst?: number;
+    extraTimeSecond?: number;
+  };
+};
+
 export type ScheduleMatch = {
   id: string;
   slug?: string;
@@ -227,6 +241,7 @@ export type ScheduleMatch = {
   home_country_code?: string;
   away_country_code?: string;
   match_date?: string;
+  scoreDetail?: MatchScoreDetail | null;
 };
 
 export type SquadPlayer = {
@@ -408,6 +423,7 @@ export type MatchSummary = {
   minute?: number;
   kickoff_utc?: string;
   stage?: string;
+  scoreDetail?: MatchScoreDetail | null;
 };
 
 export type TeamSummary = {

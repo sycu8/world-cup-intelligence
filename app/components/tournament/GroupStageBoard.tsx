@@ -14,6 +14,7 @@ import { groupStageLabel, KNOCKOUT_STAGE_ORDER, matchStageLabel } from '../../li
 import { MatchTeamsWithFlags, TeamNameWithFlag } from '../team/TeamNameWithFlag';
 import { MatchKickoffDisplay } from '../match/MatchKickoffDisplay';
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
+import { MatchScoreBreakdown } from '../match/MatchScoreBreakdown';
 
 const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as const;
 const STANDINGS_REFRESH_MS = 30_000;
@@ -91,14 +92,19 @@ function BoardMatchRow({
         />
       </span>
 
-      <span className="flex shrink-0 items-center justify-end gap-1">
+      <span className="flex shrink-0 flex-col items-end justify-center gap-0.5">
         {showScore ? (
-          <MatchResultScore
-            homeScore={match.home_score}
-            awayScore={match.away_score}
-            status={match.status}
-            variant={match.status === 'completed' || match.status === 'finished' ? 'badge' : 'compact'}
-          />
+          <>
+            <MatchResultScore
+              homeScore={match.home_score}
+              awayScore={match.away_score}
+              status={match.status}
+              variant={match.status === 'completed' || match.status === 'finished' ? 'badge' : 'compact'}
+            />
+            {(match.status === 'completed' || match.status === 'finished') && (
+              <MatchScoreBreakdown detail={match.scoreDetail} className="text-[9px]" />
+            )}
+          </>
         ) : (
           <span className="font-mono-data text-[10px] text-muted/35">–</span>
         )}
