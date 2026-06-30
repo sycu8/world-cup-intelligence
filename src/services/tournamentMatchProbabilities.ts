@@ -9,7 +9,12 @@ import { buildMatchFeaturesWithForm } from './matchFeatures';
 import { recomputeMatchProbability } from './recomputeMatch';
 import { logInfo } from '../utils/logger';
 
-export type MatchProbabilityTriple = { homeWin: number; draw: number; awayWin: number };
+export type MatchProbabilityTriple = {
+  homeWin: number;
+  draw: number;
+  awayWin: number;
+  mostLikelyScore?: string;
+};
 
 export type TournamentMatchProbabilitiesPayload = {
   data: Record<string, MatchProbabilityTriple>;
@@ -63,6 +68,7 @@ async function computeAndPersistPreview(
     homeWin: full.homeWinProb,
     draw: full.drawProb,
     awayWin: full.awayWinProb,
+    mostLikelyScore: full.mostLikelyScore,
   };
 }
 
@@ -119,6 +125,7 @@ export async function buildTournamentMatchProbabilitiesPayload(
       homeWin: row.homeWinProb,
       draw: row.drawProb,
       awayWin: row.awayWinProb,
+      mostLikelyScore: row.mostLikelyScore ?? undefined,
     };
   }
 

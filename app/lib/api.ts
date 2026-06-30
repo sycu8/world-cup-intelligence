@@ -104,9 +104,9 @@ export const api = {
   tournamentStandings: (year = 2026) =>
     get<{ data: GroupStandingsPayload }>(`/tournaments/${year}/standings`),
   tournamentMatchProbabilities: (year = 2026) =>
-    get<{ data: Record<string, { homeWin: number; draw: number; awayWin: number }> }>(
-      `/tournaments/${year}/match-probabilities`,
-    ),
+    get<{
+      data: Record<string, { homeWin: number; draw: number; awayWin: number; mostLikelyScore?: string }>;
+    }>(`/tournaments/${year}/match-probabilities`),
   tournamentBracket: (year = 2026) =>
     get<{ data: BracketPayload }>(`/tournaments/${year}/bracket`),
   tournamentChampionOdds: (year = 2026) =>

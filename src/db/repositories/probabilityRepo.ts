@@ -11,12 +11,14 @@ export async function listLatestSnapshotsForTournament(
     homeWinProb: number;
     drawProb: number;
     awayWinProb: number;
+    mostLikelyScore: string | null;
   }>
 > {
   const { results } = await db
     .prepare(
       `SELECT ps.match_id AS matchId, ps.home_win_prob AS homeWinProb,
-              ps.draw_prob AS drawProb, ps.away_win_prob AS awayWinProb
+              ps.draw_prob AS drawProb, ps.away_win_prob AS awayWinProb,
+              ps.most_likely_score AS mostLikelyScore
        FROM probability_snapshots ps
        INNER JOIN (
          SELECT match_id, MAX(id) AS latest_id
@@ -31,6 +33,7 @@ export async function listLatestSnapshotsForTournament(
       homeWinProb: number;
       drawProb: number;
       awayWinProb: number;
+      mostLikelyScore: string | null;
     }>();
   return results ?? [];
 }

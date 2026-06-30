@@ -96,7 +96,7 @@ export function MatchHeader({
               </span>
             </span>
           </div>
-          {mostLikelyScore && (
+          {mostLikelyScore && status !== 'completed' && status !== 'finished' && (
             <PredictedActualScores
               predicted={mostLikelyScore}
               homeScore={homeScore}
