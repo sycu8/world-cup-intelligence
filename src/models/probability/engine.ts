@@ -92,7 +92,7 @@ export async function computeProbability(
       knockoutSpirit.away,
   );
 
-  const drawFloor = input.knockoutCompetitiveSpirit ? 0.8 : 0.92;
+  const drawFloor = input.knockoutCompetitiveSpirit ? 0.72 : 0.92;
   const drawInflation = Math.max(
     drawFloor,
     calibration.drawInflation +

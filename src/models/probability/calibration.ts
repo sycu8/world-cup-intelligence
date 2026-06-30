@@ -20,8 +20,8 @@ export const CALIBRATION: ProbabilityCalibration = {
   drawInflation: 1.04,
   groupPointsPressureMax: 0.07,
   groupPointsPressureDrawDampen: 0.035,
-  knockoutSpiritMax: 0.11,
-  knockoutSpiritDrawDampen: 0.09,
+  knockoutSpiritMax: 0.13,
+  knockoutSpiritDrawDampen: 0.15,
 };
 
 export type CalibrationOverrides = Partial<ProbabilityCalibration>;
