@@ -8,7 +8,7 @@ import {
   ingestManualMarketInput,
   ingestMatchMarkets,
 } from '../market/services/marketIngestionService';
-import { recomputeMatchProbability, recomputeAllWc2026Matches } from '../services/recomputeMatch';
+import { recomputeMatchProbability, recomputeAllWc2026Matches, recomputeKnockoutMatches } from '../services/recomputeMatch';
 import { crawlWorldCupNews } from '../ingestion/newsCrawler';
 import {
   applyOfficialLineupToMatch,
@@ -129,6 +129,11 @@ adminRoutes.post('/recompute/:matchId', async (c) => {
 
 adminRoutes.post('/recompute-all', async (c) => {
   const data = await recomputeAllWc2026Matches(c.env);
+  return c.json({ data });
+});
+
+adminRoutes.post('/recompute-knockout', async (c) => {
+  const data = await recomputeKnockoutMatches(c.env);
   return c.json({ data });
 });
 

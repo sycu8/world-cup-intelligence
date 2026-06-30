@@ -164,3 +164,42 @@ export async function recomputeAllWc2026Matches(env: AppEnv): Promise<RecomputeA
 
   return { total: ids.length, recomputed, sampleConfidence, failed };
 }
+
+/** Recompute probability for all knockout fixtures (R32 → Final). */
+export async function recomputeKnockoutMatches(env: AppEnv): Promise<RecomputeAllResult> {
+  const { results } = await env.DB.prepare(
+    `SELECT id FROM matches
+     WHERE tournament_id = ? AND stage != 'Group'
+     ORDER BY kickoff_utc ASC`,
+  )
+    .bind(WC2026_TOURNAMENT_ID)
+    .all<{ id: string }>();
+
+  const ids = (results ?? []).map((r) => r.id);
+  const failed: { id: string; error: string }[] = [];
+  let recomputed = 0;
+  let sampleConfidence: number | undefined;
+
+  for (const matchId of ids) {
+    try {
+      const r = await recomputeMatchProbability(env, matchId);
+      if (r) {
+        recomputed += 1;
+        if (sampleConfidence == null) sampleConfidence = r.confidence;
+      } else {
+        failed.push({ id: matchId, error: 'match or teams missing' });
+      }
+    } catch (e) {
+      logError('knockout recompute failed', { match_id: matchId, error: String(e) });
+      failed.push({ id: matchId, error: String(e) });
+    }
+  }
+
+  logInfo('knockout bulk recompute done', {
+    total: ids.length,
+    recomputed,
+    failed: failed.length,
+  });
+
+  return { total: ids.length, recomputed, sampleConfidence, failed };
+}

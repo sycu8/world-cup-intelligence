@@ -1,6 +1,7 @@
 import type { AppEnv } from '../env';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import { scheduleRecomputeAfterDataChange } from './bulkRecomputeRunner';
+import { recomputeMatchProbability } from './recomputeMatch';
 import * as matchesRepo from '../db/repositories/matchesRepo';
 import {
   matchToOutcome,
@@ -288,6 +289,9 @@ export async function processMatchCompletion(env: AppEnv, matchId: string): Prom
   } else if (match.stage && match.stage !== 'Group') {
     const koTargets = await applyKnockoutLinks(env, matchId);
     koTargets.forEach((id) => affected.add(id));
+    for (const targetId of koTargets) {
+      await recomputeMatchProbability(env, targetId).catch(() => undefined);
+    }
   }
 
   await applyPostMatchStrengthNudge(env, matchId);

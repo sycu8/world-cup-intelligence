@@ -15,6 +15,7 @@ import { coachModifier, refereeModifier } from './staffModifiers';
 import { h2hLambdaModifier } from './h2hModifier';
 import { mergeCalibration, type CalibrationOverrides } from './calibration';
 import { groupPointsPressureModifier } from './groupPointsPressure';
+import { knockoutCompetitiveSpiritModifier } from './knockoutCompetitiveSpirit';
 
 export const MODEL_VERSION = 'wc-prob-v5';
 const LAMBDA_MIN = 0.05;
@@ -44,6 +45,7 @@ export async function computeProbability(
   );
   const h2h = h2hLambdaModifier(input.h2h, calibration.baseGoalRate);
   const pointsPressure = groupPointsPressureModifier(input.groupPointsPressure, calibration);
+  const knockoutSpirit = knockoutCompetitiveSpiritModifier(input.knockoutCompetitiveSpirit, calibration);
 
   const homeRatings = deriveAttackDefenseRatings(
     input.homeTeam,
@@ -68,7 +70,8 @@ export async function computeProbability(
       coaches.home *
       official.home *
       h2h.home *
-      pointsPressure.home,
+      pointsPressure.home *
+      knockoutSpirit.home,
   );
 
   const lambdaAway = clampLambda(
@@ -85,12 +88,16 @@ export async function computeProbability(
       coaches.away *
       official.away *
       h2h.away *
-      pointsPressure.away,
+      pointsPressure.away *
+      knockoutSpirit.away,
   );
 
+  const drawFloor = input.knockoutCompetitiveSpirit ? 0.8 : 0.92;
   const drawInflation = Math.max(
-    0.92,
-    calibration.drawInflation + pointsPressure.drawInflationAdjust,
+    drawFloor,
+    calibration.drawInflation +
+      pointsPressure.drawInflationAdjust +
+      knockoutSpirit.drawInflationAdjust,
   );
   const matrix = buildScorelineMatrix(lambdaHome, lambdaAway, {
     rho: calibration.dixonColesRho,

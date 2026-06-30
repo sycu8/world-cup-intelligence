@@ -1,6 +1,7 @@
 import type { LiveMatchStatsInput } from './liveMatchStatsModifier';
 import type { H2hFeatures } from './h2hModifier';
 import type { GroupPointsPressureSnapshot } from './groupPointsPressure';
+import type { KnockoutCompetitiveSpiritSnapshot } from './knockoutCompetitiveSpirit';
 
 export type IntervalProbability = {
   homeWinProb: number;
@@ -99,6 +100,8 @@ export type MatchFeatureInput = {
   h2h?: H2hFeatures;
   /** Group-stage table context — boosts attack lambda as points pressure rises. */
   groupPointsPressure?: GroupPointsPressureSnapshot;
+  /** Knockout elimination mentality — both sides push to win, not draw. */
+  knockoutCompetitiveSpirit?: KnockoutCompetitiveSpiritSnapshot;
 };
 
 export type IntervalKey = '15' | '30' | '45' | '60' | '75' | '90';

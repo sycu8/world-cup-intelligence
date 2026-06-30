@@ -23,6 +23,11 @@ import {
   buildGroupPointsPressure,
   type GroupPointsPressureSnapshot,
 } from '../models/probability/groupPointsPressure';
+import {
+  buildKnockoutCompetitiveSpirit,
+  type KnockoutCompetitiveSpiritSnapshot,
+} from '../models/probability/knockoutCompetitiveSpirit';
+import { isKnockoutStage } from './matchLifecycle';
 import type { GroupStageMatchRow } from './tournamentProgression';
 
 function teamToFeatures(team: TeamRow, form?: TeamFormSnapshot | null): TeamFeatures {
@@ -203,6 +208,19 @@ async function loadGroupPointsPressure(
   return snapshot;
 }
 
+function loadKnockoutCompetitiveSpirit(
+  match: MatchRow,
+  home: TeamRow,
+  away: TeamRow,
+  homeForm?: TeamFormSnapshot | null,
+  awayForm?: TeamFormSnapshot | null,
+): KnockoutCompetitiveSpiritSnapshot | undefined {
+  if (!isKnockoutStage(match.stage)) return undefined;
+  const homeFeatures = teamToFeatures(home, homeForm);
+  const awayFeatures = teamToFeatures(away, awayForm);
+  return buildKnockoutCompetitiveSpirit(match.stage ?? 'Knockout', homeFeatures, awayFeatures);
+}
+
 export async function buildMatchFeaturesWithForm(
   env: AppEnv,
   match: MatchRow,
@@ -230,6 +248,14 @@ export async function buildMatchFeaturesWithForm(
     loadGroupPointsPressure(env.DB, match),
   ]);
 
+  const knockoutCompetitiveSpirit = loadKnockoutCompetitiveSpirit(
+    match,
+    home,
+    away,
+    homeForm,
+    awayForm,
+  );
+
   const features = buildMatchFeatures(match, home, away, tournamentYear, {
     home: homeForm,
     away: awayForm,
@@ -254,6 +280,7 @@ export async function buildMatchFeaturesWithForm(
     };
   }
   if (groupPointsPressure) features.groupPointsPressure = groupPointsPressure;
+  if (knockoutCompetitiveSpirit) features.knockoutCompetitiveSpirit = knockoutCompetitiveSpirit;
 
   const lineupConfidence =
     (homeLineup ? 0.04 : 0) + (awayLineup ? 0.04 : 0);
