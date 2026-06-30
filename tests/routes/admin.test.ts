@@ -20,7 +20,8 @@ vi.mock('../../src/market/services/marketIngestionService', () => ({
 
 vi.mock('../../src/services/recomputeMatch', () => ({
   recomputeMatchProbability: vi.fn(async () => ({ ok: true })),
-  recomputeAllWc2026Matches: vi.fn(async () => ({ queued: 3 })),
+  recomputeAllWc2026Matches: vi.fn(async () => ({ total: 3, recomputed: 3, failed: [] })),
+  recomputeKnockoutMatches: vi.fn(async () => ({ total: 32, recomputed: 32, failed: [] })),
 }));
 
 vi.mock('../../src/ingestion/newsCrawler', () => ({
@@ -122,13 +123,28 @@ describe('admin routes mutations', () => {
   });
 
   it('POST /recompute-all returns summary', async () => {
-    const { res, json } = await jsonRoute<{ data: { queued: number } }>(adminRoutes, '/recompute-all', {
+    const { res, json } = await jsonRoute<{ data: { recomputed: number } }>(adminRoutes, '/recompute-all', {
       method: 'POST',
       env: adminEnv(),
       headers: adminHeaders(),
     });
     expect(res.status).toBe(200);
-    expect(json.data.queued).toBe(3);
+    expect(json.data.recomputed).toBe(3);
+  });
+
+  it('POST /recompute-knockout returns knockout summary', async () => {
+    const { res, json } = await jsonRoute<{ data: { recomputed: number; total: number } }>(
+      adminRoutes,
+      '/recompute-knockout',
+      {
+        method: 'POST',
+        env: adminEnv(),
+        headers: adminHeaders(),
+      },
+    );
+    expect(res.status).toBe(200);
+    expect(json.data.total).toBe(32);
+    expect(json.data.recomputed).toBe(32);
   });
 
   it('POST /backtest returns summary', async () => {
