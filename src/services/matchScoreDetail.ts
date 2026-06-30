@@ -238,6 +238,33 @@ export function deriveScoreDetailFromGoalRows(
   };
 }
 
+export function mergeScoreDetails(
+  stored: MatchScoreDetail,
+  derived: MatchScoreDetail | null,
+): MatchScoreDetail {
+  if (!derived) return stored;
+  const stoppage =
+    stored.stoppage || derived.stoppage
+      ? {
+          firstHalf: stored.stoppage?.firstHalf ?? derived.stoppage?.firstHalf,
+          secondHalf: stored.stoppage?.secondHalf ?? derived.stoppage?.secondHalf,
+          extraTimeFirst: stored.stoppage?.extraTimeFirst ?? derived.stoppage?.extraTimeFirst,
+          extraTimeSecond: stored.stoppage?.extraTimeSecond ?? derived.stoppage?.extraTimeSecond,
+        }
+      : undefined;
+  return {
+    ht: stored.ht ?? derived.ht,
+    secondHalf: stored.secondHalf ?? derived.secondHalf,
+    ft90: stored.ft90 ?? derived.ft90,
+    extraTime: stored.extraTime ?? derived.extraTime,
+    penalties: stored.penalties ?? derived.penalties,
+    stoppage:
+      stoppage?.firstHalf || stoppage?.secondHalf || stoppage?.extraTimeFirst || stoppage?.extraTimeSecond
+        ? stoppage
+        : undefined,
+  };
+}
+
 export async function loadGoalEventsForMatches(
   db: D1Database,
   matchIds: string[],
@@ -251,7 +278,7 @@ export async function loadGoalEventsForMatches(
       `SELECT match_id, team_id, minute, period, event_type
        FROM match_events
        WHERE match_id IN (${placeholders})
-         AND event_type IN ('goal', 'penalty_goal', 'own_goal')`,
+         AND minute IS NOT NULL`,
     )
     .bind(...matchIds)
     .all<GoalEventRow & { match_id: string }>();
@@ -274,9 +301,7 @@ export async function enrichScheduleScoreDetails(
     scoreDetail?: MatchScoreDetail | null;
   }>,
 ): Promise<void> {
-  const needs = matches.filter(
-    (m) => (m.status === 'completed' || m.status === 'finished') && !m.scoreDetail,
-  );
+  const needs = matches.filter((m) => m.status === 'completed' || m.status === 'finished');
   if (!needs.length) return;
 
   const eventsByMatch = await loadGoalEventsForMatches(
@@ -285,7 +310,10 @@ export async function enrichScheduleScoreDetails(
   );
   for (const match of needs) {
     const rows = eventsByMatch.get(match.id) ?? [];
-    match.scoreDetail = deriveScoreDetailFromGoalRows(rows, match.home_team_id, match.away_team_id);
+    const derived = deriveScoreDetailFromGoalRows(rows, match.home_team_id, match.away_team_id);
+    match.scoreDetail = match.scoreDetail
+      ? mergeScoreDetails(match.scoreDetail, derived)
+      : derived;
   }
 }
 
@@ -308,8 +336,9 @@ export async function resolveMatchScoreDetail(
   match: { id: string; home_team_id: string; away_team_id: string; score_detail_json?: string | null },
 ): Promise<MatchScoreDetail | null> {
   const stored = parseScoreDetailJson(match.score_detail_json ?? null);
-  if (stored) return stored;
-
   const rows = await loadGoalEventsForMatches(db, [match.id]);
-  return deriveScoreDetailFromGoalRows(rows.get(match.id) ?? [], match.home_team_id, match.away_team_id);
+  const derived = deriveScoreDetailFromGoalRows(rows.get(match.id) ?? [], match.home_team_id, match.away_team_id);
+
+  if (stored) return mergeScoreDetails(stored, derived);
+  return derived;
 }

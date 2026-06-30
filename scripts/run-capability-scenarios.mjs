@@ -574,6 +574,7 @@ const SCENARIOS = [
         },
       };
     },
+  },
   {
     id: 'S24',
     capability: 'Per-period score breakdown (match API)',

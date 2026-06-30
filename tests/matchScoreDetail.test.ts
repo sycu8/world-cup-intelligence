@@ -80,6 +80,59 @@ describe('matchScoreDetail', () => {
     expect(parseScoreDetailJson('bad')).toBeNull();
   });
 
+  it('merges stored JSON with event-derived stoppage', async () => {
+    const db = {
+      prepare(sql: string) {
+        return {
+          bind(...ids: string[]) {
+            return {
+              async all() {
+                if (sql.includes('IN (')) {
+                  return {
+                    results: [
+                      {
+                        match_id: 'm1',
+                        team_id: 'h',
+                        minute: 9,
+                        period: '1H',
+                        event_type: 'goal',
+                      },
+                      {
+                        match_id: 'm1',
+                        team_id: 'h',
+                        minute: 67,
+                        period: '2H',
+                        event_type: 'goal',
+                      },
+                      {
+                        match_id: 'm1',
+                        team_id: 'a',
+                        minute: 92,
+                        period: '2H',
+                        event_type: 'red_card',
+                      },
+                    ],
+                  };
+                }
+                return { results: [] };
+              },
+            };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    const { resolveMatchScoreDetail } = await import('../src/services/matchScoreDetail');
+    const detail = await resolveMatchScoreDetail(db, {
+      id: 'm1',
+      home_team_id: 'h',
+      away_team_id: 'a',
+      score_detail_json:
+        '{"ht":{"home":1,"away":0},"secondHalf":{"home":1,"away":0},"ft90":{"home":2,"away":0}}',
+    });
+    expect(detail?.stoppage?.secondHalf).toBe(2);
+  });
+
   it('enriches schedule rows from goal events when JSON missing', async () => {
     const db = {
       prepare(sql: string) {
