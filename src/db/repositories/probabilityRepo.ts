@@ -18,12 +18,14 @@ export async function listLatestSnapshotsForTournament(
       `SELECT ps.match_id AS matchId, ps.home_win_prob AS homeWinProb,
               ps.draw_prob AS drawProb, ps.away_win_prob AS awayWinProb
        FROM probability_snapshots ps
-       INNER JOIN (
-         SELECT match_id, MAX(id) AS latest_id
-         FROM probability_snapshots
-         WHERE match_id IN (SELECT id FROM matches WHERE tournament_id = ?)
-         GROUP BY match_id
-       ) latest ON latest.latest_id = ps.id`,
+       WHERE ps.match_id IN (SELECT id FROM matches WHERE tournament_id = ?)
+         AND ps.id = (
+           SELECT ps2.id
+           FROM probability_snapshots ps2
+           WHERE ps2.match_id = ps.match_id
+           ORDER BY ps2.minute DESC, ps2.second DESC, ps2.created_at DESC
+           LIMIT 1
+         )`,
     )
     .bind(tournamentId)
     .all<{

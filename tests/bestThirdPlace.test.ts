@@ -3,12 +3,22 @@ import { BEST_THIRD_R32_SLOTS } from '../src/services/tournamentProgression';
 import { rankBestThirdPlace } from '../src/services/tournamentStandings';
 
 describe('best third place qualification', () => {
-  it('defines 8 R32 slots on matches 13-16', () => {
+  it('defines 8 third-place R32 slots across the FIFA bracket', () => {
     expect(BEST_THIRD_R32_SLOTS).toHaveLength(8);
     const matchIds = new Set(BEST_THIRD_R32_SLOTS.map((s) => s.matchId));
     expect(matchIds).toEqual(
-      new Set(['m-w26-r32-13', 'm-w26-r32-14', 'm-w26-r32-15', 'm-w26-r32-16']),
+      new Set([
+        'm-w26-r32-02',
+        'm-w26-r32-05',
+        'm-w26-r32-07',
+        'm-w26-r32-08',
+        'm-w26-r32-09',
+        'm-w26-r32-10',
+        'm-w26-r32-13',
+        'm-w26-r32-15',
+      ]),
     );
+    expect(BEST_THIRD_R32_SLOTS[0]).toEqual({ matchId: 'm-w26-r32-02', slot: 'away' });
   });
 
   it('ranks third-place teams by points then GD', () => {

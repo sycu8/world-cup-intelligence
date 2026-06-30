@@ -84,6 +84,25 @@ export function buildExplanationFactors(input: MatchFeatureInput): {
       });
     }
   }
+  if (input.knockoutCompetitiveSpirit) {
+    const { homeSpirit, awaySpirit, mustWinIntensity, roundIntensity } = input.knockoutCompetitiveSpirit;
+    if (mustWinIntensity >= 0.55) {
+      const side: 'home' | 'away' | 'neutral' =
+        Math.abs(homeSpirit - awaySpirit) < 0.06
+          ? 'neutral'
+          : homeSpirit >= awaySpirit
+            ? 'home'
+            : 'away';
+      factors.push({
+        key: 'knockout_competitive_spirit',
+        label: 'Knockout must-win mentality',
+        direction: side,
+        impact: mustWinIntensity * (0.28 + roundIntensity * 0.12),
+        confidence: 0.82,
+        evidenceType: 'statistical',
+      });
+    }
+  }
   if (input.liveMatchStats) {
     const { home, away } = input.liveMatchStats;
     const homePoss = home.possession ?? 50;

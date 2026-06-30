@@ -77,7 +77,7 @@ export function estimateTripleFromTeamStrength(
   const homeElo = home.effectiveRating + homeAdv + (home.firstHalfLeadRate - away.firstHalfLeadRate) * 80;
   const awayElo = away.effectiveRating + (away.attackRate - home.defenseRate) * 45;
   const expHome = 1 / (1 + 10 ** ((awayElo - homeElo) / 400));
-  const draw = knockout ? 0.18 : 0.22;
+  const draw = knockout ? 0.12 : 0.22;
   const scale = 1 - draw;
   const sum = expHome * scale + draw + (1 - expHome) * scale;
   return {

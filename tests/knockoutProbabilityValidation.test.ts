@@ -95,4 +95,21 @@ describe('knockout probability validation', () => {
     expect(skewed.homeWinProb).toBeGreaterThan(balanced.homeWinProb);
     expect(skewed.awayWinProb).toBeLessThan(balanced.awayWinProb);
   });
+
+  it('applies lower draw mass when knockout competitive spirit is loaded', async () => {
+    const { buildKnockoutCompetitiveSpirit } = await import(
+      '../src/models/probability/knockoutCompetitiveSpirit'
+    );
+    const input = knockoutInput('Round of 32', 10, 30);
+    const withoutSpirit = await computeProbability(input);
+    const withSpirit = await computeProbability({
+      ...input,
+      knockoutCompetitiveSpirit: buildKnockoutCompetitiveSpirit(
+        input.stage,
+        input.homeTeam,
+        input.awayTeam,
+      ),
+    });
+    expect(withSpirit.drawProb).toBeLessThan(withoutSpirit.drawProb);
+  });
 });
