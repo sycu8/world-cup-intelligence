@@ -8,21 +8,34 @@ type Props = {
   matchId: string;
   homeWin?: number;
   awayWin?: number;
+  /** When provided, skips duplicate API fetch (shared from match page). */
+  movement?: ProbabilityMovementPayload | null;
+  movementLoading?: boolean;
 };
 
-export function MatchAnalyticsPanel({ matchId, homeWin, awayWin }: Props) {
+export function MatchAnalyticsPanel({
+  matchId,
+  homeWin,
+  awayWin,
+  movement: movementProp,
+  movementLoading,
+}: Props) {
   const { t } = useI18n();
-  const [movement, setMovement] = useState<ProbabilityMovementPayload | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [movementLocal, setMovementLocal] = useState<ProbabilityMovementPayload | null>(null);
+  const [loadingLocal, setLoadingLocal] = useState(true);
+  const sharedMovement = movementProp !== undefined;
+  const movement = sharedMovement ? movementProp : movementLocal;
+  const loading = sharedMovement ? (movementLoading ?? false) : loadingLocal;
 
   useEffect(() => {
-    setLoading(true);
+    if (sharedMovement || !matchId) return;
+    setLoadingLocal(true);
     api
       .matchProbabilityMovement(matchId)
-      .then((r) => setMovement(r.data))
-      .catch(() => setMovement(null))
-      .finally(() => setLoading(false));
-  }, [matchId]);
+      .then((r) => setMovementLocal(r.data))
+      .catch(() => setMovementLocal(null))
+      .finally(() => setLoadingLocal(false));
+  }, [matchId, sharedMovement]);
 
   const analytics = useMemo(() => {
     const points = movement?.events ?? [];

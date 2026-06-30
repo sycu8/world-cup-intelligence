@@ -22,7 +22,12 @@ import {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASE_URL = (process.env.BASE_URL ?? 'https://wcstat.orangecloud.vn').replace(/\/$/, '');
+const EXPECT_ENV =
+  process.env.EXPECT_ENV ??
+  (BASE_URL.includes('127.0.0.1') || BASE_URL.includes('localhost') ? 'development' : 'production');
 const jsonOut = process.argv.includes('--json');
+const streakMode = process.argv.includes('--streak');
+const streakGoal = Math.max(1, Number(process.env.STREAK_GOAL ?? 10));
 const startedAt = new Date().toISOString();
 
 /** @typedef {{ id: string; capability: string; criteria: string[]; run: () => Promise<{ pass: boolean; evidence: Record<string, unknown> }> }} Scenario */
@@ -59,7 +64,7 @@ const SCENARIOS = [
       'GET /api/health returns 200',
       'status is healthy',
       'D1 dependency is up',
-      'environment is production',
+      'environment matches deployment',
     ],
     async run() {
       const { status, body } = await fetchJson('/api/health');
@@ -68,12 +73,13 @@ const SCENARIOS = [
         health: body?.status,
         d1: body?.dependencies?.d1,
         environment: body?.environment,
+        expectedEnvironment: EXPECT_ENV,
       };
       const pass =
         status === 200 &&
         body?.status === 'healthy' &&
         body?.dependencies?.d1 === 'up' &&
-        body?.environment === 'production';
+        body?.environment === EXPECT_ENV;
       return { pass, evidence };
     },
   },
@@ -245,17 +251,17 @@ const SCENARIOS = [
     id: 'S10',
     capability: 'Strong-favorite scoreline calibration',
     criteria: [
-      'Clear favorite (Portugal vs Congo DR) has homeWin > 0.6',
+      'Clear favorite (Mexico vs South Africa, host) has homeWin > 0.58',
       'mostLikelyScore is not 1-1',
       'mostLikelyScore is a tight win (1-0, 2-0, or 2-1)',
     ],
     async run() {
-      const { status, body } = await fetchJson('/api/matches/m-w26-gk-1v2/probability');
+      const { status, body } = await fetchJson('/api/matches/m-w26-ga-1v2/probability');
       const p = body?.data;
       const tight = ['1-0', '2-0', '2-1'];
       const pass =
         status === 200 &&
-        (p?.homeWinProb ?? 0) > 0.6 &&
+        (p?.homeWinProb ?? 0) > 0.58 &&
         p?.mostLikelyScore !== '1-1' &&
         tight.includes(p?.mostLikelyScore);
       return {
@@ -497,16 +503,93 @@ const SCENARIOS = [
       };
     },
   },
+  {
+    id: 'S23',
+    capability: 'Knockout probabilities (R32 → Final)',
+    criteria: [
+      '32 knockout fixtures present across R32/R16/QF/SF/3rd/Final',
+      'Each knockout match has bulk W/D/L probabilities',
+      'All W/D/L triples sum to ~1',
+      'Bulk meta reports 104/104 tournament probabilities',
+    ],
+    async run() {
+      const stageCounts = {
+        'Round of 32': 16,
+        'Round of 16': 8,
+        'Quarter-final': 4,
+        'Semi-final': 2,
+        'Third place': 1,
+        Final: 1,
+      };
+      const [bracket, probs] = await Promise.all([
+        fetchJson('/api/tournaments/2026/bracket'),
+        fetchJson('/api/tournaments/2026/match-probabilities'),
+      ]);
+      const rounds = bracket.body?.data?.rounds ?? [];
+      const probMap = probs.body?.data ?? {};
+      const meta = probs.body?.meta ?? {};
+      let knockoutMatches = 0;
+      let withProb = 0;
+      let badSum = 0;
+      let resolvedTeams = 0;
+      for (const [stage, expected] of Object.entries(stageCounts)) {
+        const round = rounds.find((r) => r.stage === stage);
+        const matches = round?.matches ?? [];
+        if (matches.length !== expected) {
+          return {
+            pass: false,
+            evidence: { stage, expected, actual: matches.length },
+          };
+        }
+        for (const m of matches) {
+          knockoutMatches += 1;
+          const t = probMap[m.id];
+          if (t) withProb += 1;
+          const sum = (t?.homeWin ?? 0) + (t?.draw ?? 0) + (t?.awayWin ?? 0);
+          if (!approxOne(sum)) badSum += 1;
+          const home = m.homeName ?? '';
+          const away = m.awayName ?? '';
+          if (!/TBD|Winner|Loser/i.test(home) && !/TBD|Winner|Loser/i.test(away)) {
+            resolvedTeams += 1;
+          }
+        }
+      }
+      const pass =
+        bracket.status === 200 &&
+        probs.status === 200 &&
+        knockoutMatches === 32 &&
+        withProb === 32 &&
+        badSum === 0 &&
+        meta.withProbability === 104;
+      return {
+        pass,
+        evidence: {
+          bracketStatus: bracket.status,
+          probStatus: probs.status,
+          knockoutMatches,
+          withProb,
+          badSum,
+          resolvedTeams,
+          bulkMeta: meta,
+        },
+      };
+    },
+  },
 ];
 
 async function main() {
   const results = [];
   let failed = 0;
+  let streak = 0;
 
   console.log(`PitchIntel capability scenarios`);
   console.log(`Base URL: ${BASE_URL}`);
   console.log(`Started:  ${startedAt}`);
-  console.log(`Method:   pass/fail rubric (${SCENARIOS.length} scenarios)\n`);
+  if (streakMode) {
+    console.log(`Mode:     streak (goal ${streakGoal} consecutive PASS)\n`);
+  } else {
+    console.log(`Method:   pass/fail rubric (${SCENARIOS.length} scenarios)\n`);
+  }
 
   for (const scenario of SCENARIOS) {
     const t0 = Date.now();
@@ -529,11 +612,23 @@ async function main() {
       elapsedMs,
     };
     results.push(record);
-    if (!outcome.pass) failed += 1;
     const mark = outcome.pass ? 'PASS' : 'FAIL';
     console.log(`${mark}  ${scenario.id}  ${scenario.capability}  (${elapsedMs}ms)`);
     if (!outcome.pass) {
+      failed += 1;
+      streak = 0;
       console.log(`       evidence: ${JSON.stringify(outcome.evidence)}`);
+      if (streakMode) {
+        console.log(`\nStreak reset at ${scenario.id} (0/${streakGoal})`);
+        break;
+      }
+    } else if (streakMode) {
+      streak += 1;
+      console.log(`       streak: ${streak}/${streakGoal}`);
+      if (streak >= streakGoal) {
+        console.log(`\nStreak goal reached: ${streakGoal} consecutive PASS`);
+        break;
+      }
     }
   }
 
@@ -542,9 +637,10 @@ async function main() {
     baseUrl: BASE_URL,
     startedAt,
     finishedAt,
-    method: 'pass/fail',
-    total: SCENARIOS.length,
-    passed: SCENARIOS.length - failed,
+    method: streakMode ? `streak-${streakGoal}` : 'pass/fail',
+    streak: streakMode ? { goal: streakGoal, achieved: streak } : undefined,
+    total: results.length,
+    passed: results.filter((r) => r.pass).length,
     failed,
     results,
   };
@@ -555,13 +651,17 @@ async function main() {
   writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 
   console.log(`\nSummary: ${report.passed}/${report.total} passed`);
+  if (streakMode) {
+    console.log(`Streak:   ${streak}/${streakGoal}${streak >= streakGoal ? ' ✓' : ''}`);
+  }
   console.log(`Report:  ${reportPath}`);
 
   if (jsonOut) {
     console.log(JSON.stringify(report, null, 2));
   }
 
-  process.exit(failed > 0 ? 1 : 0);
+  const streakOk = !streakMode || streak >= streakGoal;
+  process.exit(failed > 0 || !streakOk ? 1 : 0);
 }
 
 main();

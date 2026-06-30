@@ -328,9 +328,9 @@ async function loadClubFallback(env: AppEnv, teamId: string): Promise<LineupDisp
   if (rows.length < 5) return null;
 
   const starters = rows.slice(0, 11).map((r, i) => {
-    const position = normalizeLineupPosition(null, null, r.position ?? STARTER_SLOTS[i]?.pos ?? 'CM');
+    const position = normalizeLineupPosition(null, null, r.position ?? STARTER_SLOTS[i].pos);
     return {
-      shirtNumber: STARTER_SLOTS[i]?.shirt ?? i + 1,
+      shirtNumber: STARTER_SLOTS[i].shirt,
       name: r.name,
       position,
       positionGroup: lineupPositionGroup(position),
@@ -372,8 +372,12 @@ const empty: LineupDisplay = {
   confidence: null,
 };
 
-/** Ensure both teams have persisted lineups — FIFA match sheet first, then official squads. */
-export async function ensureMatchLineups(env: AppEnv, matchId: string): Promise<void> {
+export type EnsureMatchLineupsOptions = {
+  /** Cloudflare waitUntil — FIFA/squad sync runs in background instead of blocking the response. */
+  waitUntil?: (promise: Promise<unknown>) => void;
+};
+
+async function runEnsureMatchLineups(env: AppEnv, matchId: string): Promise<void> {
   await syncFifaMatchLineupsByRef(env, matchId).catch(() => undefined);
 
   const match = await env.DB.prepare(
@@ -390,6 +394,20 @@ export async function ensureMatchLineups(env: AppEnv, matchId: string): Promise<
       await syncOfficialSquadToMatch(env, matchId, teamId);
     }
   }
+}
+
+/** Ensure both teams have persisted lineups — FIFA match sheet first, then official squads. */
+export async function ensureMatchLineups(
+  env: AppEnv,
+  matchId: string,
+  opts?: EnsureMatchLineupsOptions,
+): Promise<void> {
+  const work = runEnsureMatchLineups(env, matchId);
+  if (opts?.waitUntil) {
+    opts.waitUntil(work);
+    return;
+  }
+  await work;
 }
 
 export async function getLineupDisplayForMatch(

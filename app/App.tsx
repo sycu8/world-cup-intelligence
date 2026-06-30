@@ -2,9 +2,10 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { I18nProvider, useI18n } from './lib/i18n/I18nContext';
 import { AppShell } from './components/layout/AppShell';
-import { HomePage } from './pages/HomePage';
+import { AppErrorBoundary } from './components/layout/AppErrorBoundary';
 import { SEO_PAGES } from './lib/seoPages';
 
+const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
 const MatchPage = lazy(() => import('./pages/MatchPage').then((m) => ({ default: m.MatchPage })));
 const TeamPage = lazy(() => import('./pages/TeamPage').then((m) => ({ default: m.TeamPage })));
 const PlayerPage = lazy(() => import('./pages/PlayerPage').then((m) => ({ default: m.PlayerPage })));
@@ -39,15 +40,16 @@ function RouteFallback() {
 
 export default function App() {
   return (
-    <I18nProvider>
-      <BrowserRouter>
-        <Suspense fallback={<RouteFallback />}>
-          <Routes>
+    <AppErrorBoundary>
+      <I18nProvider>
+        <BrowserRouter>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
             <Route path="/docs/api" element={<ApiDocsPage />} />
             <Route element={<AppShell />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/matches" element={<MatchesPage />} />
-              <Route path="/tournaments" element={<Navigate to="/" replace />} />
+              <Route path="/tournaments" element={<Navigate to="/matches?tab=standings" replace />} />
               <Route path="/matches/:matchId/analysis" element={<MatchAnalysisPage />} />
               <Route path="/matches/:matchId" element={<MatchPage />} />
               <Route path="/teams/:teamId" element={<TeamPage />} />
@@ -67,5 +69,6 @@ export default function App() {
         </Suspense>
       </BrowserRouter>
     </I18nProvider>
+    </AppErrorBoundary>
   );
 }

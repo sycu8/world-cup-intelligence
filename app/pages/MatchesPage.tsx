@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api, type ScheduleMatch, type TeamSummary } from '../lib/api';
 import { GroupStageBoard } from '../components/tournament/GroupStageBoard';
 import { TournamentSchedulePanel } from '../components/tournament/TournamentSchedulePanel';
@@ -12,6 +13,12 @@ const REFRESH_MS = 30_000;
 
 type HubTab = 'schedule' | 'standings' | 'favorites' | 'teams';
 
+const HUB_TABS = new Set<HubTab>(['schedule', 'standings', 'favorites', 'teams']);
+
+function parseHubTab(value: string | null): HubTab {
+  return value && HUB_TABS.has(value as HubTab) ? (value as HubTab) : 'schedule';
+}
+
 const TABS: { id: HubTab; key: LocaleKey }[] = [
   { id: 'schedule', key: 'matches.tabSchedule' },
   { id: 'standings', key: 'matches.tabStandings' },
@@ -21,7 +28,20 @@ const TABS: { id: HubTab; key: LocaleKey }[] = [
 
 export function MatchesPage() {
   const { t } = useI18n();
-  const [tab, setTab] = useState<HubTab>('schedule');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState<HubTab>(() => parseHubTab(searchParams.get('tab')));
+
+  useEffect(() => {
+    setTab(parseHubTab(searchParams.get('tab')));
+  }, [searchParams]);
+
+  const selectTab = (next: HubTab) => {
+    setTab(next);
+    const params = new URLSearchParams(searchParams);
+    if (next === 'schedule') params.delete('tab');
+    else params.set('tab', next);
+    setSearchParams(params, { replace: true });
+  };
   const [byDate, setByDate] = useState<Record<string, ScheduleMatch[]>>({});
   const [matches, setMatches] = useState<ScheduleMatch[]>([]);
   const [teams, setTeams] = useState<TeamSummary[]>([]);
@@ -70,13 +90,16 @@ export function MatchesPage() {
         />
       </header>
 
-      <nav className="flex flex-wrap gap-2 border-b border-border/60 pb-3" aria-label={t('matches.hubNav')}>
+      <nav
+        className="-mx-4 flex gap-2 overflow-x-auto border-b border-border/60 px-4 pb-3 scrollbar-none md:mx-0 md:flex-wrap md:overflow-visible"
+        aria-label={t('matches.hubNav')}
+      >
         {TABS.map(({ id, key }) => (
           <button
             key={id}
             type="button"
-            onClick={() => setTab(id)}
-            className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+            onClick={() => selectTab(id)}
+            className={`mobile-touch-target shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
               tab === id
                 ? 'border-pressing bg-pressing/15 text-pressing'
                 : 'border-border text-muted hover:border-pressing/40 hover:text-foreground'

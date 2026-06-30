@@ -132,6 +132,12 @@ adminRoutes.post('/recompute-all', async (c) => {
   return c.json({ data });
 });
 
+adminRoutes.post('/verify-upcoming-probabilities', async (c) => {
+  const { refreshAllUpcomingProbabilities } = await import('../services/upcomingProbabilityVerification');
+  const data = await refreshAllUpcomingProbabilities(c.env);
+  return c.json({ data });
+});
+
 adminRoutes.post('/backtest', async (c) => {
   const summary = await runBacktest(c.env.DB);
   return c.json({ data: summary });
@@ -271,6 +277,12 @@ adminRoutes.patch('/sources/:sourceId', async (c) => {
 adminRoutes.post('/crawl-news', async (c) => {
   const inserted = await crawlWorldCupNews(c.env);
   return c.json({ status: 'ok', inserted });
+});
+
+adminRoutes.post('/refresh-champion-odds', async (c) => {
+  const { refreshChampionOdds } = await import('../services/tournamentChampionOdds');
+  const data = await refreshChampionOdds(c.env);
+  return c.json({ status: 'ok', data });
 });
 
 const apiClientSchema = z.object({ name: z.string().min(1).max(120) });

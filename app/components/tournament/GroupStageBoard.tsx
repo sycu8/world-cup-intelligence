@@ -1,19 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type GroupStandingsPayload, type ScheduleMatch } from '../../lib/api';
+import {
+  areAllGroupsComplete,
+  inferActiveKnockoutStage,
+  isKnockoutRoundComplete,
+  knockoutRoundProgress,
+  type KnockoutStage,
+} from '../../lib/knockoutRound';
 import { resolveMatchHref } from '../../lib/matchPaths';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { groupStageLabel, KNOCKOUT_STAGE_ORDER, matchStageLabel } from '../../lib/i18n/stageLabels';
-import { CompactMatchProb } from './CompactMatchProb';
 import { MatchTeamsWithFlags, TeamNameWithFlag } from '../team/TeamNameWithFlag';
 import { MatchKickoffDisplay } from '../match/MatchKickoffDisplay';
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
 
 const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as const;
+const STANDINGS_REFRESH_MS = 30_000;
 
 type MainTab = 'group' | 'knockout';
-type KnockoutStage = (typeof KNOCKOUT_STAGE_ORDER)[number];
-type MatchProbMap = Record<string, { homeWin: number; draw: number; awayWin: number }>;
 
 function formatGd(gd: number): string {
   return gd > 0 ? `+${gd}` : String(gd);
@@ -43,17 +48,77 @@ function BoardTab({
   );
 }
 
+function BoardMatchRow({
+  match,
+  showDate = false,
+  dense = false,
+}: {
+  match: ScheduleMatch;
+  showDate?: boolean;
+  dense?: boolean;
+}) {
+  const { t } = useI18n();
+  const showScore = hasMatchResult(match.status);
+
+  return (
+    <Link
+      to={resolveMatchHref(match)}
+      className={`group flex min-h-[2.75rem] items-center gap-1.5 rounded-md transition hover:bg-pressing/10 sm:gap-2 ${
+        dense ? 'px-2 py-2 sm:px-3' : 'px-2 py-1.5'
+      }`}
+    >
+      <time className="shrink-0 whitespace-nowrap font-mono-data text-[10px] leading-none text-muted">
+        <MatchKickoffDisplay
+          kickoffUtc={match.kickoff_utc}
+          showDate={showDate}
+          inlineDate={showDate}
+          showLocalReference={false}
+        />
+      </time>
+
+      <span className="min-w-0 flex-1 truncate text-[10px] font-medium leading-tight text-foreground/90 sm:text-[11px]">
+        <MatchTeamsWithFlags
+          homeName={match.home_name}
+          awayName={match.away_name}
+          homeShort={match.home_short}
+          awayShort={match.away_short}
+          homeCountryCode={match.home_country_code}
+          awayCountryCode={match.away_country_code}
+          separator="–"
+          nowrap
+          compact
+          flagClassName="h-2 w-3 shrink-0 rounded-sm object-cover ring-1 ring-white/10"
+        />
+      </span>
+
+      <span className="flex shrink-0 items-center justify-end gap-1">
+        {showScore ? (
+          <MatchResultScore
+            homeScore={match.home_score}
+            awayScore={match.away_score}
+            status={match.status}
+            variant={match.status === 'completed' || match.status === 'finished' ? 'badge' : 'compact'}
+          />
+        ) : (
+          <span className="font-mono-data text-[10px] text-muted/35">–</span>
+        )}
+        {match.status === 'live' && (
+          <span className="text-[9px] font-bold uppercase leading-none text-live">{t('common.live')}</span>
+        )}
+      </span>
+    </Link>
+  );
+}
+
 function GroupCard({
   code,
   standings,
   fixtures,
-  probs,
   standingsUnavailable,
 }: {
   code: string;
   standings: GroupStandingsPayload['groups'][string] | undefined;
   fixtures: ScheduleMatch[];
-  probs: MatchProbMap;
   standingsUnavailable?: boolean;
 }) {
   const { t } = useI18n();
@@ -130,54 +195,12 @@ function GroupCard({
         </tbody>
       </table>
 
-      <ul className="space-y-0.5 border-t border-border/40 pt-1.5">
-        {fixtures.map((m) => {
-          const prob = probs[m.id];
-          const showScore = hasMatchResult(m.status);
-
-          return (
-            <li key={m.id}>
-              <Link
-                to={resolveMatchHref(m)}
-                className="group grid grid-cols-[2.25rem_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 rounded-md px-1 py-1 text-[10px] transition hover:bg-pressing/10 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto_auto] sm:gap-x-2 sm:text-[11px]"
-              >
-                <time className="font-mono-data text-[9px] text-muted sm:text-[10px]">
-                  <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showVnReference={false} />
-                </time>
-                <span className="min-w-0 truncate text-foreground/90">
-                  <MatchTeamsWithFlags
-                    homeName={m.home_name}
-                    awayName={m.away_name}
-                    homeShort={m.home_short}
-                    awayShort={m.away_short}
-                    homeCountryCode={m.home_country_code}
-                    awayCountryCode={m.away_country_code}
-                    separator="–"
-                    flagClassName="h-2 w-3 rounded-sm object-cover ring-1 ring-white/10 sm:h-2.5 sm:w-4"
-                  />
-                </span>
-                <span className="flex shrink-0 items-center justify-end gap-1">
-                  {showScore ? (
-                    <MatchResultScore
-                      homeScore={m.home_score}
-                      awayScore={m.away_score}
-                      status={m.status}
-                      variant={
-                        m.status === 'completed' || m.status === 'finished' ? 'badge' : 'compact'
-                      }
-                    />
-                  ) : (
-                    <span className="font-mono-data text-[10px] text-muted/35">–</span>
-                  )}
-                  {m.status === 'live' && (
-                    <span className="text-[9px] font-bold uppercase text-live">{t('common.live')}</span>
-                  )}
-                </span>
-                <CompactMatchProb homeWin={prob?.homeWin} draw={prob?.draw} awayWin={prob?.awayWin} />
-              </Link>
-            </li>
-          );
-        })}
+      <ul className="space-y-0 border-t border-border/40 pt-1">
+        {fixtures.map((m) => (
+          <li key={m.id}>
+            <BoardMatchRow match={m} showDate />
+          </li>
+        ))}
       </ul>
     </div>
   );
@@ -186,11 +209,9 @@ function GroupCard({
 function KnockoutRoundPanel({
   stage,
   matches,
-  probs,
 }: {
   stage: KnockoutStage;
   matches: ScheduleMatch[];
-  probs: MatchProbMap;
 }) {
   const { t } = useI18n();
 
@@ -208,49 +229,11 @@ function KnockoutRoundPanel({
 
   return (
     <ul className="divide-y divide-border/40 rounded-lg border border-border/50 bg-panel2/20">
-      {roundMatches.map((m) => {
-        const prob = probs[m.id];
-        const showScore = hasMatchResult(m.status);
-
-        return (
-          <li key={m.id}>
-            <Link
-              to={resolveMatchHref(m)}
-              className="group grid grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] items-center gap-x-2 px-2 py-2 text-xs transition hover:bg-pressing/5 sm:px-3"
-            >
-              <time className="font-mono-data text-[10px] text-muted">
-                <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showVnReference={false} />
-              </time>
-              <span className="min-w-0 truncate font-medium">
-                <MatchTeamsWithFlags
-                  homeName={m.home_name}
-                  awayName={m.away_name}
-                  homeShort={m.home_short}
-                  awayShort={m.away_short}
-                  homeCountryCode={m.home_country_code}
-                  awayCountryCode={m.away_country_code}
-                  separator="–"
-                />
-              </span>
-              <span className="flex shrink-0 items-center justify-end">
-                {showScore ? (
-                  <MatchResultScore
-                    homeScore={m.home_score}
-                    awayScore={m.away_score}
-                    status={m.status}
-                    variant={
-                      m.status === 'completed' || m.status === 'finished' ? 'badge' : 'compact'
-                    }
-                  />
-                ) : (
-                  <span className="font-mono-data text-[11px] text-muted/35">–</span>
-                )}
-              </span>
-              <CompactMatchProb homeWin={prob?.homeWin} draw={prob?.draw} awayWin={prob?.awayWin} />
-            </Link>
-          </li>
-        );
-      })}
+      {roundMatches.map((m) => (
+        <li key={m.id}>
+          <BoardMatchRow match={m} showDate dense />
+        </li>
+      ))}
     </ul>
   );
 }
@@ -259,25 +242,20 @@ function GroupStagePanel({
   standings,
   standingsError,
   groupFixtures,
-  probs,
 }: {
   standings: GroupStandingsPayload | null;
   standingsError: boolean;
   groupFixtures: Record<string, ScheduleMatch[]>;
-  probs: MatchProbMap;
 }) {
   const { t } = useI18n();
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <p className="text-xs text-muted">{t('groupBoard.subtitle')}</p>
-          <p className="mt-1 font-mono-data text-[10px] text-muted-dim sm:text-xs">
-            {t('groupBoard.standingsHint')}
-          </p>
-        </div>
-        <p className="font-mono-data text-[10px] text-muted sm:text-xs">{t('groupBoard.probHint')}</p>
+      <div className="min-w-0">
+        <p className="text-xs text-muted">{t('groupBoard.subtitle')}</p>
+        <p className="mt-1 font-mono-data text-[10px] text-muted-dim sm:text-xs">
+          {t('groupBoard.standingsHint')}
+        </p>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -287,7 +265,6 @@ function GroupStagePanel({
             code={code}
             standings={standings?.groups[code]}
             fixtures={groupFixtures[code] ?? []}
-            probs={probs}
             standingsUnavailable={standingsError}
           />
         ))}
@@ -300,7 +277,7 @@ function GroupStagePanel({
             {standings.thirdPlaceRanking.slice(0, 12).map((row, i) => (
               <li
                 key={`${row.group}-${row.teamId}`}
-                className="font-mono-data text-[10px] text-foreground/90 sm:text-[11px]"
+                className="break-words font-mono-data text-[10px] text-foreground/90 sm:text-[11px]"
               >
                 {i + 1}.{' '}
                 <TeamNameWithFlag
@@ -325,24 +302,21 @@ function GroupStagePanel({
 type Props = {
   matches: ScheduleMatch[];
   initialStandings?: GroupStandingsPayload | null;
-  initialProbs?: MatchProbMap;
 };
 
 export function GroupStageBoard({
   matches,
   initialStandings = null,
-  initialProbs = {},
 }: Props) {
   const { t } = useI18n();
   const hasInitialBoard = !!initialStandings;
-  const hasInitialProbs = Object.keys(initialProbs).length > 0;
   const [mainTab, setMainTab] = useState<MainTab>('group');
   const [knockoutStage, setKnockoutStage] = useState<KnockoutStage>('Round of 32');
+  const [knockoutStagePinned, setKnockoutStagePinned] = useState(false);
   const [standings, setStandings] = useState<GroupStandingsPayload | null>(initialStandings);
   const [standingsError, setStandingsError] = useState(false);
-  const [probs, setProbs] = useState<MatchProbMap>(initialProbs);
   const [groupLoading, setGroupLoading] = useState(!hasInitialBoard);
-  const [knockoutLoading, setKnockoutLoading] = useState(false);
+  const prevAllGroupsComplete = useRef(false);
 
   useEffect(() => {
     if (initialStandings) {
@@ -350,24 +324,20 @@ export function GroupStageBoard({
       setStandingsError(false);
       setGroupLoading(false);
     }
-    if (hasInitialProbs) {
-      setProbs(initialProbs);
-    }
-  }, [initialStandings, initialProbs, hasInitialProbs]);
+  }, [initialStandings]);
 
   useEffect(() => {
-    if (mainTab !== 'group' || hasInitialBoard) return;
     let cancelled = false;
 
     const load = (showLoading: boolean) => {
-      if (showLoading) setGroupLoading(true);
+      if (showLoading && mainTab === 'group') setGroupLoading(true);
 
-      Promise.all([api.tournamentStandings(2026), api.tournamentMatchProbabilities(2026)])
-        .then(([s, p]) => {
+      api
+        .tournamentStandings(2026)
+        .then((s) => {
           if (!cancelled) {
             setStandings(s.data);
             setStandingsError(false);
-            setProbs(p.data);
           }
         })
         .catch(() => {
@@ -379,38 +349,18 @@ export function GroupStageBoard({
           }
         })
         .finally(() => {
-          if (!cancelled) setGroupLoading(false);
+          if (!cancelled && mainTab === 'group') setGroupLoading(false);
         });
     };
 
-    load(!hasInitialBoard);
-    const timer = setInterval(() => load(false), 30_000);
+    load(mainTab === 'group' && !standings && !standingsError);
+    const timer = setInterval(() => load(false), STANDINGS_REFRESH_MS);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [mainTab, hasInitialBoard]);
-
-  useEffect(() => {
-    if (mainTab !== 'knockout') return;
-    if (Object.keys(probs).length > 0) return;
-    let cancelled = false;
-    setKnockoutLoading(true);
-    api
-      .tournamentMatchProbabilities(2026)
-      .then((r) => {
-        if (!cancelled) setProbs(r.data);
-      })
-      .catch(() => {
-        if (!cancelled) setProbs({});
-      })
-      .finally(() => {
-        if (!cancelled) setKnockoutLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [mainTab, probs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- poll on tab change only; standings updated in-place
+  }, [mainTab]);
 
   const groupFixtures = useMemo(() => {
     const map: Record<string, ScheduleMatch[]> = {};
@@ -439,12 +389,45 @@ export function GroupStageBoard({
     [knockoutMatches],
   );
 
+  const allGroupsComplete = useMemo(
+    () => areAllGroupsComplete(standings?.groups, GROUPS),
+    [standings?.groups],
+  );
+
+  const activeKnockoutStage = useMemo(
+    () => inferActiveKnockoutStage(knockoutMatches),
+    [knockoutMatches],
+  );
+
   useEffect(() => {
-    if (knockoutStages.length === 0) return;
+    if (!allGroupsComplete || prevAllGroupsComplete.current) return;
+    prevAllGroupsComplete.current = true;
+    setMainTab('knockout');
+    setKnockoutStagePinned(false);
+  }, [allGroupsComplete]);
+
+  useEffect(() => {
+    if (knockoutStages.length === 0 || !activeKnockoutStage) return;
+
     if (!knockoutStages.includes(knockoutStage)) {
-      setKnockoutStage(knockoutStages[0]);
+      setKnockoutStage(activeKnockoutStage);
+      setKnockoutStagePinned(false);
+      return;
     }
-  }, [knockoutStages, knockoutStage]);
+
+    if (!knockoutStagePinned) {
+      setKnockoutStage(activeKnockoutStage);
+      return;
+    }
+
+    if (
+      isKnockoutRoundComplete(knockoutMatches, knockoutStage) &&
+      activeKnockoutStage !== knockoutStage
+    ) {
+      setKnockoutStage(activeKnockoutStage);
+      setKnockoutStagePinned(false);
+    }
+  }, [knockoutStages, knockoutStage, knockoutStagePinned, activeKnockoutStage, knockoutMatches]);
 
   const knockoutRoundLabels = useMemo(
     () =>
@@ -483,12 +466,16 @@ export function GroupStageBoard({
             standings={standings}
             standingsError={standingsError}
             groupFixtures={groupFixtures}
-            probs={probs}
           />
         )
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-muted">{t('groupBoard.knockoutSubtitle')}</p>
+          {!allGroupsComplete && (
+            <p className="rounded-lg border border-border/50 bg-panel2/20 px-3 py-2 text-xs text-muted">
+              {t('groupBoard.knockoutLocked')}
+            </p>
+          )}
 
           <div
             className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin"
@@ -496,33 +483,39 @@ export function GroupStageBoard({
             aria-label={t('groupBoard.tabKnockout')}
           >
             {knockoutRoundLabels.map(({ stage, label }) => {
-              const count = knockoutMatches.filter((m) => m.stage === stage).length;
-              if (count === 0) return null;
+              const progress = knockoutRoundProgress(knockoutMatches, stage);
+              if (progress.total === 0) return null;
+              const isActive = activeKnockoutStage === stage;
+              const isSelected = knockoutStage === stage;
               return (
                 <button
                   key={stage}
                   type="button"
                   role="tab"
-                  aria-selected={knockoutStage === stage}
-                  onClick={() => setKnockoutStage(stage)}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition sm:text-xs ${
-                    knockoutStage === stage
+                  aria-selected={isSelected}
+                  onClick={() => {
+                    setKnockoutStage(stage);
+                    setKnockoutStagePinned(true);
+                  }}
+                  className={`mobile-touch-target shrink-0 rounded-full px-3.5 py-2 text-xs font-medium transition sm:text-sm ${
+                    isSelected
                       ? 'bg-cyan/15 text-cyan ring-1 ring-cyan/30'
-                      : 'text-muted hover:bg-panel2/60 hover:text-foreground'
+                      : isActive
+                        ? 'bg-live/10 text-live ring-1 ring-live/25'
+                        : 'text-muted hover:bg-panel2/60 hover:text-foreground'
                   }`}
                 >
                   {label}
-                  <span className="ml-1 font-mono-data text-[10px] opacity-70">({count})</span>
+                  <span className="ml-1 font-mono-data text-[10px] opacity-70">
+                    ({progress.done}/{progress.total}
+                    {progress.live > 0 ? ` · ${progress.live} ${t('common.live')}` : ''})
+                  </span>
                 </button>
               );
             })}
           </div>
 
-          {knockoutLoading && Object.keys(probs).length === 0 ? (
-            <p className="text-sm text-muted">{t('groupBoard.loading')}</p>
-          ) : (
-            <KnockoutRoundPanel stage={knockoutStage} matches={knockoutMatches} probs={probs} />
-          )}
+          <KnockoutRoundPanel stage={knockoutStage} matches={knockoutMatches} />
         </div>
       )}
     </div>

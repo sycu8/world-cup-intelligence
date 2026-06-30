@@ -3,14 +3,23 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --mobile-top-nav-h: 3.25rem;
+    --mobile-score-bar-h: 2.75rem;
+    --mobile-section-nav-h: 2.75rem;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   html {
     font-size: 17px;
     -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
   }
 
   body {
     margin: 0;
     min-height: 100vh;
+    overflow-x: hidden;
     font-family: 'Be Vietnam Pro', system-ui, sans-serif;
     font-size: 1rem;
     line-height: 1.65;
@@ -38,7 +47,10 @@
   }
 
   /* Never render copy below ~13px */
-  .text-\[10px\] {
+  .text-\[8px\],
+  .text-\[9px\],
+  .text-\[10px\],
+  .text-\[11px\] {
     font-size: 0.8125rem;
     line-height: 1.45;
   }
@@ -46,15 +58,15 @@
 
 @layer components {
   .panel {
-    @apply rounded-card border border-border bg-panel p-5 shadow-tactical backdrop-blur-sm;
+    @apply rounded-card border border-border bg-panel p-4 shadow-tactical backdrop-blur-sm sm:p-5;
   }
 
   .panel-dense {
-    @apply rounded-card border border-border bg-panel p-4 shadow-tactical backdrop-blur-sm;
+    @apply rounded-card border border-border bg-panel p-3 shadow-tactical backdrop-blur-sm sm:p-4;
   }
 
   .panel-elevated {
-    @apply rounded-panel border border-border bg-panel2 p-6 shadow-elevated backdrop-blur-sm;
+    @apply rounded-panel border border-border bg-panel2 p-4 shadow-elevated backdrop-blur-sm sm:p-6;
   }
 
   .hero-glow {
@@ -161,6 +173,15 @@
     border-radius: 4px;
   }
 
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   .api-docs-hero {
     box-shadow:
       0 0 80px rgba(0, 229, 255, 0.06),
@@ -177,6 +198,48 @@
 
   .api-endpoint-card {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  }
+
+  .mobile-main-pad {
+    padding-bottom: calc(7rem + var(--safe-bottom));
+  }
+
+  @media (min-width: 768px) {
+    .mobile-main-pad {
+      padding-bottom: 2.5rem;
+    }
+  }
+
+  .mobile-sticky-score {
+    position: sticky;
+    top: var(--mobile-top-nav-h);
+    z-index: 30;
+  }
+
+  .mobile-sticky-section-nav {
+    position: sticky;
+    top: var(--mobile-top-nav-h);
+    z-index: 20;
+  }
+
+  .mobile-sticky-section-nav--with-score {
+    top: calc(var(--mobile-top-nav-h) + var(--mobile-score-bar-h));
+  }
+
+  .mobile-scroll-mt {
+    scroll-margin-top: calc(
+      var(--mobile-top-nav-h) + var(--mobile-section-nav-h) + 0.5rem
+    );
+  }
+
+  @media (min-width: 768px) {
+    .mobile-scroll-mt {
+      scroll-margin-top: 5rem;
+    }
+  }
+
+  .mobile-touch-target {
+    min-height: 2.75rem;
   }
 }
 

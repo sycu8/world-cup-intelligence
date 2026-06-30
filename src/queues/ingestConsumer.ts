@@ -11,6 +11,7 @@ import {
   runBulkRecomputeIfPending,
   scheduleRecomputeAfterDataChange,
 } from '../services/bulkRecomputeRunner';
+import { runChampionOddsRefreshIfPending } from '../services/tournamentChampionOdds';
 import { deliverWebhook } from '../services/publicApi/webhooks';
 import { syncOfficialLineupsToMatches } from '../services/officialLineupSync';
 
@@ -36,6 +37,8 @@ export async function handleIngestBatch(
           }
 
           if (await runBulkRecomputeIfPending(env)) break;
+
+          if (await runChampionOddsRefreshIfPending(env)) break;
 
           const recomputeIds =
             updatedIds.length > 0
@@ -65,6 +68,11 @@ export async function handleIngestBatch(
         case 'crawl_news': {
           await crawlWorldCupNews(env);
           await syncOfficialLineupsToMatches(env, { recompute: true });
+          break;
+        }
+        case 'refresh_live_probabilities': {
+          const { refreshLiveProbabilitiesFromStats } = await import('../services/liveProbabilityRefresh');
+          await refreshLiveProbabilitiesFromStats(env);
           break;
         }
         case 'source_ingest': {

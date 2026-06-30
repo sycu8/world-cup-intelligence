@@ -33,7 +33,7 @@ BASE_URL=https://wcstat.orangecloud.vn node scripts/run-capability-scenarios.mjs
 | S07 | Legacy match ID | `m-w26-ga-1v2` still resolves |
 | S08 | FIFA linkage | `fifa_match_id` + kickoff match FIFA #1 |
 | S09 | Probability engine | W/D/L ≈ 1, scoreline, `wc-prob-*` version |
-| S10 | Favorite scorelines | Portugal favorite → tight win, not 1–1 |
+| S10 | Favorite scorelines | Mexico (host) vs South Africa → homeWin > 0.58, tight win not 1–1 |
 | S11 | Match statistics | Completed match stats with home/away sides |
 | S12 | Scenario predictions | ≥1 scenario incl. baseline |
 | S13 | Group standings | 12 groups A–L |
@@ -53,3 +53,18 @@ BASE_URL=https://wcstat.orangecloud.vn node scripts/run-capability-scenarios.mjs
 2. Fix root cause for each `FAIL`
 3. Rerun failed scenarios, then rerun **complete** suite
 4. Ship only when **22/22 PASS**
+
+### Streak runner (10 consecutive passes)
+
+```bash
+node scripts/run-scenario-streak.mjs        # stop after 10 PASS in a row
+node scripts/run-scenario-streak.mjs --goal 10
+```
+
+On any `FAIL`: document in **Bug log** below, add regression test, fix, restart streak from zero.
+
+## Bug log
+
+| Date | Scenario | Root cause | Fix | Regression |
+|------|----------|------------|-----|------------|
+| 2026-06-22 | **S10** Strong-favorite scoreline | Portugal–Congo DR **completed 1–1**; API served **live snapshot** (`homeWin≈0.41`, MLS `0-0`). Portugal pre-match ~0.54–0.57 under wc-prob-v5 (below old 0.6 rubric) | `getDisplaySnapshot()` for completed matches; S10 fixture → **Mexico vs South Africa** (calibrated host favorite, `mexicoSouthAfricaModel.test.ts`) | `tests/probabilityRepoDisplay.test.ts`, `tests/portugalCongoModel.test.ts`, `tests/mexicoSouthAfricaModel.test.ts` |

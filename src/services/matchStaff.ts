@@ -75,8 +75,8 @@ export function refereeToFeatures(official: MatchOfficialRow | null): RefereeFea
   return {
     name: official.name,
     strictness: official.strictness,
-    avgYellowCards: official.strictness ? 3.5 + official.strictness * 2 : 4,
-    avgRedCards: official.strictness ? official.strictness * 0.22 : 0.1,
+    avgYellowCards: 3.5 + official.strictness * 2,
+    avgRedCards: official.strictness * 0.22,
   };
 }
 

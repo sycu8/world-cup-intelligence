@@ -12,7 +12,7 @@ type I18nContextValue = {
 
 const STORAGE_KEY = 'wc-display-mode';
 
-function readStoredMode(): DisplayMode {
+export function readStoredMode(): DisplayMode {
   if (typeof window === 'undefined') return 'vi';
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved === 'en') return 'en';

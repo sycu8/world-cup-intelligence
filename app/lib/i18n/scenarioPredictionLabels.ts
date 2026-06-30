@@ -152,14 +152,12 @@ export function legacyFactorLabel(text: string, mode: DisplayMode): string {
   return translateKeyDriver(text, mode);
 }
 
-function translateScenarioLikelihoodLine(line: string, mode: DisplayMode): string {
-  if (mode === 'en') return line;
-
+function translateScenarioLikelihoodLine(line: string, _mode: DisplayMode): string {
   const likelihood = line.match(
     /^Scenario likelihood ([\d.]+)% with model confidence ([\d.]+)%\.$/,
   );
   if (likelihood) {
-    return `Xác suất kịch bản ${likelihood[1]}% · độ tin cậy mô hình ${likelihood[2]}%.`;
+    return `Xác suất kịch bản ${likelihood[1]}% · độ tin cậy ${likelihood[2]}%.`;
   }
 
   const conditional = line.match(/^Conditional W\/D\/L: ([\d.]+)\/([\d.]+)\/([\d.]+)\.$/);
@@ -204,7 +202,7 @@ function translateKeyDriver(line: string, mode: DisplayMode): string {
   if (compact) return `Độ compact phòng ngự ${compact[1]}: ${compact[2]}%`;
 
   const xg = line.match(/^Engine xG ([\d.]+)[–-]([\d.]+)$/);
-  if (xg) return `xG mô hình: ${xg[1]}–${xg[2]}`;
+  if (xg) return `xG dự đoán: ${xg[1]}–${xg[2]}`;
 
   if (line.startsWith('Missing inputs:')) {
     return line.replace('Missing inputs:', 'Thiếu dữ liệu:');
@@ -217,7 +215,7 @@ function translateKeyDriver(line: string, mode: DisplayMode): string {
   if (line.startsWith('Missing inputs reduce model confidence:')) {
     return line.replace(
       'Missing inputs reduce model confidence:',
-      'Thiếu dữ liệu làm giảm độ tin cậy mô hình:',
+      'Thiếu dữ liệu làm giảm độ tin cậy:',
     );
   }
 

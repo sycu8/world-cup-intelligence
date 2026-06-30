@@ -47,9 +47,10 @@ export function applyRealtimeEventToScenarios(
     }
     if (input.eventType === 'goal' && input.minute <= 30 && scenario.scenarioType === 'early_goal_swing') {
       output.scenarioProbability = Math.min(0.92, output.scenarioProbability + 0.18);
-      output.triggerConditions = output.triggerConditions.map((t) =>
-        t.condition.includes('First goal') ? { ...t, status: 'triggered' as const } : t,
-      );
+      output.triggerConditions = output.triggerConditions.map((t) => {
+        if (!t.condition.includes('First goal')) return t;
+        return { ...t, status: 'triggered' as const };
+      });
     }
     if (input.eventType === 'lineup_confirmed' && scenario.scenarioType === 'lineup_surprise') {
       status = 'invalidated';

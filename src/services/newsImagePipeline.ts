@@ -21,6 +21,14 @@ function isImageContentType(contentType: string, url: string): boolean {
   return looksLikeImageUrl(url);
 }
 
+function headerOrEmpty(headers: Headers, name: string): string {
+  return headers.get(name) ?? '';
+}
+
+function isSupportedDownloadSize(byteLength: number): boolean {
+  return byteLength <= MAX_DOWNLOAD_BYTES && byteLength >= 200;
+}
+
 export function newsThumbnailR2Key(docId: string): string {
   return `news/thumbs/${docId}.webp`;
 }
@@ -88,7 +96,7 @@ async function downloadOptimizedThumb(imageUrl: string): Promise<Blob | null> {
 
   const cfImageRes = await fetch(imageUrl, fetchInit);
   if (cfImageRes.ok) {
-    const ct = cfImageRes.headers.get('content-type') ?? '';
+    const ct = headerOrEmpty(cfImageRes.headers, 'content-type');
     const buf = await cfImageRes.arrayBuffer();
     if (
       ct.includes('webp') &&
@@ -107,11 +115,11 @@ async function downloadOptimizedThumb(imageUrl: string): Promise<Blob | null> {
 
   if (!res.ok) return null;
 
-  const contentType = res.headers.get('content-type') ?? '';
+  const contentType = headerOrEmpty(res.headers, 'content-type');
   if (!isImageContentType(contentType, imageUrl)) return null;
 
   const buf = await res.arrayBuffer();
-  if (buf.byteLength > MAX_DOWNLOAD_BYTES || buf.byteLength < 200) return null;
+  if (!isSupportedDownloadSize(buf.byteLength)) return null;
 
   const source = new Blob([buf], { type: contentType });
   const webp = await resizeToWebp(source);

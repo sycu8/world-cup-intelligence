@@ -28,7 +28,7 @@ const LINEUP_PENDING: LocalizedLine = {
   en: 'No confirmed lineup yet — will update when official teams are published.',
 };
 
-function describeSideLineup(side: TeamPreviewSide, mode: 'vi' | 'en'): string {
+export function describeSideLineup(side: TeamPreviewSide, mode: 'vi' | 'en'): string {
   if (side.fullLineup.length < 7) {
     return mode === 'vi' ? LINEUP_PENDING.vi : LINEUP_PENDING.en;
   }
@@ -230,10 +230,10 @@ function ruleBasedPreview(
 
   const tactical: LocalizedLine = {
     vi: fav
-      ? `Mô hình nghiêng về ${fav}. xG kỳ vọng ${prob ? `${prob.xgHome.toFixed(2)}–${prob.xgAway.toFixed(2)}` : '—'} — ${homeShape} đấu ${awayShape} sẽ quyết định khoảng trống giữa các tuyến.`
+      ? `Mô hình nghiêng về ${fav}. xG kỳ vọng ${prob!.xgHome.toFixed(2)}–${prob!.xgAway.toFixed(2)} — ${homeShape} đấu ${awayShape} sẽ quyết định khoảng trống giữa các tuyến.`
       : `Thế trận cân bằng: ${homeShape} trước ${awayShape}; ai kiểm soát giữa sân sẽ kéo xG về phía mình.`,
     en: fav
-      ? `Model leans ${fav}. Expected xG ${prob ? `${prob.xgHome.toFixed(2)}–${prob.xgAway.toFixed(2)}` : '—'} — ${homeShape} vs ${awayShape} should decide central space.`
+      ? `Model leans ${fav}. Expected xG ${prob!.xgHome.toFixed(2)}–${prob!.xgAway.toFixed(2)} — ${homeShape} vs ${awayShape} should decide central space.`
       : `Balanced shape battle: ${homeShape} against ${awayShape}; midfield control should sway chance quality.`,
   };
 
@@ -294,8 +294,6 @@ export async function buildMatchPreviewContext(env: AppEnv, matchId: string) {
 
   const h2h = await getHeadToHead(env, matchId);
   const groupCtx = await getGroupContextForMatch(env, matchId, match.group_code);
-
-  await ensureMatchLineups(env, matchId);
 
   const [homeDisplay, awayDisplay] = await Promise.all([
     getLineupDisplayForMatch(env, matchId, home.id, home.name),
@@ -440,23 +438,43 @@ JSON keys: summaryVi, summary, contextVi, context, strengthVi, strength, lineupV
   return base;
 }
 
+export type GetMatchPreviewAnalysisOptions = {
+  /** Cloudflare waitUntil — lineup sync and AI enhancement run in background. */
+  waitUntil?: (promise: Promise<unknown>) => void;
+};
+
 export async function getMatchPreviewAnalysis(
   env: AppEnv,
   matchId: string,
+  opts?: GetMatchPreviewAnalysisOptions,
 ): Promise<MatchPreviewAnalysis | null> {
   const ctx = await buildMatchPreviewContext(env, matchId);
   if (!ctx) return null;
+
+  ensureMatchLineups(env, matchId, { waitUntil: opts?.waitUntil });
 
   const cached = await getCached(env, matchId, ctx.dataHash);
   if (cached) return cached;
 
   let analysis = ruleBasedPreview(matchId, ctx.meta, ctx.homeSide, ctx.awaySide, ctx.prob);
   analysis.dataHash = ctx.dataHash;
-  analysis = await aiEnhancePreview(env, analysis);
 
-  await env.KV.put(`${CACHE_PREFIX}${matchId}:${ctx.dataHash}`, JSON.stringify(analysis), {
-    expirationTtl: 3600,
-  });
+  const cacheKey = `${CACHE_PREFIX}${matchId}:${ctx.dataHash}`;
+  const persist = async (payload: MatchPreviewAnalysis) => {
+    await env.KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: 3600 });
+  };
+
+  if (opts?.waitUntil && isGatewayConfigured(env)) {
+    opts.waitUntil(
+      aiEnhancePreview(env, analysis)
+        .then(persist)
+        .catch(() => undefined),
+    );
+    return analysis;
+  }
+
+  analysis = await aiEnhancePreview(env, analysis);
+  await persist(analysis);
 
   return analysis;
 }

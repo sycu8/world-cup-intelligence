@@ -11,6 +11,7 @@ import {
   type H2HSummary,
   type TeamRecentWcMatch,
 } from '../lib/api';
+import { formatKickoffDateTime, getViewerLocale } from '../lib/matchKickoffDisplay';
 import { TeamSystemPanel } from '../components/team/TeamSystemPanel';
 import { ScenarioLikelihoodPanel } from '../components/scenarios/ScenarioLikelihoodPanel';
 import { ScenarioPredictionPanel } from '../components/scenarios/ScenarioPredictionPanel';
@@ -136,7 +137,7 @@ export function MatchAnalysisPage() {
 
   const kickoffLabel =
     match?.kickoff_utc &&
-    new Date(match.kickoff_utc).toLocaleString(mode === 'en' ? 'en' : 'vi-VN', {
+    formatKickoffDateTime(match.kickoff_utc, getViewerLocale(mode === 'en' ? 'en' : 'vi-VN'), {
       weekday: 'long',
       day: 'numeric',
       month: 'long',

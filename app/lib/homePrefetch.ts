@@ -1,4 +1,4 @@
-import type { DashboardData, GroupStandingsPayload, NewsArticle, ScheduleMatch } from './api';
+import type { DashboardData, GroupStandingsPayload, NewsArticle, ScheduleMatch, ChampionOddsPayload, TopScorersPayload } from './api';
 import { apiUrl } from './apiOrigin';
 
 export type HomePayload = {
@@ -17,6 +17,8 @@ export type HomePayload = {
     hotNews: NewsArticle[];
     standings: GroupStandingsPayload;
     matchProbabilities: Record<string, { homeWin: number; draw: number; awayWin: number }>;
+    championOdds: ChampionOddsPayload | null;
+    topScorers: TopScorersPayload;
   };
 };
 

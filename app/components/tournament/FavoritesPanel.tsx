@@ -64,7 +64,7 @@ export function FavoritesPanel({ matches, teams }: Props) {
                     separator={mode === 'en' ? ' vs ' : ' – '}
                   />
                   <span className="ml-2 text-xs text-muted">
-                    <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showVnReference />
+                    <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showLocalReference />
                   </span>
                 </Link>
                 <FavoriteButton
@@ -124,7 +124,7 @@ export function FavoritesPanel({ matches, teams }: Props) {
                     />
                   </span>
                   <time className="text-xs text-muted">
-                    <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showVnReference={false} />
+                    <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showDate showLocalReference={false} />
                   </time>
                 </Link>
               </li>

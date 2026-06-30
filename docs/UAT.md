@@ -58,7 +58,7 @@ npm run deploy:production   # production — chỉ sau khi UAT pass
 
 | Binding | Tài nguyên |
 |---------|------------|
-| D1 `DB` | `wc-tactical-db-uat` (ID trong `wrangler.jsonc`, không copy ra docs) |
+| D1 `DB` | `wc-tactical-db-uat-v2` (ID trong `wrangler.jsonc`, không copy ra docs) |
 | KV `KV` | namespace UAT (ID trong `wrangler.jsonc`) |
 | R2 | `wc-tactical-*-uat` |
 | Queues | `wc-*-queue-uat` |

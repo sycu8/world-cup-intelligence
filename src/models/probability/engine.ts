@@ -1,22 +1,22 @@
 import type { MatchFeatureInput, ProbabilityResult } from './types';
 import { sha256Hex } from '../../utils/hash';
 import { nowIso } from '../../utils/time';
-import {
-  collectiveModifier,
-  teamAttackStrength,
-  teamDefenseWeakness,
-} from './teamStrength';
+import { collectiveModifier } from './teamStrength';
+import { deriveAttackDefenseRatings } from './attackDefenseRatings';
 import { lineupModifier } from './playerAvailability';
 import { tacticalMatchupModifier } from './tacticalMatchup';
 import { gameStateModifier } from './liveGameState';
-import { aggregateWdl, buildScorelineMatrix, mostLikelyScore } from './scoreline';
+import { liveMatchStatsModifier } from './liveMatchStatsModifier';
+import { buildScorelineMatrix, mostLikelyScore, aggregateWdl } from './scoreline';
 import { buildIntervalDistribution } from './interval';
 import { buildExplanationFactors } from './explainFactors';
 import { matchContextModifier, rankingGapModifier } from './matchContext';
 import { coachModifier, refereeModifier } from './staffModifiers';
+import { h2hLambdaModifier } from './h2hModifier';
+import { mergeCalibration, type CalibrationOverrides } from './calibration';
+import { groupPointsPressureModifier } from './groupPointsPressure';
 
-export const MODEL_VERSION = 'wc-prob-v4';
-const BASE_GOAL_RATE = 1.35;
+export const MODEL_VERSION = 'wc-prob-v5';
 const LAMBDA_MIN = 0.05;
 const LAMBDA_MAX = 5.5;
 
@@ -24,9 +24,16 @@ function clampLambda(v: number): number {
   return Math.max(LAMBDA_MIN, Math.min(LAMBDA_MAX, v));
 }
 
-export async function computeProbability(input: MatchFeatureInput): Promise<ProbabilityResult> {
+export async function computeProbability(
+  input: MatchFeatureInput,
+  calibrationOverrides?: CalibrationOverrides,
+): Promise<ProbabilityResult> {
+  const calibration = mergeCalibration(calibrationOverrides);
   const tactical = tacticalMatchupModifier(input.homeLineup, input.awayLineup);
   const gameState = gameStateModifier(input.minute, input.currentScore.home, input.currentScore.away);
+  const liveStats = input.liveMatchStats
+    ? liveMatchStatsModifier(input.liveMatchStats)
+    : { home: 1, away: 1 };
   const context = matchContextModifier(input);
   const rankGap = rankingGapModifier(input.homeTeam, input.awayTeam);
   const coaches = coachModifier(input.homeCoach, input.awayCoach);
@@ -35,36 +42,60 @@ export async function computeProbability(input: MatchFeatureInput): Promise<Prob
     input.homeTeam.fifaRanking,
     input.awayTeam.fifaRanking,
   );
+  const h2h = h2hLambdaModifier(input.h2h, calibration.baseGoalRate);
+  const pointsPressure = groupPointsPressureModifier(input.groupPointsPressure, calibration);
+
+  const homeRatings = deriveAttackDefenseRatings(
+    input.homeTeam,
+    input.homeFormMatchesPlayed ?? 6,
+  );
+  const awayRatings = deriveAttackDefenseRatings(
+    input.awayTeam,
+    input.awayFormMatchesPlayed ?? 6,
+  );
 
   const lambdaHome = clampLambda(
-    BASE_GOAL_RATE *
-      teamAttackStrength(input.homeTeam) *
-      teamDefenseWeakness(input.awayTeam) *
+    calibration.baseGoalRate *
+      homeRatings.attack *
+      awayRatings.defenseLeak *
       collectiveModifier(input.homeTeam) *
       lineupModifier(input.homeLineup) *
       tactical.home *
       gameState.home *
+      liveStats.home *
       context.home *
       rankGap.home *
       coaches.home *
-      official.home,
+      official.home *
+      h2h.home *
+      pointsPressure.home,
   );
 
   const lambdaAway = clampLambda(
-    BASE_GOAL_RATE *
-      teamAttackStrength(input.awayTeam) *
-      teamDefenseWeakness(input.homeTeam) *
+    calibration.baseGoalRate *
+      awayRatings.attack *
+      homeRatings.defenseLeak *
       collectiveModifier(input.awayTeam) *
       lineupModifier(input.awayLineup) *
       tactical.away *
       gameState.away *
+      liveStats.away *
       context.away *
       rankGap.away *
       coaches.away *
-      official.away,
+      official.away *
+      h2h.away *
+      pointsPressure.away,
   );
 
-  const matrix = buildScorelineMatrix(lambdaHome, lambdaAway);
+  const drawInflation = Math.max(
+    0.92,
+    calibration.drawInflation + pointsPressure.drawInflationAdjust,
+  );
+  const matrix = buildScorelineMatrix(lambdaHome, lambdaAway, {
+    rho: calibration.dixonColesRho,
+    drawInflation,
+  });
   const wdl = aggregateWdl(matrix);
   const intervals = buildIntervalDistribution(
     lambdaHome,
@@ -78,7 +109,7 @@ export async function computeProbability(input: MatchFeatureInput): Promise<Prob
 
   const confidence = computeModelConfidence(input);
 
-  const inputHash = await sha256Hex(JSON.stringify({ input, lambdaHome, lambdaAway }));
+  const inputHash = await sha256Hex(JSON.stringify({ input, lambdaHome, lambdaAway, calibration }));
 
   return {
     matchId: input.matchId,

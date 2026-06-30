@@ -18,7 +18,7 @@ export function ProbabilityMovementTimeline({ intervals, currentMinute = 0 }: Pr
 
   const first = rows[0];
   const last = rows[rows.length - 1];
-  const homeShift = (last?.homeWinProb ?? 0) - (first?.homeWinProb ?? 0);
+  const homeShift = last.homeWinProb - first.homeWinProb;
   const trend =
     homeShift > 0.03
       ? t('probMovement.trendRising')

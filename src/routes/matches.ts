@@ -14,13 +14,14 @@ import { getMatchRecap } from '../services/matchRecap';
 import { getMatchStaff } from '../services/matchStaff';
 import { parseEnv } from '../env';
 import { shouldSyncFifaMatch, syncFifaMatchByRef } from '../ingestion/fifa/fifaLiveSync';
+import { withPathCache } from '../services/workersPathCache';
 import * as teamsRepo from '../db/repositories/teamsRepo';
 import { getMatchThumbnailPng, getMatchThumbnailSvg } from '../services/matchThumbnail';
 
 export const matchRoutes = new Hono<{ Bindings: AppEnv }>();
 
 async function loadMatch(c: { env: AppEnv; req: { param: (k: string) => string } }) {
-  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'));
+  const resolved = await resolveMatchRef(c.env.DB, c.req.param('matchId'), c.env.KV);
   return resolved;
 }
 
@@ -56,17 +57,24 @@ matchRoutes.get('/:matchId/thumbnail', async (c) => {
 });
 
 matchRoutes.get('/:matchId', async (c) => {
-  const resolved = await loadMatch(c);
-  if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const matchRef = c.req.param('matchId');
+  return withPathCache(`api:match:${matchRef}`, 20, async () => {
+    const resolved = await loadMatch(c);
+    if (!resolved) return c.json({ error: 'Not found' }, 404);
 
-  const cfg = parseEnv(c.env);
-  if ((cfg.fifaLiveEnabled || !cfg.mockSources) && (await shouldSyncFifaMatch(c.env, resolved.id, resolved.status))) {
-    await syncFifaMatchByRef(c.env, resolved.id).catch(() => undefined);
-    const fresh = await loadMatch(c);
-    return c.json({ data: fresh ?? resolved });
-  }
+    const cfg = parseEnv(c.env);
+    if ((cfg.fifaLiveEnabled || !cfg.mockSources) && (await shouldSyncFifaMatch(c.env, resolved.id, resolved.status))) {
+      c.executionCtx.waitUntil(
+        syncFifaMatchByRef(c.env, resolved.id)
+          .then(() => c.env.KV.delete(`cache:match-ref:${resolved.id}`))
+          .catch(() => undefined),
+      );
+    }
 
-  return c.json({ data: resolved });
+    return c.json({ data: resolved }, 200, {
+      'Cache-Control': 'public, max-age=15, stale-while-revalidate=30',
+    });
+  });
 });
 
 matchRoutes.get('/:matchId/events', async (c) => {
@@ -194,7 +202,9 @@ matchRoutes.get('/:matchId/hints', async (c) => {
 });
 
 matchRoutes.get('/:matchId/stats', async (c) => {
-  const data = await getMatchStats(c.env, c.req.param('matchId'));
+  const data = await getMatchStats(c.env, c.req.param('matchId'), {
+    waitUntil: (promise) => c.executionCtx.waitUntil(promise),
+  });
   if (!data) return c.json({ error: 'Not found' }, 404);
   return c.json({ data });
 });

@@ -27,9 +27,12 @@ import { publicApiRoutes } from './routes/publicApi';
 import { discoveryRoutes } from './routes/discovery';
 import { buildLinkHeaderValue, siteOrigin } from './services/siteDiscovery';
 import { withStaticAssetCacheHeaders } from './services/staticAssetCache';
+import { getPathCachedResponse, putPathCachedResponse } from './services/workersPathCache';
 import { parseMatchPageSlug } from './utils/matchPath';
 import { resolveMatchRef } from './services/matchRef';
 import { injectMatchPageHtml } from './services/spaMatchMeta';
+import { findSeoPageByPath } from './services/seoPages';
+import { injectHomeHtml, injectSeoLandingHtml, findHubPageSpec, injectHubPageHtml } from './services/spaSeoMeta';
 
 const app = new Hono<{ Bindings: AppEnv }>();
 
@@ -67,15 +70,28 @@ app.route('/api/admin', adminRoutes);
 app.route('/', discoveryRoutes);
 
 app.get('/', async (c) => {
+  const pathHit = await getPathCachedResponse('spa:/');
+  if (pathHit) return pathHit;
+
   const origin = siteOrigin(c.req.url);
   const asset = await c.env.ASSETS.fetch(c.req.raw);
   const cached = withStaticAssetCacheHeaders(c.req.raw, asset);
+  const html = injectHomeHtml(await cached.text(), origin);
   const headers = new Headers(cached.headers);
+  headers.set('Content-Type', 'text/html; charset=utf-8');
   headers.set('Link', buildLinkHeaderValue(origin));
-  return new Response(cached.body, { status: cached.status, headers });
+  const response = new Response(html, { status: cached.status, headers });
+  c.executionCtx.waitUntil(putPathCachedResponse('spa:/', response.clone(), 60));
+  return response;
 });
 
 app.all('*', async (c) => {
+  const pathname = new URL(c.req.url).pathname;
+  const slug = parseMatchPageSlug(pathname);
+  const pathCacheKey = slug ? `spa:match:${slug}` : `spa:${pathname}`;
+  const pathHit = await getPathCachedResponse(pathCacheKey);
+  if (pathHit) return pathHit;
+
   const asset = await c.env.ASSETS.fetch(c.req.raw);
   if (asset.status !== 404) {
     return withStaticAssetCacheHeaders(c.req.raw, asset);
@@ -88,17 +104,52 @@ app.all('*', async (c) => {
   const origin = siteOrigin(c.req.url);
   headers.set('Link', buildLinkHeaderValue(origin));
 
-  const slug = parseMatchPageSlug(new URL(c.req.url).pathname);
   if (slug) {
-    const match = await resolveMatchRef(c.env.DB, slug);
+    const htmlCacheKey = `cache:spa-match-html:${slug}`;
+    const cachedHtml = await c.env.KV.get(htmlCacheKey);
+    if (cachedHtml) {
+      headers.set('Content-Type', 'text/html; charset=utf-8');
+      const response = new Response(cachedHtml, { status: cached.status, headers });
+      c.executionCtx.waitUntil(putPathCachedResponse(pathCacheKey, response.clone(), 60));
+      return response;
+    }
+
+    const match = await resolveMatchRef(c.env.DB, slug, c.env.KV);
     if (match) {
       const html = injectMatchPageHtml(await cached.text(), match, origin);
       headers.set('Content-Type', 'text/html; charset=utf-8');
-      return new Response(html, { status: cached.status, headers });
+      const response = new Response(html, { status: cached.status, headers });
+      c.executionCtx.waitUntil(
+        Promise.all([
+          c.env.KV.put(htmlCacheKey, html, { expirationTtl: 300 }),
+          putPathCachedResponse(pathCacheKey, response.clone(), 60),
+        ]).catch(() => undefined),
+      );
+      return response;
     }
   }
 
-  return new Response(cached.body, { status: cached.status, headers });
+  const seoPage = findSeoPageByPath(pathname);
+  if (seoPage) {
+    const html = injectSeoLandingHtml(await cached.text(), seoPage, origin);
+    headers.set('Content-Type', 'text/html; charset=utf-8');
+    const response = new Response(html, { status: cached.status, headers });
+    c.executionCtx.waitUntil(putPathCachedResponse(pathCacheKey, response.clone(), 60));
+    return response;
+  }
+
+  const hubPage = findHubPageSpec(pathname);
+  if (hubPage) {
+    const html = injectHubPageHtml(await cached.text(), hubPage, origin);
+    headers.set('Content-Type', 'text/html; charset=utf-8');
+    const response = new Response(html, { status: cached.status, headers });
+    c.executionCtx.waitUntil(putPathCachedResponse(pathCacheKey, response.clone(), 60));
+    return response;
+  }
+
+  const response = new Response(cached.body, { status: cached.status, headers });
+  c.executionCtx.waitUntil(putPathCachedResponse(pathCacheKey, response.clone(), 60));
+  return response;
 });
 
 function isIngestJob(body: unknown): body is IngestJob {

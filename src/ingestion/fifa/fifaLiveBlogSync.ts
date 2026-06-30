@@ -2,14 +2,19 @@ import type { AppEnv } from '../../env';
 import { nowIso } from '../../utils/time';
 import { logError, logInfo } from '../../utils/logger';
 import { FIFA_SOURCE_ID, WC2026_TOURNAMENT_ID } from './constants';
-import { fetchFifaTimeline, fetchFifaMatchInfo, type FifaMatchInfo } from './fifaApiClient';
+import { fetchFifaTimeline, fetchFifaMatchInfo, type FifaMatchInfo, type FifaTimelinePayload } from './fifaApiClient';
 import { fetchFifaGamedayTeamMatchStats } from './fifaGamedayClient';
 import {
   deriveShotsFromTimeline,
   parseFifaTimelineCommentary,
-  type FifaTimelinePayload,
+  type ParsedCommentaryLine,
 } from './parseFifaTimeline';
 import { parseGamedayTeamStats } from './parseFifaGamedayStats';
+import {
+  loadFifaRecapTranslationState,
+  translateAndStoreCommentary,
+  upsertTranslatedMatchRecap,
+} from './matchRecapSync';
 import {
   emitMatchCommentaryUpdated,
   emitMatchStatsUpdated,
@@ -24,6 +29,14 @@ type TeamStatPatch = {
   passes: number | null;
   passAccuracy: number | null;
 };
+
+function numberOrZero(value: number | null | undefined): number {
+  return value ?? 0;
+}
+
+function timelineEventCount(timeline: FifaTimelinePayload | null): number {
+  return timeline?.Event?.length ?? 0;
+}
 
 async function upsertTeamMatchStats(
   db: D1Database,
@@ -81,56 +94,13 @@ async function upsertTeamMatchStats(
       matchId,
       teamId,
       patch.possession ?? 0,
-      patch.shots ?? 0,
-      patch.shotsOnTarget ?? 0,
+      numberOrZero(patch.shots),
+      numberOrZero(patch.shotsOnTarget),
       patch.passes ?? 0,
       patch.passAccuracy ?? 0,
       ts,
     )
     .run();
-}
-
-async function runBatchChunked(db: D1Database, stmts: D1PreparedStatement[], chunkSize = 40): Promise<void> {
-  for (let i = 0; i < stmts.length; i += chunkSize) {
-    await db.batch(stmts.slice(i, i + chunkSize));
-  }
-}
-
-async function syncCommentary(
-  db: D1Database,
-  internalMatchId: string,
-  timeline: FifaTimelinePayload,
-): Promise<number> {
-  const lines = parseFifaTimelineCommentary(timeline, internalMatchId);
-  if (!lines.length) return 0;
-
-  await db
-    .prepare(`DELETE FROM match_commentary WHERE match_id = ? AND source_id = ?`)
-    .bind(internalMatchId, FIFA_SOURCE_ID)
-    .run();
-
-  const stmts = lines.map((line) =>
-    db
-      .prepare(
-        `INSERT INTO match_commentary (
-           id, match_id, minute, period, sort_order, text_vi, text_en, event_type, source_id
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .bind(
-        line.id,
-        internalMatchId,
-        line.minute,
-        line.period,
-        line.sortOrder,
-        line.textEn,
-        line.textEn,
-        line.eventType,
-        FIFA_SOURCE_ID,
-      ),
-  );
-
-  await runBatchChunked(db, stmts);
-  return lines.length;
 }
 
 function resolveFifaTeamIds(info: FifaMatchInfo): {
@@ -164,7 +134,9 @@ async function tryEspnStatsFallback(
   ]);
   if (!matchRow?.kickoff_utc) return false;
 
-  const byId = new Map((teamRows.results ?? []).map((t) => [t.id, t.name]));
+  const teamList = teamRows.results;
+  if (!teamList?.length) return false;
+  const byId = new Map(teamList.map((t) => [t.id, t.name]));
   const homeName = byId.get(homeTeamId);
   const awayName = byId.get(awayTeamId);
   if (!homeName || !awayName) return false;
@@ -181,6 +153,11 @@ async function tryEspnStatsFallback(
   return true;
 }
 
+export type FifaBlogSyncOptions = {
+  /** When false, skip re-translating/storing commentary (recap/stats only). */
+  translateCommentary?: boolean;
+};
+
 /** Pull Match Centre live blog (timeline) + Gameday team stats into D1. */
 export async function syncFifaMatchBlogAndStats(
   env: AppEnv,
@@ -189,21 +166,27 @@ export async function syncFifaMatchBlogAndStats(
   awayTeamId: string,
   info: FifaMatchInfo,
   fifaMatchIdOverride?: string | null,
-): Promise<{ commentary: number; statsUpdated: boolean }> {
+  options?: FifaBlogSyncOptions,
+): Promise<{ commentary: number; statsUpdated: boolean; recapUpdated: boolean }> {
   const fifaMatchId = fifaMatchIdOverride ?? info.IdMatch;
   if (!fifaMatchId) {
     logInfo('fifa blog sync skipped — no fifa match id', { match_id: internalMatchId });
-    return { commentary: 0, statsUpdated: false };
+    return { commentary: 0, statsUpdated: false, recapUpdated: false };
   }
   let commentary = 0;
   let statsUpdated = false;
+  let recapUpdated = false;
+  let parsedLines: ParsedCommentaryLine[] = [];
 
   const timeline = await fetchFifaTimeline(fifaMatchId);
   if (timeline?.Event?.length) {
-    try {
-      commentary = await syncCommentary(env.DB, internalMatchId, timeline);
-    } catch (e) {
-      logError('fifa commentary sync failed', { match_id: internalMatchId, error: String(e) });
+    parsedLines = parseFifaTimelineCommentary(timeline, internalMatchId);
+    if (parsedLines.length && options?.translateCommentary !== false) {
+      try {
+        commentary = await translateAndStoreCommentary(env, internalMatchId, parsedLines);
+      } catch (e) {
+        logError('fifa commentary sync failed', { match_id: internalMatchId, error: String(e) });
+      }
     }
 
     const { homeFifaTeamId, awayFifaTeamId } = resolveFifaTeamIds(info);
@@ -255,16 +238,32 @@ export async function syncFifaMatchBlogAndStats(
     if (espnApplied) statsUpdated = true;
   }
 
-  if (commentary > 0 || statsUpdated) {
+  if (parsedLines.length > 0) {
+    try {
+      recapUpdated = await upsertTranslatedMatchRecap(
+        env,
+        internalMatchId,
+        info,
+        parsedLines,
+        homeTeamId,
+        awayTeamId,
+      );
+    } catch (e) {
+      logError('fifa recap sync failed', { match_id: internalMatchId, error: String(e) });
+    }
+  }
+
+  if (commentary > 0 || statsUpdated || recapUpdated) {
     await env.KV.put(`meta:fifa_blog_sync:${internalMatchId}`, nowIso(), { expirationTtl: 300 });
   }
 
   logInfo('fifa blog sync done', {
     match_id: internalMatchId,
     fifa_match_id: fifaMatchId,
-    timeline_events: timeline?.Event?.length ?? 0,
+    timeline_events: timelineEventCount(timeline),
     commentary,
     statsUpdated,
+    recapUpdated,
   });
 
   const ts = nowIso();
@@ -283,7 +282,7 @@ export async function syncFifaMatchBlogAndStats(
     }).catch(() => undefined);
   }
 
-  return { commentary, statsUpdated };
+  return { commentary, statsUpdated, recapUpdated };
 }
 
 /** Sync blog/stats when D1 is missing FIFA data (bypasses KV throttle). */
@@ -297,17 +296,19 @@ export async function ensureFifaBlogAndStats(
 ): Promise<void> {
   if (!fifaMatchId || (status !== 'live' && status !== 'completed')) return;
 
-  const [statsComplete, commentaryRow] = await Promise.all([
+  const [statsComplete, translationState] = await Promise.all([
     loadTeamMatchStatsCompleteness(env.DB, matchId, homeTeamId, awayTeamId).then((r) => r.complete),
-    env.DB.prepare(`SELECT 1 FROM match_commentary WHERE match_id = ? LIMIT 1`).bind(matchId).first(),
+    loadFifaRecapTranslationState(env.DB, matchId),
   ]);
 
-  if (statsComplete && commentaryRow) return;
+  if (statsComplete && !translationState.needsCommentary && !translationState.needsRecap) return;
 
   const info = await fetchFifaMatchInfo(fifaMatchId);
   if (!info) return;
 
-  await syncFifaMatchBlogAndStats(env, matchId, homeTeamId, awayTeamId, info, fifaMatchId);
+  await syncFifaMatchBlogAndStats(env, matchId, homeTeamId, awayTeamId, info, fifaMatchId, {
+    translateCommentary: translationState.needsCommentary,
+  });
 }
 
 export async function shouldSyncFifaBlogAndStats(
@@ -385,7 +386,60 @@ export async function backfillIncompleteFifaMatchStats(env: AppEnv, limit = 4): 
   }
 
   if (synced > 0) {
-    logInfo('fifa stats backfill batch', { synced, candidates: results?.length ?? 0 });
+    logInfo('fifa stats backfill batch', { synced, candidates: results.length });
+  }
+  return synced;
+}
+
+/** Re-pull FIFA timeline + Vietnamese recap for completed/live matches missing translation. */
+export async function backfillMissingFifaRecaps(env: AppEnv, limit = 4): Promise<number> {
+  const { results } = await env.DB.prepare(
+    `SELECT m.id, m.home_team_id, m.away_team_id, m.fifa_match_id
+     FROM matches m
+     LEFT JOIN match_recaps mr ON mr.match_id = m.id
+     WHERE m.tournament_id = ?
+       AND m.status IN ('live', 'completed')
+       AND m.fifa_match_id IS NOT NULL
+       AND (
+         mr.match_id IS NULL
+         OR mr.summary_vi = mr.summary_en
+         OR EXISTS (
+           SELECT 1 FROM match_commentary mc
+           WHERE mc.match_id = m.id AND mc.source_id = ? AND mc.text_vi = mc.text_en
+         )
+       )
+     ORDER BY m.kickoff_utc DESC
+     LIMIT ?`,
+  )
+    .bind(WC2026_TOURNAMENT_ID, FIFA_SOURCE_ID, limit)
+    .all<{
+      id: string;
+      home_team_id: string;
+      away_team_id: string;
+      fifa_match_id: string;
+    }>();
+
+  let synced = 0;
+  for (const row of results ?? []) {
+    const info = await fetchFifaMatchInfo(row.fifa_match_id);
+    if (!info) continue;
+    try {
+      await syncFifaMatchBlogAndStats(
+        env,
+        row.id,
+        row.home_team_id,
+        row.away_team_id,
+        info,
+        row.fifa_match_id,
+      );
+      synced += 1;
+    } catch (e) {
+      logError('fifa recap backfill failed', { match_id: row.id, error: String(e) });
+    }
+  }
+
+  if (synced > 0) {
+    logInfo('fifa recap backfill batch', { synced, candidates: results?.length ?? 0 });
   }
   return synced;
 }

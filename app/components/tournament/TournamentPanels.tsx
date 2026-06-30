@@ -5,6 +5,7 @@ import { resolveMatchHref } from '../../lib/matchPaths';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { formatLocalizedVersus, matchStageLabel } from '../../lib/i18n/stageLabels';
 import { MatchResultScore } from '../match/MatchResultScore';
+import { formatKickoffDateTime, getViewerLocale } from '../../lib/matchKickoffDisplay';
 
 const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as const;
 
@@ -229,7 +230,7 @@ export function BracketPanel() {
                       )}
                     </div>
                     <p className="mt-0.5 text-[10px] text-muted">
-                      {new Date(m.kickoffUtc).toLocaleDateString(mode === 'en' ? 'en' : 'vi-VN', {
+                      {formatKickoffDateTime(m.kickoffUtc, getViewerLocale(mode === 'en' ? 'en' : 'vi-VN'), {
                         month: 'short',
                         day: 'numeric',
                         hour: '2-digit',

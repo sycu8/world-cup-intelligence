@@ -9,6 +9,7 @@ import {
   buildTournamentMatchProbabilitiesPayload,
   persistMissingTournamentProbabilities,
 } from '../services/tournamentMatchProbabilities';
+import { withPathCache } from '../services/workersPathCache';
 
 export const tournamentRoutes = new Hono<{ Bindings: AppEnv }>();
 
@@ -43,9 +44,12 @@ tournamentRoutes.get('/:year/teams', async (c) => {
 tournamentRoutes.get('/:year/standings', async (c) => {
   const year = Number(c.req.param('year'));
   if (year !== 2026) return c.json({ error: 'Not found' }, 404);
-  const { buildGroupStandingsPayload } = await import('../services/tournamentStandings');
-  const data = await buildGroupStandingsPayload(c.env);
-  return c.json({ data }, 200, { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=60' });
+  return withPathCache('api:standings:2026', 30, async () => {
+    const { buildGroupStandingsPayload } = await import('../services/tournamentStandings');
+    const { getCachedJsonWithVersion } = await import('../services/payloadCache');
+    const data = await getCachedJsonWithVersion(c.env, 'standings', () => buildGroupStandingsPayload(c.env));
+    return c.json({ data }, 200, { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=60' });
+  });
 });
 
 tournamentRoutes.get('/:year/match-probabilities', async (c) => {
@@ -53,6 +57,7 @@ tournamentRoutes.get('/:year/match-probabilities', async (c) => {
   if (year !== 2026) return c.json({ error: 'Not found' }, 404);
   const payload = await buildTournamentMatchProbabilitiesPayload(c.env, WC2026_TOURNAMENT_ID, {
     scheduleBackgroundFill: false,
+    skipInlineFill: true,
   });
   if (payload.meta.missingIds.length > 0) {
     c.executionCtx.waitUntil(
@@ -69,4 +74,41 @@ tournamentRoutes.get('/:year/bracket', async (c) => {
   const { buildBracketPayload } = await import('../services/bracketPayload');
   const data = await buildBracketPayload(c.env);
   return c.json({ data });
+});
+
+tournamentRoutes.get('/:year/champion-odds', async (c) => {
+  const year = Number(c.req.param('year'));
+  if (year !== 2026) return c.json({ error: 'Not found' }, 404);
+  const { getChampionOddsForDisplay } = await import('../services/tournamentChampionOdds');
+  const data = await getChampionOddsForDisplay(c.env);
+  if (!data) return c.json({ error: 'Unavailable' }, 503);
+  return c.json({ data }, 200, { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600' });
+});
+
+tournamentRoutes.get('/:year/prediction-accuracy', async (c) => {
+  const year = Number(c.req.param('year'));
+  if (year !== 2026) return c.json({ error: 'Not found' }, 404);
+  const { buildPredictionAccuracyReport } = await import('../services/predictionAccuracy');
+  const data = await buildPredictionAccuracyReport(c.env);
+  return c.json({ data }, 200, { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=120' });
+});
+
+tournamentRoutes.get('/:year/upcoming-probability-verification', async (c) => {
+  const year = Number(c.req.param('year'));
+  if (year !== 2026) return c.json({ error: 'Not found' }, 404);
+  const refresh = c.req.query('refresh') === '1';
+  const { buildUpcomingProbabilityVerification, refreshUpcomingProbabilities } = await import(
+    '../services/upcomingProbabilityVerification'
+  );
+  const data = await buildUpcomingProbabilityVerification(c.env);
+  if (refresh && data.missing > 0) {
+    c.executionCtx.waitUntil(
+      refreshUpcomingProbabilities(c.env)
+        .then((r) => {
+          data.refreshed = r.refreshed;
+        })
+        .catch(() => undefined),
+    );
+  }
+  return c.json({ data }, 200, { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=60' });
 });

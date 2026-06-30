@@ -158,11 +158,9 @@ export function groupTeamWorldCupMeetings(
     else record.draws++;
   }
 
-  return [...byOpponent.values()].sort((a, b) => {
-    const yearA = a.meetings[0]?.tournament_year ?? 0;
-    const yearB = b.meetings[0]?.tournament_year ?? 0;
-    return yearB - yearA;
-  });
+  return [...byOpponent.values()].sort(
+    (a, b) => (b.meetings[0]?.tournament_year ?? 0) - (a.meetings[0]?.tournament_year ?? 0),
+  );
 }
 
 export async function resolveTeamIdsForWcHistory(env: AppEnv, teamId: string): Promise<string[]> {
@@ -216,7 +214,6 @@ export async function getTeamRecentWorldCupMatches(
   excludeMatchId?: string,
 ): Promise<TeamRecentWcMatch[]> {
   const aliasIds = new Set(await resolveTeamIdsForWcHistory(env, teamId));
-  if (aliasIds.size === 0) return [];
 
   const placeholders = [...aliasIds].map(() => '?').join(', ');
   const excludeClause = excludeMatchId ? 'AND m.id != ?' : '';

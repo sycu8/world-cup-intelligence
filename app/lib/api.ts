@@ -109,6 +109,14 @@ export const api = {
     ),
   tournamentBracket: (year = 2026) =>
     get<{ data: BracketPayload }>(`/tournaments/${year}/bracket`),
+  tournamentChampionOdds: (year = 2026) =>
+    get<{ data: ChampionOddsPayload }>(`/tournaments/${year}/champion-odds`),
+  tournamentPredictionAccuracy: (year = 2026) =>
+    get<{ data: PredictionAccuracyReport }>(`/tournaments/${year}/prediction-accuracy`),
+  tournamentUpcomingProbabilityVerification: (year = 2026, refresh = false) =>
+    get<{ data: UpcomingProbabilityVerification }>(
+      `/tournaments/${year}/upcoming-probability-verification${refresh ? '?refresh=1' : ''}`,
+    ),
   matchAnalysis: (id: string) =>
     get<{ data: MultiVariableAnalysis | null; meta?: { gatewayConfigured?: boolean } }>(
       `/analysis/${id}`,
@@ -248,6 +256,100 @@ export type GroupStandingsPayload = {
   tournamentId: string;
   groups: Record<string, { complete: boolean; rows: StandingRow[] }>;
   thirdPlaceRanking: Array<StandingRow & { group: string }>;
+};
+
+export type ChampionOddsEntry = {
+  teamId: string;
+  teamName: string;
+  countryCode: string | null;
+  probability: number;
+  rank: number;
+};
+
+export type ChampionOddsPayload = {
+  generatedAt: string;
+  simulations: number;
+  modelVersion?: string;
+  top: ChampionOddsEntry[];
+  all: ChampionOddsEntry[];
+};
+
+export type TopScorerEntry = {
+  rank: number;
+  playerId: string;
+  playerName: string;
+  teamId: string;
+  teamName: string;
+  countryCode: string | null;
+  goals: number;
+};
+
+export type TopScorersPayload = {
+  tournamentId: string;
+  updatedAt: string;
+  scorers: TopScorerEntry[];
+};
+
+export type PredictionOutcome = 'home' | 'draw' | 'away';
+
+export type MatchPredictionEvaluation = {
+  matchId: string;
+  kickoffUtc: string;
+  homeName: string;
+  awayName: string;
+  actualScore: string;
+  predictedOutcome: PredictionOutcome;
+  actualOutcome: PredictionOutcome;
+  favoriteHit: boolean;
+  predictedScore: string | null;
+  scorelineHit: boolean;
+  scorelineTop3Hit: boolean;
+  actualScoreProb: number;
+  brierScore: number;
+  modelVersion: string;
+  predictedProbs: { home: number; draw: number; away: number };
+};
+
+export type PredictionAccuracyReport = {
+  tournamentYear: 2026;
+  evaluatedAt: string;
+  completedTotal: number;
+  completedWithSnapshot: number;
+  favoriteHits: number;
+  favoriteHitRate: number | null;
+  drawPredictions: number;
+  drawHits: number;
+  scorelineHits: number;
+  scorelineHitRate: number | null;
+  scorelineTop3Hits: number;
+  scorelineTop3HitRate: number | null;
+  avgBrier: number | null;
+  avgActualScoreProb: number | null;
+  modelVersions: Record<string, number>;
+  recent: MatchPredictionEvaluation[];
+};
+
+export type UpcomingMatchProbability = {
+  matchId: string;
+  kickoffUtc: string;
+  homeName: string;
+  awayName: string;
+  status: string;
+  hasProbability: boolean;
+  homeWin?: number;
+  draw?: number;
+  awayWin?: number;
+  modelVersion?: string;
+  snapshotAt?: string;
+};
+
+export type UpcomingProbabilityVerification = {
+  verifiedAt: string;
+  upcomingTotal: number;
+  withProbability: number;
+  missing: number;
+  refreshed: number;
+  matches: UpcomingMatchProbability[];
 };
 
 export type BracketMatchNode = {

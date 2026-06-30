@@ -1,6 +1,6 @@
 import type { AppEnv } from '../env';
 import { parseEnv } from '../env';
-import { resolveMatchRef } from './matchRef';
+import { resolveMatchRef, type MatchWithSlug } from './matchRef';
 import {
   shouldSyncFifaMatch,
   syncFifaMatchByRef,
@@ -40,44 +40,65 @@ export type MatchStatsPayload = {
   dataSourceLabel?: string;
 };
 
-export async function getMatchStats(env: AppEnv, ref: string): Promise<MatchStatsPayload | null> {
+export type GetMatchStatsOptions = {
+  /** Cloudflare waitUntil — FIFA sync runs in background instead of blocking the response. */
+  waitUntil?: (promise: Promise<unknown>) => void;
+};
+
+async function refreshFifaStatsIfNeeded(env: AppEnv, resolved: MatchWithSlug): Promise<void> {
+  if (!resolved) return;
+  const matchId = resolved.id;
+
+  const needsScoreSync =
+    resolved.status === 'live' && (await shouldSyncFifaMatch(env, matchId, resolved.status));
+  const statsIncomplete =
+    (resolved.status === 'live' || resolved.status === 'completed') &&
+    !(await loadTeamMatchStatsCompleteness(
+      env.DB,
+      matchId,
+      resolved.home_team_id,
+      resolved.away_team_id,
+    )).complete;
+  const needsBlogStatsSync =
+    (resolved.status === 'live' || resolved.status === 'completed') &&
+    (statsIncomplete ||
+      (await shouldSyncFifaBlogAndStats(
+        env,
+        matchId,
+        resolved.status,
+        resolved.home_team_id,
+        resolved.away_team_id,
+      )));
+  if (needsScoreSync || needsBlogStatsSync) {
+    await syncFifaMatchByRef(env, matchId).catch(() => undefined);
+  }
+  await ensureFifaBlogAndStats(
+    env,
+    matchId,
+    resolved.home_team_id,
+    resolved.away_team_id,
+    resolved.fifa_match_id,
+    resolved.status,
+  ).catch(() => undefined);
+}
+
+export async function getMatchStats(
+  env: AppEnv,
+  ref: string,
+  opts?: GetMatchStatsOptions,
+): Promise<MatchStatsPayload | null> {
   const resolved = await resolveMatchRef(env.DB, ref);
   if (!resolved) return null;
 
   const matchId = resolved.id;
 
   if (parseEnv(env).fifaLiveEnabled || !parseEnv(env).mockSources) {
-    const needsScoreSync =
-      resolved.status === 'live' && (await shouldSyncFifaMatch(env, matchId, resolved.status));
-    const statsIncomplete =
-      (resolved.status === 'live' || resolved.status === 'completed') &&
-      !(await loadTeamMatchStatsCompleteness(
-        env.DB,
-        matchId,
-        resolved.home_team_id,
-        resolved.away_team_id,
-      )).complete;
-    const needsBlogStatsSync =
-      (resolved.status === 'live' || resolved.status === 'completed') &&
-      (statsIncomplete ||
-        (await shouldSyncFifaBlogAndStats(
-          env,
-          matchId,
-          resolved.status,
-          resolved.home_team_id,
-          resolved.away_team_id,
-        )));
-    if (needsScoreSync || needsBlogStatsSync) {
-      await syncFifaMatchByRef(env, matchId).catch(() => undefined);
+    const work = refreshFifaStatsIfNeeded(env, resolved);
+    if (opts?.waitUntil) {
+      opts.waitUntil(work);
+    } else {
+      await work;
     }
-    await ensureFifaBlogAndStats(
-      env,
-      matchId,
-      resolved.home_team_id,
-      resolved.away_team_id,
-      resolved.fifa_match_id,
-      resolved.status,
-    ).catch(() => undefined);
   }
 
   const [homeTeam, awayTeam, statsRows, eventCounts, matchRow] = await Promise.all([
@@ -128,7 +149,7 @@ export async function getMatchStats(env: AppEnv, ref: string): Promise<MatchStat
       }>(),
   ]);
 
-  const statsByTeam = new Map((statsRows.results ?? []).map((r) => [r.team_id, r]));
+  const statsByTeam = new Map(statsRows.results.map((r) => [r.team_id, r]));
   const homeStats = statsByTeam.get(resolved.home_team_id);
   const awayStats = statsByTeam.get(resolved.away_team_id);
   const hasStats = !!(homeStats || awayStats);
@@ -171,7 +192,7 @@ export async function getMatchStats(env: AppEnv, ref: string): Promise<MatchStat
     minute: matchRow?.minute ?? resolved.minute ?? null,
     homeScore: matchRow?.home_score ?? resolved.home_score,
     awayScore: matchRow?.away_score ?? resolved.away_score,
-    updatedAt: latestStatAt ?? matchRow?.updated_at ?? null,
+    updatedAt: latestStatAt ?? null,
     dataSource: hasStats ? 'fifa_live' : 'unavailable',
     home: mapSide(homeTeam, homeStats),
     away: mapSide(awayTeam, awayStats),

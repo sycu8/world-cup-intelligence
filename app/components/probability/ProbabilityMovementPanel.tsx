@@ -10,6 +10,8 @@ type Props = {
   matchId: string;
   prob: ProbabilityData | null;
   currentMinute?: number;
+  /** When provided, skips duplicate API fetch (shared from match page). */
+  movement?: ProbabilityMovementPayload | null;
 };
 
 function eventTitle(label: string, t: ReturnType<typeof useI18n>['t']) {
@@ -28,22 +30,29 @@ function probChanged(before: number, after: number) {
   return Math.abs(before - after) >= 0.005;
 }
 
-export function ProbabilityMovementPanel({ matchId, prob, currentMinute = 0 }: Props) {
+export function ProbabilityMovementPanel({
+  matchId,
+  prob,
+  currentMinute = 0,
+  movement: movementProp,
+}: Props) {
   const { t } = useI18n();
-  const [movement, setMovement] = useState<ProbabilityMovementPayload | null>(null);
+  const [movementLocal, setMovementLocal] = useState<ProbabilityMovementPayload | null>(null);
+  const sharedMovement = movementProp !== undefined;
+  const movement = sharedMovement ? movementProp : movementLocal;
 
   useEffect(() => {
-    if (!matchId) return;
+    if (sharedMovement || !matchId) return;
     const load = () => {
       api
         .matchProbabilityMovement(matchId)
-        .then((r) => setMovement(r.data))
-        .catch(() => setMovement(null));
+        .then((r) => setMovementLocal(r.data))
+        .catch(() => setMovementLocal(null));
     };
     load();
     const timer = setInterval(load, 30_000);
     return () => clearInterval(timer);
-  }, [matchId, prob?.homeWinProb, prob?.drawProb, prob?.awayWinProb]);
+  }, [matchId, prob?.homeWinProb, prob?.drawProb, prob?.awayWinProb, sharedMovement]);
 
   const meaningfulEvents = useMemo(() => {
     if (!movement?.events.length) return [];
@@ -82,7 +91,7 @@ export function ProbabilityMovementPanel({ matchId, prob, currentMinute = 0 }: P
                 <span className="text-foreground/60">·</span>
                 <span className="text-foreground/75">{eventReason(e.reasonCode, t)}</span>
               </div>
-              <p className="mt-2 font-mono-data text-sm leading-relaxed">
+              <p className="mt-2 break-words font-mono-data text-xs leading-relaxed sm:text-sm">
                 {t('common.abbrHome')} {pct(e.homeWinBefore)} → {pct(e.homeWinAfter)}
                 {' · '}
                 {t('common.abbrDraw')} {pct(e.drawBefore)} → {pct(e.drawAfter)}

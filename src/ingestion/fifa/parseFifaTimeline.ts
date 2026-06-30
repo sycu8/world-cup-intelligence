@@ -67,7 +67,7 @@ export function timelinePeriodLabel(period: number | null | undefined): string {
   }
 }
 
-function eventTypeKey(label: string): string {
+export function eventTypeKey(label: string): string {
   const lower = label.toLowerCase();
   if (lower.includes('attempt at goal')) return 'shot';
   if (lower.includes('goal prevention') || lower.includes('save')) return 'save';

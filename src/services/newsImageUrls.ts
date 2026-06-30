@@ -8,7 +8,7 @@ export function normalizeArticleLink(link: string): string {
     u.hash = '';
     return u.toString();
   } catch {
-    return link.split('?')[0]?.split('#')[0] ?? link;
+    return link.split('?')[0].split('#')[0];
   }
 }
 
@@ -24,5 +24,5 @@ export function normalizeFeedImageUrl(url: string | null | undefined): string | 
   } catch {
     /* keep original */
   }
-  return mediumThumbnailUrl(out) ?? out;
+  return mediumThumbnailUrl(out)!;
 }

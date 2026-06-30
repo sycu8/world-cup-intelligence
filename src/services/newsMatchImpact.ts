@@ -140,8 +140,8 @@ async function findWc2026MatchesForTeams(env: AppEnv, teamIds: string[]): Promis
     .bind(WC2026_TOURNAMENT_ID, ...ids, ...ids)
     .all<{ id: string }>();
 
-  if ((pairMatches?.length ?? 0) > 0) {
-    return (pairMatches ?? []).map((r) => r.id);
+  if (pairMatches?.length) {
+    return pairMatches.map((r) => r.id);
   }
 
   const { results } = await env.DB.prepare(

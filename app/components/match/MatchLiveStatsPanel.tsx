@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type MatchStatsPayload } from '../../lib/api';
 import { useI18n } from '../../lib/i18n/I18nContext';
+import { compactTeamLabel } from '../../lib/matchTeams';
 import { SectionLabel } from '../tactical/SectionLabel';
 import { xg } from '../../lib/format';
 import { DataKindLegend } from '../ui/DataKindBadge';
@@ -76,22 +77,66 @@ function buildRows(stats: MatchStatsPayload, t: ReturnType<typeof useI18n>['t'])
     {
       key: t('stats.passAccuracy'),
       home: statOrDash(stats.home.passAccuracy, (v) => `${Math.round(v)}%`),
-      away: statOrDash(stats.away.passAccuracy, (v) => `${Math.round(v)}%`),
+      away: statOrDash(stats.home.passAccuracy, (v) => `${Math.round(v)}%`),
       homeNum: stats.home.passAccuracy,
       awayNum: stats.away.passAccuracy,
     },
   ];
 }
 
-function StatBar({ homeNum, awayNum }: { homeNum: number | null; awayNum: number | null }) {
+function StatBar({ homeNum, awayNum, className = '' }: { homeNum: number | null; awayNum: number | null; className?: string }) {
   if (homeNum == null || awayNum == null) return null;
   const total = homeNum + awayNum;
   if (total <= 0) return null;
   const homePct = (homeNum / total) * 100;
   return (
-    <div className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-background2 ring-1 ring-border/60">
+    <div
+      className={`flex h-2 w-full overflow-hidden rounded-full bg-background2 ring-1 ring-border/60 sm:h-2.5 ${className}`}
+    >
       <div className="bg-cyan transition-all duration-500" style={{ width: `${homePct}%` }} />
       <div className="bg-magenta transition-all duration-500" style={{ width: `${100 - homePct}%` }} />
+    </div>
+  );
+}
+
+function StatCompareRow({ row }: { row: StatRow }) {
+  return (
+    <div className="rounded-lg bg-panel2/25 px-3 py-3 sm:px-4 sm:py-3.5">
+      <p className="mb-2.5 text-center text-xs font-medium leading-snug text-muted sm:text-sm">{row.key}</p>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2 sm:gap-4">
+        <p
+          className={`text-right font-mono-data text-xl tabular-nums sm:text-2xl ${valueTone(row.homeNum, row.awayNum, 'home')}`}
+        >
+          {row.home}
+        </p>
+        <span className="pb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted/50" aria-hidden>
+          vs
+        </span>
+        <p
+          className={`text-left font-mono-data text-xl tabular-nums sm:text-2xl ${valueTone(row.homeNum, row.awayNum, 'away')}`}
+        >
+          {row.away}
+        </p>
+      </div>
+      {row.showBar && <StatBar homeNum={row.homeNum} awayNum={row.awayNum} className="mt-3" />}
+    </div>
+  );
+}
+
+function TeamHeader({ homeLabel, awayLabel }: { homeLabel: string; awayLabel: string }) {
+  return (
+    <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
+      <p className="truncate text-right text-sm font-semibold text-cyan sm:text-base" title={homeLabel}>
+        <span className="md:hidden">{compactTeamLabel(homeLabel)}</span>
+        <span className="hidden md:inline">{homeLabel}</span>
+      </p>
+      <span className="text-[10px] font-medium uppercase tracking-wide text-muted/50" aria-hidden>
+        vs
+      </span>
+      <p className="truncate text-left text-sm font-semibold text-magenta sm:text-base" title={awayLabel}>
+        <span className="md:hidden">{compactTeamLabel(awayLabel)}</span>
+        <span className="hidden md:inline">{awayLabel}</span>
+      </p>
     </div>
   );
 }
@@ -137,40 +182,17 @@ export function MatchLiveStatsPanel({ matchId, homeLabel, awayLabel, live }: Pro
         <p className="mt-3 text-sm text-muted">{t('stats.unavailable')}</p>
       ) : (
         <>
-          <div className="mx-auto mt-4 w-full max-w-lg">
-            <div className="grid grid-cols-[1fr_minmax(6.5rem,9rem)_1fr] items-end gap-x-3 pb-1">
-              <p className="truncate text-right text-sm font-semibold text-cyan" title={homeLabel}>
-                {homeLabel}
-              </p>
-              <span aria-hidden="true" />
-              <p className="truncate text-left text-sm font-semibold text-magenta" title={awayLabel}>
-                {awayLabel}
-              </p>
-            </div>
+          <div className="mt-4 w-full">
+            <TeamHeader homeLabel={homeLabel} awayLabel={awayLabel} />
 
-            <div className="divide-y divide-border/40">
+            <div className="grid gap-2 sm:gap-2.5">
               {rows.map((row) => (
-                <div key={row.key} className="py-2.5">
-                  <div className="grid grid-cols-[1fr_minmax(6.5rem,9rem)_1fr] items-center gap-x-3">
-                    <p
-                      className={`text-right font-mono-data text-sm tabular-nums ${valueTone(row.homeNum, row.awayNum, 'home')}`}
-                    >
-                      {row.home}
-                    </p>
-                    <p className="text-center text-xs leading-snug text-muted">{row.key}</p>
-                    <p
-                      className={`text-left font-mono-data text-sm tabular-nums ${valueTone(row.homeNum, row.awayNum, 'away')}`}
-                    >
-                      {row.away}
-                    </p>
-                  </div>
-                  {row.showBar && <StatBar homeNum={row.homeNum} awayNum={row.awayNum} />}
-                </div>
+                <StatCompareRow key={row.key} row={row} />
               ))}
             </div>
           </div>
 
-          <div className="mx-auto mt-4 flex w-full max-w-lg flex-wrap items-center justify-center gap-x-4 gap-y-1 font-mono-data text-xs text-muted">
+          <div className="mt-4 grid grid-cols-1 gap-2 rounded-lg bg-panel2/40 p-3 text-center font-mono-data text-xs text-muted sm:grid-cols-2 sm:text-sm">
             <span>
               {t('stats.cards')}: 🟨 {stats.events.yellowCards} · 🟥 {stats.events.redCards}
             </span>
@@ -178,8 +200,8 @@ export function MatchLiveStatsPanel({ matchId, homeLabel, awayLabel, live }: Pro
               {t('stats.subs')}: {stats.events.substitutions}
             </span>
           </div>
-          <div className="mx-auto mt-2 w-full max-w-lg space-y-0.5 text-center text-[11px] text-muted">
-            <p>
+          <div className="mt-3 space-y-1 text-center text-[11px] leading-relaxed text-muted sm:text-xs">
+            <p className="text-balance">
               {stats.dataSourceLabel
                 ? `${t('stats.officialSource')}: ${stats.dataSourceLabel} · ${stats.xgEstimateNote}`
                 : stats.xgEstimateNote}

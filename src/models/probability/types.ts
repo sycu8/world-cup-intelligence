@@ -1,4 +1,6 @@
-export type IntervalKey = '15' | '30' | '45' | '60' | '75' | '90';
+import type { LiveMatchStatsInput } from './liveMatchStatsModifier';
+import type { H2hFeatures } from './h2hModifier';
+import type { GroupPointsPressureSnapshot } from './groupPointsPressure';
 
 export type IntervalProbability = {
   homeWinProb: number;
@@ -84,11 +86,22 @@ export type MatchFeatureInput = {
   referee?: RefereeFeatures;
   currentScore: { home: number; away: number };
   sourceConfidence: number;
+  /** In-match stats from FIFA/ESPN — used for live probability shifts */
+  liveMatchStats?: LiveMatchStatsInput;
   /** WC2026 co-host playing at home */
   isHomeHost?: boolean;
   homeCountryCode?: string;
   awayCountryCode?: string;
+  /** Completed matches in current tournament form window. */
+  homeFormMatchesPlayed?: number;
+  awayFormMatchesPlayed?: number;
+  /** Historical WC head-to-head summary for this fixture orientation. */
+  h2h?: H2hFeatures;
+  /** Group-stage table context — boosts attack lambda as points pressure rises. */
+  groupPointsPressure?: GroupPointsPressureSnapshot;
 };
+
+export type IntervalKey = '15' | '30' | '45' | '60' | '75' | '90';
 
 export type ProbabilityResult = {
   matchId: string;

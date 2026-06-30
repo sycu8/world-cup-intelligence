@@ -27,6 +27,9 @@ export type FifaMatchInfo = FifaCalendarMatch & {
   Attendance?: string | null;
   Officials?: FifaOfficial[];
   Properties?: { IdIFES?: string | number | null } | null;
+  Stadium?: { Name?: { Locale?: string; Description?: string }[] } | null;
+  StageName?: { Locale?: string; Description?: string }[] | null;
+  GroupName?: { Locale?: string; Description?: string }[] | null;
 };
 
 type FifaSideDetail = {
