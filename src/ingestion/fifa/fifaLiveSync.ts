@@ -28,6 +28,12 @@ import {
 import { syncFifaMatchLineupsFromInfo, shouldSyncFifaLineupForKickoff } from './fifaLineupSync';
 import { FIFA_SOURCE_ID, WC2026_TOURNAMENT_ID } from './constants';
 import {
+  deriveScoreDetailFromFifa,
+  mergeScoreDetails,
+  parseScoreDetailJson,
+  serializeScoreDetail,
+} from '../../services/matchScoreDetail';
+import {
   emitMatchCompleted,
   emitMatchScoreUpdate,
   emitMatchStatusChange,
@@ -51,6 +57,7 @@ type MatchRow = {
   minute?: number;
   home_score?: number;
   away_score?: number;
+  score_detail_json?: string | null;
 };
 
 function numberOrZero(value: number | null | undefined): number {
@@ -87,7 +94,7 @@ async function loadInternalMatchIndex(db: D1Database): Promise<{
 }> {
   const { results } = await db
     .prepare(
-      `SELECT id, home_team_id, away_team_id, kickoff_utc, status, fifa_match_id, minute, home_score, away_score
+      `SELECT id, home_team_id, away_team_id, kickoff_utc, status, fifa_match_id, minute, home_score, away_score, score_detail_json
        FROM matches WHERE tournament_id = ?`,
     )
     .bind(WC2026_TOURNAMENT_ID)
@@ -139,8 +146,6 @@ async function syncMatchEvents(
   const home = info.HomeTeam;
   const away = info.AwayTeam;
   if (!home || !away) return;
-
-  await db.prepare(`DELETE FROM match_events WHERE match_id = ? AND source_id = ?`).bind(matchId, FIFA_SOURCE_ID).run();
 
   const stmts: D1PreparedStatement[] = [];
   let seq = 0;
@@ -203,7 +208,10 @@ async function syncMatchEvents(
   ingestSubs(home.Substitutions, homeTeamId, home.Players);
   ingestSubs(away.Substitutions, awayTeamId, away.Players);
 
-  if (stmts.length) await db.batch(stmts);
+  if (!stmts.length) return;
+
+  await db.prepare(`DELETE FROM match_events WHERE match_id = ? AND source_id = ?`).bind(matchId, FIFA_SOURCE_ID).run();
+  await db.batch(stmts);
 }
 
 async function syncTeamStats(
@@ -256,6 +264,12 @@ async function applyFifaPayload(
   const status = resolveFifaPlatformStatus(payload);
   const now = nowIso();
 
+  const fifaDetail = deriveScoreDetailFromFifa(payload);
+  const existingDetail = parseScoreDetailJson(internal.score_detail_json ?? null);
+  const scoreDetail =
+    fifaDetail && existingDetail ? mergeScoreDetails(fifaDetail, existingDetail) : fifaDetail ?? existingDetail;
+  const scoreDetailJson = serializeScoreDetail(scoreDetail);
+
   const changed =
     internal.status !== status ||
     minute !== numberOrZero(internal.minute) ||
@@ -266,11 +280,12 @@ async function applyFifaPayload(
     .prepare(
       `UPDATE matches SET
          status = ?, minute = ?, home_score = ?, away_score = ?,
+         score_detail_json = COALESCE(?, score_detail_json),
          fifa_match_id = COALESCE(fifa_match_id, ?),
          updated_at = ?
        WHERE id = ?`,
     )
-    .bind(status, minute, homeScore, awayScore, payload.IdMatch, now, internal.id)
+    .bind(status, minute, homeScore, awayScore, scoreDetailJson, payload.IdMatch, now, internal.id)
     .run();
 
   await syncMatchEvents(env.DB, internal.id, internal.home_team_id, internal.away_team_id, payload);

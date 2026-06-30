@@ -11,6 +11,7 @@ import { MatchTeamsWithFlags } from '../team/TeamNameWithFlag';
 import { CompactMatchProb } from './CompactMatchProb';
 import { MatchKickoffDisplay, ScheduleTimezoneBanner } from '../match/MatchKickoffDisplay';
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
+import { MatchScoreBreakdown } from '../match/MatchScoreBreakdown';
 import { formatKickoffDateLong, getViewerLocale, localDateKey, SCHEDULE_TZ } from '../../lib/matchKickoffDisplay';
 
 type Props = {
@@ -163,6 +164,12 @@ export function TournamentSchedulePanel({
               status={m.status}
               variant={m.status === 'completed' || m.status === 'finished' ? 'badge' : 'compact'}
             />
+            {(m.status === 'completed' || m.status === 'finished') && (
+              <>
+                <span aria-hidden> · </span>
+                <MatchScoreBreakdown detail={m.scoreDetail} />
+              </>
+            )}
           </>
         )}
       </p>
@@ -351,17 +358,24 @@ export function TournamentSchedulePanel({
                               separator={mode === 'en' ? ' vs ' : ' – '}
                             />
                             {hasMatchResult(m.status) && (
-                              <MatchResultScore
-                                homeScore={m.home_score}
-                                awayScore={m.away_score}
-                                status={m.status}
-                                variant={
-                                  m.status === 'completed' || m.status === 'finished'
-                                    ? 'badge'
-                                    : 'inline'
-                                }
-                                className="ml-2"
-                              />
+                              <>
+                                <MatchResultScore
+                                  homeScore={m.home_score}
+                                  awayScore={m.away_score}
+                                  status={m.status}
+                                  variant={
+                                    m.status === 'completed' || m.status === 'finished'
+                                      ? 'badge'
+                                      : 'inline'
+                                  }
+                                  className="ml-2"
+                                />
+                                {(m.status === 'completed' || m.status === 'finished') && (
+                                  <span className="ml-2">
+                                    <MatchScoreBreakdown detail={m.scoreDetail} />
+                                  </span>
+                                )}
+                              </>
                             )}
                           </span>
                           {m.stage === 'Group' && m.group_code && (

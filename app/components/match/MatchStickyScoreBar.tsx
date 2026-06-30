@@ -1,3 +1,5 @@
+import { MatchScoreBreakdown } from '../match/MatchScoreBreakdown';
+import type { MatchScoreDetail } from '../../lib/api';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { TeamNameWithFlag } from '../team/TeamNameWithFlag';
 
@@ -10,6 +12,7 @@ type Props = {
   awayScore: number;
   status: string;
   minute?: number | null;
+  scoreDetail?: MatchScoreDetail | null;
   visible: boolean;
 };
 
@@ -22,6 +25,7 @@ export function MatchStickyScoreBar({
   awayScore,
   status,
   minute,
+  scoreDetail,
   visible,
 }: Props) {
   const { t } = useI18n();
@@ -65,6 +69,7 @@ export function MatchStickyScoreBar({
           >
             {statusLabel}
           </p>
+          <MatchScoreBreakdown detail={scoreDetail} className="mt-0.5 max-w-[9rem] text-[9px]" />
         </div>
         <TeamNameWithFlag
           name={away}

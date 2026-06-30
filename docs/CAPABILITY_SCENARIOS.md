@@ -1,6 +1,6 @@
 # Capability scenario suite
 
-PitchIntel is validated with **22 realistic scenarios** covering every major product capability. Each scenario uses a **pass/fail rubric**: all listed criteria must be met.
+PitchIntel is validated with **25 realistic scenarios** covering every major product capability. Each scenario uses a **pass/fail rubric**: all listed criteria must be met.
 
 ## Evaluation method
 
@@ -46,13 +46,16 @@ BASE_URL=https://wcstat.orangecloud.vn node scripts/run-capability-scenarios.mjs
 | S20 | Unit tests | `npm test` zero failures |
 | S21 | Typecheck | `npm run typecheck` clean |
 | S22 | FIFA lineup windows | `fifaLineupSync` vitest suite passes |
+| S23 | Knockout probabilities | 32 knockout fixtures with valid W/D/L bulk probs |
+| S24 | Per-period scores (match) | Mexico opener: H1 1–0, H2 1–0, +stoppage, ft90 2–0 |
+| S25 | Per-period scores (schedule) | Schedule API exposes `scoreDetail` on completed fixtures |
 
 ## Remediation loop
 
 1. Run full suite → inspect `reports/capability-scenarios.json`
 2. Fix root cause for each `FAIL`
 3. Rerun failed scenarios, then rerun **complete** suite
-4. Ship only when **22/22 PASS**
+4. Ship only when **25/25 PASS**
 
 ### Streak runner (10 consecutive passes)
 
@@ -68,3 +71,5 @@ On any `FAIL`: document in **Bug log** below, add regression test, fix, restart 
 | Date | Scenario | Root cause | Fix | Regression |
 |------|----------|------------|-----|------------|
 | 2026-06-22 | **S10** Strong-favorite scoreline | Portugal–Congo DR **completed 1–1**; API served **live snapshot** (`homeWin≈0.41`, MLS `0-0`). Portugal pre-match ~0.54–0.57 under wc-prob-v5 (below old 0.6 rubric) | `getDisplaySnapshot()` for completed matches; S10 fixture → **Mexico vs South Africa** (calibrated host favorite, `mexicoSouthAfricaModel.test.ts`) | `tests/probabilityRepoDisplay.test.ts`, `tests/portugalCongoModel.test.ts`, `tests/mexicoSouthAfricaModel.test.ts` |
+| 2026-06-30 | **S21** TypeScript type safety | `attachParsedScoreDetail` generic too narrow for schedule row cast | Widened to `Record<string, unknown>` + score_detail_json runtime check | `npm run typecheck` |
+| 2026-06-30 | **S25** Schedule score breakdown | Schedule cache only parsed `score_detail_json`; no event fallback | `enrichScheduleScoreDetails()` derives from `match_events` batch | `tests/matchScoreDetail.test.ts`, S24/S25 scenarios |
