@@ -86,6 +86,8 @@ export type LocaleKey =
   | 'match.score.half2'
   | 'match.score.stoppage'
   | 'match.score.extraTime'
+  | 'match.score.extraTime1'
+  | 'match.score.extraTime2'
   | 'match.score.penalties'
   | 'match.completed'
   | 'match.fullAnalysis'
@@ -675,6 +677,8 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'match.score.half2': { vi: 'H2', en: '2H' },
   'match.score.stoppage': { vi: 'Bù giờ', en: 'Added' },
   'match.score.extraTime': { vi: 'HP', en: 'ET' },
+  'match.score.extraTime1': { vi: 'HP1', en: 'ET1' },
+  'match.score.extraTime2': { vi: 'HP2', en: 'ET2' },
   'match.score.penalties': { vi: 'Pen', en: 'Pens' },
   'match.completed': { vi: 'Đã kết thúc', en: 'Completed' },
   'match.fullAnalysis': { vi: 'Phân tích chiến thuật đầy đủ', en: 'Full tactical analysis' },

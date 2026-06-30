@@ -54,6 +54,8 @@ describe('matchScoreDetail', () => {
 
     const detail = deriveScoreDetailFromFifa(info);
     expect(detail?.extraTime).toEqual({ home: 1, away: 1 });
+    expect(detail?.extraTime1).toEqual({ home: 1, away: 0 });
+    expect(detail?.extraTime2).toEqual({ home: 0, away: 1 });
     expect(detail?.penalties).toEqual({ home: 4, away: 5 });
     expect(detail?.stoppage?.secondHalf).toBe(3);
     expect(detail?.stoppage?.extraTimeSecond).toBe(1);

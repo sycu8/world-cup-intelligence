@@ -9,6 +9,8 @@ export type MatchScoreDetail = {
   secondHalf?: ScorePair;
   ft90?: ScorePair;
   extraTime?: ScorePair;
+  extraTime1?: ScorePair;
+  extraTime2?: ScorePair;
   penalties?: ScorePair;
   stoppage?: {
     firstHalf?: number;
@@ -73,8 +75,6 @@ export function deriveScoreDetailFromFifa(
   const penA = countGoalsByFifaPeriod(awayGoals, 8);
 
   const ft90 = pair(ht.home + h2.home, ht.away + h2.away);
-  const extraTime =
-    et1h + et1a + et2h + et2a > 0 ? pair(et1h + et2h, et1a + et2a) : undefined;
   const penalties = penH + penA > 0 ? pair(penH, penA) : undefined;
 
   const minutes1H: number[] = [];
@@ -112,11 +112,22 @@ export function deriveScoreDetailFromFifa(
     extraTimeSecond: stoppageFromMinutes(minutesEt2, 120),
   };
 
+  const extraTime1Pair = pair(et1h, et1a);
+  const extraTime2Pair = pair(et2h, et2a);
+  const extraTime1 =
+    hasPair(extraTime1Pair) || stoppage.extraTimeFirst ? extraTime1Pair : undefined;
+  const extraTime2 =
+    hasPair(extraTime2Pair) || stoppage.extraTimeSecond ? extraTime2Pair : undefined;
+  const extraTime =
+    et1h + et1a + et2h + et2a > 0 ? pair(et1h + et2h, et1a + et2a) : undefined;
+
   const detail: MatchScoreDetail = {
     ht,
     secondHalf: hasPair(h2) ? h2 : undefined,
     ft90,
     extraTime,
+    extraTime1,
+    extraTime2,
     penalties,
     stoppage:
       stoppage.firstHalf || stoppage.secondHalf || stoppage.extraTimeFirst || stoppage.extraTimeSecond
@@ -128,6 +139,8 @@ export function deriveScoreDetailFromFifa(
     !detail.ht &&
     !detail.secondHalf &&
     !detail.extraTime &&
+    !detail.extraTime1 &&
+    !detail.extraTime2 &&
     !detail.penalties &&
     !detail.stoppage
   ) {
@@ -157,8 +170,10 @@ export function deriveScoreDetailFromGoalRows(
   let htA = 0;
   let h2H = 0;
   let h2A = 0;
-  let etH = 0;
-  let etA = 0;
+  let et1H = 0;
+  let et1A = 0;
+  let et2H = 0;
+  let et2A = 0;
   let penH = 0;
   let penA = 0;
   const minutes1H: number[] = [];
@@ -183,10 +198,14 @@ export function deriveScoreDetailFromGoalRows(
       if (isHome) h2H += 1;
       else h2A += 1;
       if (minute) minutes2H.push(minute);
-    } else if (pk === 'ET1' || pk === 'ET2') {
-      if (isHome) etH += 1;
-      else etA += 1;
-      if (minute) (pk === 'ET1' ? minutesEt1 : minutesEt2).push(minute);
+    } else if (pk === 'ET1') {
+      if (isHome) et1H += 1;
+      else et1A += 1;
+      if (minute) minutesEt1.push(minute);
+    } else if (pk === 'ET2') {
+      if (isHome) et2H += 1;
+      else et2A += 1;
+      if (minute) minutesEt2.push(minute);
     } else if (pk === 'PEN') {
       if (isHome) penH += 1;
       else penA += 1;
@@ -212,16 +231,27 @@ export function deriveScoreDetailFromGoalRows(
   const ht = pair(htH, htA);
   const secondHalf = pair(h2H, h2A);
   const ft90 = pair(htH + h2H, htA + h2A);
-  const extraTime = etH + etA > 0 ? pair(etH, etA) : undefined;
-  const penalties = penH + penA > 0 ? pair(penH, penA) : undefined;
   const stoppage = {
     firstHalf: stoppageFromMinutes(minutes1H, 45),
     secondHalf: stoppageFromMinutes(minutes2H, 90),
     extraTimeFirst: stoppageFromMinutes(minutesEt1, 105),
     extraTimeSecond: stoppageFromMinutes(minutesEt2, 120),
   };
+  const extraTime1Pair = pair(et1H, et1A);
+  const extraTime2Pair = pair(et2H, et2A);
+  const extraTime1 =
+    hasPair(extraTime1Pair) || stoppage.extraTimeFirst ? extraTime1Pair : undefined;
+  const extraTime2 =
+    hasPair(extraTime2Pair) || stoppage.extraTimeSecond ? extraTime2Pair : undefined;
+  const extraTime = et1H + et1A + et2H + et2A > 0 ? pair(et1H + et2H, et1A + et2A) : undefined;
+  const penalties = penH + penA > 0 ? pair(penH, penA) : undefined;
 
-  if (htH + htA + h2H + h2A + etH + etA + penH + penA === 0 && !stoppage.secondHalf) {
+  if (
+    htH + htA + h2H + h2A + et1H + et1A + et2H + et2A + penH + penA === 0 &&
+    !stoppage.secondHalf &&
+    !stoppage.extraTimeFirst &&
+    !stoppage.extraTimeSecond
+  ) {
     return null;
   }
 
@@ -230,6 +260,8 @@ export function deriveScoreDetailFromGoalRows(
     secondHalf: h2H + h2A > 0 ? secondHalf : undefined,
     ft90,
     extraTime,
+    extraTime1,
+    extraTime2,
     penalties,
     stoppage:
       stoppage.firstHalf || stoppage.secondHalf || stoppage.extraTimeFirst || stoppage.extraTimeSecond
@@ -257,6 +289,8 @@ export function mergeScoreDetails(
     secondHalf: stored.secondHalf ?? derived.secondHalf,
     ft90: stored.ft90 ?? derived.ft90,
     extraTime: stored.extraTime ?? derived.extraTime,
+    extraTime1: stored.extraTime1 ?? derived.extraTime1,
+    extraTime2: stored.extraTime2 ?? derived.extraTime2,
     penalties: stored.penalties ?? derived.penalties,
     stoppage:
       stoppage?.firstHalf || stoppage?.secondHalf || stoppage?.extraTimeFirst || stoppage?.extraTimeSecond

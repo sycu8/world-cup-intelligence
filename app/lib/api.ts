@@ -213,6 +213,8 @@ export type MatchScoreDetail = {
   secondHalf?: { home: number; away: number };
   ft90?: { home: number; away: number };
   extraTime?: { home: number; away: number };
+  extraTime1?: { home: number; away: number };
+  extraTime2?: { home: number; away: number };
   penalties?: { home: number; away: number };
   stoppage?: {
     firstHalf?: number;
