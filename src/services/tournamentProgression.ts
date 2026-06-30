@@ -11,20 +11,22 @@ import { logInfo } from '../utils/logger';
 import { nowIso } from '../utils/time';
 import { refreshTeamRatingsFromForm, applyPostMatchStrengthNudge } from './teamRatingRefresh';
 import { scheduleChampionOddsRefresh } from './tournamentChampionOdds';
+import {
+  FIFA_R32_MATCH_SLOTS,
+  resolveThirdPlaceGroup,
+} from './fifaR32Bracket';
 
 const GROUP_CODES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as const;
 
-/** Eight slots on R32 matches 13–16 for best third-place qualifiers. */
-export const BEST_THIRD_R32_SLOTS: { matchId: string; slot: 'home' | 'away' }[] = [
-  { matchId: 'm-w26-r32-13', slot: 'home' },
-  { matchId: 'm-w26-r32-13', slot: 'away' },
-  { matchId: 'm-w26-r32-14', slot: 'home' },
-  { matchId: 'm-w26-r32-14', slot: 'away' },
-  { matchId: 'm-w26-r32-15', slot: 'home' },
-  { matchId: 'm-w26-r32-15', slot: 'away' },
-  { matchId: 'm-w26-r32-16', slot: 'home' },
-  { matchId: 'm-w26-r32-16', slot: 'away' },
-];
+/** @deprecated Use FIFA_R32 third-place slots — kept for tests referencing match ids 13–16. */
+export const BEST_THIRD_R32_SLOTS: { matchId: string; slot: 'home' | 'away' }[] = FIFA_R32_MATCH_SLOTS.flatMap(
+  (slot) => {
+    const out: { matchId: string; slot: 'home' | 'away' }[] = [];
+    if (resolveThirdPlaceGroup(slot.home)) out.push({ matchId: slot.matchId, slot: 'home' });
+    if (resolveThirdPlaceGroup(slot.away)) out.push({ matchId: slot.matchId, slot: 'away' });
+    return out;
+  },
+);
 
 function compareStandings(a: GroupStanding, b: GroupStanding): number {
   if (b.points !== a.points) return b.points - a.points;
@@ -53,17 +55,29 @@ export async function applyBestThirdQualifiers(env: AppEnv): Promise<string[]> {
   if (!(await areAllGroupsComplete(env.DB))) return [];
 
   const candidates = await collectThirdPlaceCandidates(env.DB);
-  const top8 = candidates.slice(0, 8);
+  const top8Groups = new Set(candidates.slice(0, 8).map((c) => c.group));
+  const thirdByGroup = new Map(candidates.map((c) => [c.group, c.teamId]));
   const affected = new Set<string>();
 
-  for (let i = 0; i < top8.length && i < BEST_THIRD_R32_SLOTS.length; i++) {
-    const { matchId, slot } = BEST_THIRD_R32_SLOTS[i];
-    const changed = await assignTeamToSlot(env, matchId, slot, top8[i].teamId);
-    if (changed) affected.add(matchId);
+  for (const slot of FIFA_R32_MATCH_SLOTS) {
+    for (const [side, rule] of [
+      ['home', slot.home],
+      ['away', slot.away],
+    ] as const) {
+      const thirdGroup = resolveThirdPlaceGroup(rule);
+      if (!thirdGroup || !top8Groups.has(thirdGroup)) continue;
+      const teamId = thirdByGroup.get(thirdGroup);
+      if (!teamId) continue;
+      const changed = await assignTeamToSlot(env, slot.matchId, side, teamId);
+      if (changed) affected.add(slot.matchId);
+    }
   }
 
   if (affected.size) {
-    logInfo('best third-place qualifiers applied', { teams: top8.length, matches: affected.size });
+    logInfo('best third-place qualifiers applied (FIFA R32 slots)', {
+      teams: candidates.slice(0, 8).length,
+      matches: affected.size,
+    });
   }
   return [...affected];
 }

@@ -47,6 +47,7 @@ type MatchRow = {
   away_team_id: string;
   kickoff_utc: string | null;
   status: string;
+  stage: string | null;
   fifa_match_id: string | null;
   minute?: number;
   home_score?: number;
@@ -87,7 +88,7 @@ async function loadInternalMatchIndex(db: D1Database): Promise<{
 }> {
   const { results } = await db
     .prepare(
-      `SELECT id, home_team_id, away_team_id, kickoff_utc, status, fifa_match_id, minute, home_score, away_score
+      `SELECT id, home_team_id, away_team_id, kickoff_utc, status, stage, fifa_match_id, minute, home_score, away_score
        FROM matches WHERE tournament_id = ?`,
     )
     .bind(WC2026_TOURNAMENT_ID)
@@ -117,6 +118,36 @@ function resolveInternalMatch(
   if (!homeId || !awayId) return null;
 
   return index.byTeamsDay.get(`${homeId}:${awayId}:${utcDay(fifa.Date)}`) ?? null;
+}
+
+async function syncTeamsFromFifaSide(
+  env: AppEnv,
+  internal: MatchRow,
+  teamIndex: Map<string, string>,
+  homeSide: FifaCalendarMatch['Home'] | FifaMatchInfo['HomeTeam'] | null | undefined,
+  awaySide: FifaCalendarMatch['Away'] | FifaMatchInfo['AwayTeam'] | null | undefined,
+): Promise<MatchRow> {
+  if (internal.stage === 'Group') return internal;
+
+  const homeId = resolveTeamId(teamIndex, homeSide as FifaCalendarMatch['Home']);
+  const awayId = resolveTeamId(teamIndex, awaySide as FifaCalendarMatch['Away']);
+  if (!homeId || !awayId) return internal;
+  if (homeId === internal.home_team_id && awayId === internal.away_team_id) return internal;
+
+  const now = nowIso();
+  await env.DB.prepare(
+    `UPDATE matches SET home_team_id = ?, away_team_id = ?, updated_at = ? WHERE id = ?`,
+  )
+    .bind(homeId, awayId, now, internal.id)
+    .run();
+
+  logInfo('fifa knockout teams synced', {
+    match_id: internal.id,
+    home_team_id: homeId,
+    away_team_id: awayId,
+  });
+
+  return { ...internal, home_team_id: homeId, away_team_id: awayId };
 }
 
 function playerIdFromFifa(
@@ -247,7 +278,10 @@ async function applyFifaPayload(
   env: AppEnv,
   internal: MatchRow,
   payload: FifaMatchInfo,
+  teamIndex: Map<string, string> = new Map(),
 ): Promise<'updated' | 'completed' | 'unchanged'> {
+  internal = await syncTeamsFromFifaSide(env, internal, teamIndex, payload.HomeTeam, payload.AwayTeam);
+
   const readScore = (team: { Score?: number | null } | undefined, flat?: number | null) =>
     numberOrZero(team?.Score != null ? team.Score : flat);
   const homeScore = readScore(payload.HomeTeam, payload.HomeTeamScore);
@@ -351,7 +385,13 @@ async function applyFifaCalendarRow(
   db: D1Database,
   internal: MatchRow,
   row: FifaCalendarMatch,
+  teamIndex: Map<string, string>,
+  env?: AppEnv,
 ): Promise<'updated' | 'unchanged'> {
+  if (env && internal.stage !== 'Group') {
+    internal = await syncTeamsFromFifaSide(env, internal, teamIndex, row.Home, row.Away);
+  }
+
   const homeScore = numberOrZero(row.HomeTeamScore);
   const awayScore = numberOrZero(row.AwayTeamScore);
   const minute = parseFifaMinute(row.MatchTime);
@@ -426,7 +466,7 @@ export async function syncFifaWc2026Matches(env: AppEnv): Promise<FifaSyncResult
     try {
       if (needsFullFifaMatchInfo(row, platformStatus, nowMs)) {
         const info = (await fetchFifaMatchInfo(row.IdMatch)) ?? row;
-        const outcome = await applyFifaPayload(env, internal, info as FifaMatchInfo);
+        const outcome = await applyFifaPayload(env, internal, info as FifaMatchInfo, teamIndex);
         synced += 1;
         if (outcome === 'completed') completedIds.push(internal.id);
         else if (outcome === 'updated') updatedIds.push(internal.id);
@@ -437,7 +477,7 @@ export async function syncFifaWc2026Matches(env: AppEnv): Promise<FifaSyncResult
           { httpMetadata: { contentType: 'application/json' } },
         );
       } else {
-        const outcome = await applyFifaCalendarRow(env.DB, internal, row);
+        const outcome = await applyFifaCalendarRow(env.DB, internal, row, teamIndex, env);
         synced += 1;
         if (platformStatus === 'completed') completedIds.push(internal.id);
         else if (outcome === 'updated') updatedIds.push(internal.id);
@@ -481,7 +521,7 @@ export async function syncFifaWc2026Matches(env: AppEnv): Promise<FifaSyncResult
 /** On-demand sync for a single internal match (stats page poll). */
 export async function syncFifaMatchByRef(env: AppEnv, internalMatchId: string): Promise<boolean> {
   const match = await env.DB.prepare(
-    `SELECT id, home_team_id, away_team_id, kickoff_utc, status, fifa_match_id, minute, home_score, away_score
+    `SELECT id, home_team_id, away_team_id, kickoff_utc, status, stage, fifa_match_id, minute, home_score, away_score
      FROM matches WHERE id = ?`,
   )
     .bind(internalMatchId)
@@ -507,14 +547,23 @@ export async function syncFifaMatchByRef(env: AppEnv, internalMatchId: string): 
 
   const info = await fetchFifaMatchInfo(fifaId);
   if (!info) return false;
-  await applyFifaPayload(env, match, info);
-  if (match.status === 'live' || match.status === 'completed') {
+  const teamIndex = await loadTeamIndex(env.DB);
+  const updated = await applyFifaPayload(env, match, info, teamIndex);
+  const refreshed = await env.DB.prepare(
+    `SELECT home_team_id, away_team_id, status FROM matches WHERE id = ?`,
+  )
+    .bind(match.id)
+    .first<{ home_team_id: string; away_team_id: string; status: string }>();
+  const homeTeamId = refreshed?.home_team_id ?? match.home_team_id;
+  const awayTeamId = refreshed?.away_team_id ?? match.away_team_id;
+  const matchStatus = refreshed?.status ?? match.status;
+  if (matchStatus === 'live' || matchStatus === 'completed') {
     try {
       await syncFifaMatchBlogAndStats(
         env,
         match.id,
-        match.home_team_id,
-        match.away_team_id,
+        homeTeamId,
+        awayTeamId,
         info,
         fifaId,
       );

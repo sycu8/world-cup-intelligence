@@ -137,7 +137,7 @@ describe('tournamentProgression async helpers', () => {
   });
 
   it('exports best-third R32 slot mapping', () => {
-    expect(BEST_THIRD_R32_SLOTS[0].matchId).toBe('m-w26-r32-13');
+    expect(BEST_THIRD_R32_SLOTS[0]).toEqual({ matchId: 'm-w26-r32-02', slot: 'away' });
   });
 
   it('areAllGroupsComplete returns true when every group finished', async () => {
