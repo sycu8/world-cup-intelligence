@@ -1,6 +1,7 @@
 import type { AppEnv } from '../env';
 import { attachSlugToScheduleRow } from './matchRef';
 import { attachParsedScoreDetail } from './matchScoreDetailApi';
+import { enrichScheduleScoreDetails } from './matchScoreDetail';
 import {
   resolveScheduleTournamentId,
   WC2026_MATCH_COUNT,
@@ -30,9 +31,17 @@ export async function buildSchedulePayload(
     .all();
 
   const byDate: Record<string, unknown[]> = {};
+  type ScheduleDbRow = Record<string, unknown> & {
+    id: string;
+    home_team_id: string;
+    away_team_id: string;
+    status: string;
+  };
   const list = (results ?? []).map((row) =>
-    attachParsedScoreDetail(attachSlugToScheduleRow(row as Record<string, unknown>)),
+    attachParsedScoreDetail(attachSlugToScheduleRow(row as ScheduleDbRow)),
   );
+
+  await enrichScheduleScoreDetails(env.DB, list);
   for (const row of list) {
     const d =
       (row as { match_date?: string; kickoff_utc?: string }).match_date ??

@@ -79,4 +79,46 @@ describe('matchScoreDetail', () => {
     expect(parseScoreDetailJson(raw)?.ht).toEqual({ home: 1, away: 0 });
     expect(parseScoreDetailJson('bad')).toBeNull();
   });
+
+  it('enriches schedule rows from goal events when JSON missing', async () => {
+    const db = {
+      prepare(sql: string) {
+        return {
+          bind(...ids: string[]) {
+            return {
+              async all() {
+                if (sql.includes('IN (')) {
+                  return {
+                    results: [
+                      {
+                        match_id: 'm1',
+                        team_id: 'h',
+                        minute: 9,
+                        period: '1H',
+                        event_type: 'goal',
+                      },
+                    ],
+                  };
+                }
+                return { results: [] };
+              },
+            };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    const { enrichScheduleScoreDetails } = await import('../src/services/matchScoreDetail');
+    const matches = [
+      {
+        id: 'm1',
+        home_team_id: 'h',
+        away_team_id: 'a',
+        status: 'completed',
+        scoreDetail: null,
+      },
+    ];
+    await enrichScheduleScoreDetails(db, matches);
+    expect(matches[0]?.scoreDetail?.ht).toEqual({ home: 1, away: 0 });
+  });
 });

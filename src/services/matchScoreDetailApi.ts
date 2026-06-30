@@ -3,12 +3,13 @@ import { parseScoreDetailJson, resolveMatchScoreDetail } from './matchScoreDetai
 
 export type WithScoreDetail<T> = T & { scoreDetail: MatchScoreDetail | null };
 
-export function attachParsedScoreDetail<T extends { score_detail_json?: string | null }>(
+export function attachParsedScoreDetail<T extends Record<string, unknown>>(
   row: T,
-): WithScoreDetail<T> {
+): T & { scoreDetail: MatchScoreDetail | null } {
+  const raw = row.score_detail_json;
   return {
     ...row,
-    scoreDetail: parseScoreDetailJson(row.score_detail_json ?? null),
+    scoreDetail: parseScoreDetailJson(typeof raw === 'string' ? raw : null),
   };
 }
 

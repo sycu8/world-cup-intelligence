@@ -238,20 +238,55 @@ export function deriveScoreDetailFromGoalRows(
   };
 }
 
-export async function loadGoalEventsForMatch(
+export async function loadGoalEventsForMatches(
   db: D1Database,
-  matchId: string,
-): Promise<GoalEventRow[]> {
+  matchIds: string[],
+): Promise<Map<string, GoalEventRow[]>> {
+  const out = new Map<string, GoalEventRow[]>();
+  if (!matchIds.length) return out;
+
+  const placeholders = matchIds.map(() => '?').join(',');
   const { results } = await db
     .prepare(
-      `SELECT team_id, minute, period, event_type
+      `SELECT match_id, team_id, minute, period, event_type
        FROM match_events
-       WHERE match_id = ?
+       WHERE match_id IN (${placeholders})
          AND event_type IN ('goal', 'penalty_goal', 'own_goal')`,
     )
-    .bind(matchId)
-    .all<GoalEventRow>();
-  return results ?? [];
+    .bind(...matchIds)
+    .all<GoalEventRow & { match_id: string }>();
+
+  for (const row of results ?? []) {
+    const bucket = out.get(row.match_id) ?? [];
+    bucket.push(row);
+    out.set(row.match_id, bucket);
+  }
+  return out;
+}
+
+export async function enrichScheduleScoreDetails(
+  db: D1Database,
+  matches: Array<{
+    id: string;
+    home_team_id: string;
+    away_team_id: string;
+    status: string;
+    scoreDetail?: MatchScoreDetail | null;
+  }>,
+): Promise<void> {
+  const needs = matches.filter(
+    (m) => (m.status === 'completed' || m.status === 'finished') && !m.scoreDetail,
+  );
+  if (!needs.length) return;
+
+  const eventsByMatch = await loadGoalEventsForMatches(
+    db,
+    needs.map((m) => m.id),
+  );
+  for (const match of needs) {
+    const rows = eventsByMatch.get(match.id) ?? [];
+    match.scoreDetail = deriveScoreDetailFromGoalRows(rows, match.home_team_id, match.away_team_id);
+  }
 }
 
 export function parseScoreDetailJson(raw: string | null | undefined): MatchScoreDetail | null {
@@ -275,6 +310,6 @@ export async function resolveMatchScoreDetail(
   const stored = parseScoreDetailJson(match.score_detail_json ?? null);
   if (stored) return stored;
 
-  const rows = await loadGoalEventsForMatch(db, match.id);
-  return deriveScoreDetailFromGoalRows(rows, match.home_team_id, match.away_team_id);
+  const rows = await loadGoalEventsForMatches(db, [match.id]);
+  return deriveScoreDetailFromGoalRows(rows.get(match.id) ?? [], match.home_team_id, match.away_team_id);
 }
