@@ -32,8 +32,9 @@ if (!res.ok) {
   console.error(`API fetch failed: ${res.status}`);
   process.exit(1);
 }
-const schedule = await res.json();
-const matches = schedule.matches ?? schedule;
+const body = await res.json();
+const byDate = body.data?.byDate ?? body.byDate ?? {};
+const matches = Object.values(byDate).flat();
 
 let mismatches = 0;
 for (const m of matches) {
@@ -44,14 +45,16 @@ for (const m of matches) {
 
   const expectedHome = fifaShortToTeamId(fifa.home);
   const expectedAway = fifaShortToTeamId(fifa.away);
-  const homeOk = m.homeTeamId === expectedHome;
-  const awayOk = m.awayTeamId === expectedAway;
+  const homeOk = (m.home_team_id ?? m.homeTeamId) === expectedHome;
+  const awayOk = (m.away_team_id ?? m.awayTeamId) === expectedAway;
 
   if (!homeOk || !awayOk) {
     mismatches += 1;
+    const homeLabel = m.home_name ?? m.homeTeamName ?? m.home_team_id ?? m.homeTeamId;
+    const awayLabel = m.away_name ?? m.awayTeamName ?? m.away_team_id ?? m.awayTeamId;
     console.log(
       `MISMATCH ${m.id} (FIFA #${internal.fifaNumber}):`,
-      `prod ${m.homeTeamName ?? m.homeTeamId} vs ${m.awayTeamName ?? m.awayTeamId}`,
+      `prod ${homeLabel} vs ${awayLabel}`,
       `→ FIFA ${fifa.home} vs ${fifa.away}`,
     );
   }
