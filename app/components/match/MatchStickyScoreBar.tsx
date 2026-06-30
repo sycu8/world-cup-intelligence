@@ -69,7 +69,12 @@ export function MatchStickyScoreBar({
           >
             {statusLabel}
           </p>
-          <MatchScoreBreakdown detail={scoreDetail} className="mt-0.5 max-w-[9rem] text-[9px]" />
+          <MatchScoreBreakdown
+            detail={scoreDetail}
+            variant="stacked"
+            compact
+            className="mt-0.5 max-w-[11rem] justify-center"
+          />
         </div>
         <TeamNameWithFlag
           name={away}

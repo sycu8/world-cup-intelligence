@@ -371,8 +371,8 @@ export function TournamentSchedulePanel({
                                   className="ml-2"
                                 />
                                 {(m.status === 'completed' || m.status === 'finished') && (
-                                  <span className="ml-2">
-                                    <MatchScoreBreakdown detail={m.scoreDetail} />
+                                  <span className="ml-2 inline-flex max-w-full flex-wrap">
+                                    <MatchScoreBreakdown detail={m.scoreDetail} compact />
                                   </span>
                                 )}
                               </>
