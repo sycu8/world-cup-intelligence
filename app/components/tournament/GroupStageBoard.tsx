@@ -16,12 +16,15 @@ import { MatchKickoffDisplay } from '../match/MatchKickoffDisplay';
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
 import { MatchScoreBreakdown } from '../match/MatchScoreBreakdown';
 import { MatchForecastScore } from '../match/MatchForecastScore';
+import { MatchForecastExtras } from '../match/MatchForecastExtras';
 
 export type BoardMatchProbability = {
   homeWin: number;
   draw: number;
   awayWin: number;
   mostLikelyScore?: string;
+  extraTimeProb?: number;
+  penaltyProb?: number;
 };
 
 const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as const;
@@ -59,12 +62,12 @@ function BoardTab({
 
 function BoardMatchRow({
   match,
-  predictedScore,
+  prob,
   showDate = false,
   dense = false,
 }: {
   match: ScheduleMatch;
-  predictedScore?: string;
+  prob?: BoardMatchProbability;
   showDate?: boolean;
   dense?: boolean;
 }) {
@@ -72,7 +75,7 @@ function BoardMatchRow({
   const isFinal = match.status === 'completed' || match.status === 'finished';
   const showScore = hasMatchResult(match.status);
   const showBreakdown = isFinal && !!match.scoreDetail;
-  const showForecast = match.status === 'scheduled' && !!predictedScore;
+  const showForecast = match.status === 'scheduled' && !!prob?.mostLikelyScore;
 
   return (
     <Link
@@ -114,7 +117,13 @@ function BoardMatchRow({
             variant={isFinal ? 'badge' : 'compact'}
           />
         ) : showForecast ? (
-          <MatchForecastScore score={predictedScore!} />
+          <>
+            <MatchForecastScore score={prob!.mostLikelyScore!} />
+            <MatchForecastExtras
+              extraTimeProb={prob?.extraTimeProb}
+              penaltyProb={prob?.penaltyProb}
+            />
+          </>
         ) : (
           <span className="font-mono-data text-[10px] text-muted/35">–</span>
         )}
@@ -227,7 +236,7 @@ function GroupCard({
       <ul className="space-y-0 border-t border-border/40 pt-1">
         {fixtures.map((m) => (
           <li key={m.id}>
-            <BoardMatchRow match={m} predictedScore={probs[m.id]?.mostLikelyScore} showDate />
+            <BoardMatchRow match={m} prob={probs[m.id]} showDate />
           </li>
         ))}
       </ul>
@@ -262,7 +271,7 @@ function KnockoutRoundPanel({
     <ul className="divide-y divide-border/40 rounded-lg border border-border/50 bg-panel2/20">
       {roundMatches.map((m) => (
         <li key={m.id}>
-          <BoardMatchRow match={m} predictedScore={probs[m.id]?.mostLikelyScore} showDate dense />
+          <BoardMatchRow match={m} prob={probs[m.id]} showDate dense />
         </li>
       ))}
     </ul>

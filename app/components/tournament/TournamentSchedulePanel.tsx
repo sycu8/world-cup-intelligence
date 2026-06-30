@@ -13,13 +13,14 @@ import { MatchKickoffDisplay, ScheduleTimezoneBanner } from '../match/MatchKicko
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
 import { MatchScoreBreakdown } from '../match/MatchScoreBreakdown';
 import { MatchForecastScore } from '../match/MatchForecastScore';
+import { MatchForecastExtras } from '../match/MatchForecastExtras';
 import { formatKickoffDateLong, getViewerLocale, localDateKey, SCHEDULE_TZ } from '../../lib/matchKickoffDisplay';
 
 type Props = {
   byDate: Record<string, ScheduleMatch[]>;
   matches: ScheduleMatch[];
   totalExpected?: number;
-  probs?: Record<string, { homeWin: number; draw: number; awayWin: number; mostLikelyScore?: string }>;
+  probs?: Record<string, { homeWin: number; draw: number; awayWin: number; mostLikelyScore?: string; extraTimeProb?: number; penaltyProb?: number }>;
 };
 
 type StageFilter = 'all' | 'Group' | 'knockout';
@@ -179,7 +180,13 @@ export function TournamentSchedulePanel({
         {forecast && (
           <>
             <span aria-hidden> · </span>
-            <MatchForecastScore score={forecast} showLabel />
+            <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <MatchForecastScore score={forecast} showLabel />
+              <MatchForecastExtras
+                extraTimeProb={probs[m.id]?.extraTimeProb}
+                penaltyProb={probs[m.id]?.penaltyProb}
+              />
+            </span>
           </>
         )}
       </p>
@@ -387,8 +394,12 @@ export function TournamentSchedulePanel({
                                 )}
                               </>
                             ) : prob?.mostLikelyScore ? (
-                              <span className="ml-2 inline-flex align-middle">
+                              <span className="ml-2 inline-flex flex-col items-start gap-0.5 align-middle">
                                 <MatchForecastScore score={prob.mostLikelyScore} />
+                                <MatchForecastExtras
+                                  extraTimeProb={prob.extraTimeProb}
+                                  penaltyProb={prob.penaltyProb}
+                                />
                               </span>
                             ) : null}
                           </span>

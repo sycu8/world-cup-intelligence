@@ -251,6 +251,7 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
       '45': { homeWinProb: 0.42, drawProb: 0.28, awayWinProb: 0.3 },
     },
   },
+  MatchForecastExtras: { extraTimeProb: 0.28, penaltyProb: 0.12 },
   MatchForecastScore: { score: '2-1' },
   PredictedActualScores: { homeScore: 1, awayScore: 0, status: 'completed' },
   ProbabilityDeltaBadge: { delta: 0.05 },

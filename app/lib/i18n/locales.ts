@@ -89,6 +89,10 @@ export type LocaleKey =
   | 'match.score.extraTime1'
   | 'match.score.extraTime2'
   | 'match.score.penalties'
+  | 'match.forecast.extraTime'
+  | 'match.forecast.penalty'
+  | 'match.forecast.extraTimeHint'
+  | 'match.forecast.penaltyHint'
   | 'match.completed'
   | 'match.fullAnalysis'
   | 'match.notFound'
@@ -680,6 +684,16 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'match.score.extraTime1': { vi: 'HP1', en: 'ET1' },
   'match.score.extraTime2': { vi: 'HP2', en: 'ET2' },
   'match.score.penalties': { vi: 'Pen', en: 'Pens' },
+  'match.forecast.extraTime': { vi: 'HP ~{pct}', en: 'ET ~{pct}' },
+  'match.forecast.penalty': { vi: 'Pen ~{pct}', en: 'Pens ~{pct}' },
+  'match.forecast.extraTimeHint': {
+    vi: 'Dự đoán: trận có thể kéo dài hiệp phụ',
+    en: 'Forecast: match may go to extra time',
+  },
+  'match.forecast.penaltyHint': {
+    vi: 'Dự đoán: trận có thể đến loạt penalty',
+    en: 'Forecast: match may go to penalties',
+  },
   'match.completed': { vi: 'Đã kết thúc', en: 'Completed' },
   'match.fullAnalysis': { vi: 'Phân tích chiến thuật đầy đủ', en: 'Full tactical analysis' },
   'match.notFound': {
