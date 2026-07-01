@@ -242,18 +242,6 @@ export async function getChampionOddsForHome(
   env: AppEnv,
   ctx: { waitUntil: (promise: Promise<unknown>) => void },
 ): Promise<ChampionOddsPayload | null> {
-  const cached = await readCachedChampionOdds(env);
-  if (cached && !isCacheStale(cached)) return cached;
-
-  if (cached) {
-    ctx.waitUntil(refreshChampionOdds(env).catch((err) => console.error('[champion-odds] background refresh failed', err)));
-    return cached.top.length ? cached : null;
-  }
-
-  try {
-    return await refreshChampionOdds(env);
-  } catch (err) {
-    console.error('[champion-odds] sync refresh failed', err);
-    return null;
-  }
+  void ctx;
+  return getChampionOddsForDisplay(env);
 }
