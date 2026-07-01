@@ -20,7 +20,7 @@ function formatPair(pair: { home: number; away: number }): string {
 }
 
 function hasScore(score?: { home: number; away: number }): boolean {
-  return score != null && (score.home > 0 || score.away > 0);
+  return score != null && Number.isFinite(score.home) && Number.isFinite(score.away);
 }
 
 function buildSegments(detail: MatchScoreDetail): PeriodSegment[] {

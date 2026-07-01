@@ -9,6 +9,7 @@ import { groupStageLabel, matchStageLabel } from '../../lib/i18n/stageLabels';
 import { MatchKickoffCountdown } from './MatchKickoffCountdown';
 import { TeamNameWithFlag } from '../team/TeamNameWithFlag';
 import { PredictedActualScores } from '../match/PredictedActualScores';
+import { MatchScoreBreakdown } from '../match/MatchScoreBreakdown';
 import { DataKindBadge, DataKindMark } from '../ui/DataKindBadge';
 
 type Props = {
@@ -107,12 +108,22 @@ export function FeaturedMatchHero({ match }: Props) {
                   </p>
                 </>
               ) : (
-                <p className="font-heading text-4xl tabular-nums text-foreground md:text-6xl">
-                  {(isLive || match.status === 'completed') && <DataKindMark kind="actual" />}
-                  {match.home_score}
-                  <span className="mx-1 text-cyan/70">–</span>
-                  {match.away_score}
-                </p>
+                <>
+                  <p className="font-heading text-4xl tabular-nums text-foreground md:text-6xl">
+                    {(isLive || match.status === 'completed') && <DataKindMark kind="actual" />}
+                    {match.home_score}
+                    <span className="mx-1 text-cyan/70">–</span>
+                    {match.away_score}
+                  </p>
+                  {(match.status === 'completed' || match.status === 'finished') && (
+                    <MatchScoreBreakdown
+                      detail={match.scoreDetail}
+                      variant="stacked"
+                      compact
+                      className="mt-1.5 justify-center md:mt-2"
+                    />
+                  )}
+                </>
               )}
             </div>
             <h2 className="font-heading text-left text-xl uppercase leading-none tracking-tight text-foreground md:text-3xl lg:text-4xl">
