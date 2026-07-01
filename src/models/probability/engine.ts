@@ -7,7 +7,7 @@ import { lineupModifier } from './playerAvailability';
 import { tacticalMatchupModifier } from './tacticalMatchup';
 import { gameStateModifier } from './liveGameState';
 import { liveMatchStatsModifier } from './liveMatchStatsModifier';
-import { buildScorelineMatrix, mostLikelyScore, aggregateWdl } from './scoreline';
+import { buildScorelineMatrix, mostLikelyScore, secondaryExpectedScore, aggregateWdl } from './scoreline';
 import { buildIntervalDistribution } from './interval';
 import { buildExplanationFactors } from './explainFactors';
 import { matchContextModifier, rankingGapModifier } from './matchContext';
@@ -171,6 +171,7 @@ export async function computeProbability(
     expectedHomeGoals: lambdaHome,
     expectedAwayGoals: lambdaAway,
     mostLikelyScore: mostLikelyScore(matrix),
+    expectedScore: secondaryExpectedScore(matrix, lambdaHome, lambdaAway),
     scorelineDistribution: matrix,
     intervalDistribution: intervals,
     confidence,
