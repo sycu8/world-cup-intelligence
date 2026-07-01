@@ -45,7 +45,7 @@ export function FeaturedMatchHero({ match }: Props) {
             <MatchKickoffCountdown kickoffUtc={match.kickoff_utc} status={match.status} />
           </div>
 
-          {p && (
+          {p && match.status !== 'completed' && match.status !== 'finished' && (
             <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono-data text-xs text-muted">
               <span className="inline-flex items-center gap-1">
                 {t('featured.modelNow')}
@@ -63,7 +63,7 @@ export function FeaturedMatchHero({ match }: Props) {
                 {t('common.abbrAway')} <DataKindMark />
                 {pct(p.awayWinProb)}
               </span>
-              {p.mostLikelyScore && (
+              {p.mostLikelyScore && match.status !== 'completed' && match.status !== 'finished' && (
                 <span className="ml-1">
                   <PredictedActualScores
                     predicted={p.mostLikelyScore}
@@ -94,12 +94,26 @@ export function FeaturedMatchHero({ match }: Props) {
                   <DataKindBadge kind="actual" compact />
                 </p>
               )}
-              <p className="font-heading text-4xl tabular-nums text-foreground md:text-6xl">
-                {(isLive || match.status === 'completed') && <DataKindMark kind="actual" />}
-                {match.home_score}
-                <span className="mx-1 text-cyan/70">–</span>
-                {match.away_score}
-              </p>
+              {match.status === 'scheduled' && p?.mostLikelyScore ? (
+                <>
+                  <p className="mb-1 flex justify-center">
+                    <DataKindBadge kind="predicted" compact />
+                  </p>
+                  <p className="font-heading text-3xl tabular-nums text-yellow md:text-5xl">
+                    {p.mostLikelyScore.replace('-', '–')}
+                  </p>
+                  <p className="mt-1 text-center text-[10px] uppercase tracking-wide text-yellow/80">
+                    {t('dataKind.predicted')}
+                  </p>
+                </>
+              ) : (
+                <p className="font-heading text-4xl tabular-nums text-foreground md:text-6xl">
+                  {(isLive || match.status === 'completed') && <DataKindMark kind="actual" />}
+                  {match.home_score}
+                  <span className="mx-1 text-cyan/70">–</span>
+                  {match.away_score}
+                </p>
+              )}
             </div>
             <h2 className="font-heading text-left text-xl uppercase leading-none tracking-tight text-foreground md:text-3xl lg:text-4xl">
               <TeamNameWithFlag
@@ -113,7 +127,7 @@ export function FeaturedMatchHero({ match }: Props) {
           </div>
         </div>
 
-        {p ? (
+        {p && match.status !== 'completed' && match.status !== 'finished' ? (
           <div className="p-4 md:p-5">
             <ProbabilityStrip
               homeWin={p.homeWinProb}
@@ -127,9 +141,9 @@ export function FeaturedMatchHero({ match }: Props) {
               live={match.status === 'live'}
             />
           </div>
-        ) : (
+        ) : match.status !== 'completed' && match.status !== 'finished' ? (
           <p className="px-4 pb-4 text-sm text-muted md:px-6">{t('featured.probLoading')}</p>
-        )}
+        ) : null}
       </div>
 
       <div className="flex justify-center">

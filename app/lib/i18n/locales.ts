@@ -82,6 +82,17 @@ export type LocaleKey =
   | 'match.away'
   | 'match.live'
   | 'match.scheduled'
+  | 'match.score.half1'
+  | 'match.score.half2'
+  | 'match.score.stoppage'
+  | 'match.score.extraTime'
+  | 'match.score.extraTime1'
+  | 'match.score.extraTime2'
+  | 'match.score.penalties'
+  | 'match.forecast.extraTime'
+  | 'match.forecast.penalty'
+  | 'match.forecast.extraTimeHint'
+  | 'match.forecast.penaltyHint'
   | 'match.completed'
   | 'match.fullAnalysis'
   | 'match.notFound'
@@ -666,6 +677,23 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'match.away': { vi: 'Khách', en: 'Away' },
   'match.live': { vi: 'Đang diễn ra', en: 'Live' },
   'match.scheduled': { vi: 'Sắp diễn ra', en: 'Scheduled' },
+  'match.score.half1': { vi: 'H1', en: '1H' },
+  'match.score.half2': { vi: 'H2', en: '2H' },
+  'match.score.stoppage': { vi: 'Bù giờ', en: 'Added' },
+  'match.score.extraTime': { vi: 'HP', en: 'ET' },
+  'match.score.extraTime1': { vi: 'HP1', en: 'ET1' },
+  'match.score.extraTime2': { vi: 'HP2', en: 'ET2' },
+  'match.score.penalties': { vi: 'Pen', en: 'Pens' },
+  'match.forecast.extraTime': { vi: 'HP ~{pct}', en: 'ET ~{pct}' },
+  'match.forecast.penalty': { vi: 'Pen ~{pct}', en: 'Pens ~{pct}' },
+  'match.forecast.extraTimeHint': {
+    vi: 'Dự đoán: trận có thể kéo dài hiệp phụ',
+    en: 'Forecast: match may go to extra time',
+  },
+  'match.forecast.penaltyHint': {
+    vi: 'Dự đoán: trận có thể đến loạt penalty',
+    en: 'Forecast: match may go to penalties',
+  },
   'match.completed': { vi: 'Đã kết thúc', en: 'Completed' },
   'match.fullAnalysis': { vi: 'Phân tích chiến thuật đầy đủ', en: 'Full tactical analysis' },
   'match.notFound': {

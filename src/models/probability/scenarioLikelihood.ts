@@ -1,5 +1,10 @@
 import type { MatchFeatureInput, ProbabilityResult } from './types';
 import type { TeamSystemProfile } from './teamSystemStrength';
+import {
+  isKnockoutMatchStage,
+  knockoutExtraTimeProbability,
+  knockoutPenaltyProbability,
+} from './knockoutForecast';
 
 export type ScenarioLikelihood = {
   scenarioType: string;
@@ -40,9 +45,11 @@ export function computeScenarioLikelihoods(
   const late = clamp01(0.22 + (homeSystem.benchDepthScore + awaySystem.benchDepthScore) * 0.12);
   const setPiece = clamp01((homeSystem.setPieceScore + awaySystem.setPieceScore) / 2 + 0.15);
   const redCard = clamp01(0.08 + highEvent * 0.06);
-  const isKnockout = /Round|Final|Quarter|Semi/i.test(input.stage);
-  const extraTime = isKnockout ? clamp01(prob.drawProb * 0.85) : clamp01(prob.drawProb * 0.15);
-  const pens = isKnockout ? clamp01(prob.drawProb * 0.35) : 0.03;
+  const isKnockout = isKnockoutMatchStage(input.stage);
+  const extraTime = isKnockout
+    ? clamp01(knockoutExtraTimeProbability(prob.drawProb, input.stage)!)
+    : clamp01(prob.drawProb * 0.15);
+  const pens = isKnockout ? clamp01(knockoutPenaltyProbability(prob.drawProb, input.stage)!) : 0.03;
 
   const map: Record<string, { p: number; factors: string[] }> = {
     early_goal_0_15: { p: early, factors: ['High tempo increases early-phase chance volume.'] },
