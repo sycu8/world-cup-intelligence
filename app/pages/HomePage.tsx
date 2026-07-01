@@ -62,6 +62,14 @@ export function HomePage() {
     setHotNews(payload.data.hotNews.slice(0, 3));
     setStandings(payload.data.standings ?? null);
     setChampionOdds(payload.data.championOdds ?? null);
+    if (!payload.data.championOdds?.top.length) {
+      void api
+        .tournamentChampionOdds(2026)
+        .then((res) => {
+          if (res.data.top.length) setChampionOdds(res.data);
+        })
+        .catch(() => undefined);
+    }
     setTopScorers(payload.data.topScorers ?? null);
     setBoardReady(true);
     setExtrasReady(true);

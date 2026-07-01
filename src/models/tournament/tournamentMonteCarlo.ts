@@ -1,9 +1,9 @@
 import {
-  BEST_THIRD_R32_SLOTS,
   computeGroupStandingsFromMatchRows,
   type GroupStageMatchRow,
   type GroupStanding,
 } from '../../services/tournamentProgression';
+import { assignThirdPlaceToR32Slots } from '../../services/wc2026ThirdPlaceBracket';
 import { resolveLoserTeamId, resolveWinnerTeamId, type MatchOutcome } from '../../services/matchLifecycle';
 import { blendTriples, pairKey, type MatchProbabilityTriple as H2hTriple } from '../../services/tournamentMcSignals';
 import type { TeamStrengthProfile } from '../../services/tournamentTeamStrength';
@@ -205,12 +205,6 @@ function sampleKnockoutScores(
   return sampleScoreForOutcome(lambdas.home, lambdas.away, 'away', rng);
 }
 
-function compareThird(a: GroupStanding & { group: string }, b: GroupStanding & { group: string }): number {
-  if (b.points !== a.points) return b.points - a.points;
-  if (b.gd !== a.gd) return b.gd - a.gd;
-  if (b.gf !== a.gf) return b.gf - a.gf;
-  return a.teamId.localeCompare(b.teamId);
-}
 
 function isFinished(status: string): boolean {
   return status === 'completed' || status === 'finished';
@@ -263,16 +257,15 @@ export function simulateTournamentOnce(input: TournamentMonteCarloInput, rng: ()
     slots.set(link.targetMatchId, slot);
   }
 
-  const thirdCandidates: (GroupStanding & { group: string })[] = [];
+  const thirdPlaceByGroup = new Map<string, GroupStanding & { group: string }>();
   for (const code of GROUP_CODES) {
     const third = standingsByGroup.get(code)?.[2];
-    if (third) thirdCandidates.push({ ...third, group: code });
+    if (third) thirdPlaceByGroup.set(code, { ...third, group: code });
   }
-  thirdCandidates.sort(compareThird);
-  for (let i = 0; i < Math.min(8, thirdCandidates.length); i += 1) {
-    const { matchId, slot } = BEST_THIRD_R32_SLOTS[i];
+
+  for (const { matchId, slot, teamId } of assignThirdPlaceToR32Slots(thirdPlaceByGroup)) {
     const entry = slots.get(matchId) ?? {};
-    entry[slot] = thirdCandidates[i].teamId;
+    entry[slot] = teamId;
     slots.set(matchId, entry);
   }
 
