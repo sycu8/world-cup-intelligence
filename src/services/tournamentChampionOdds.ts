@@ -220,6 +220,7 @@ async function readCachedChampionOdds(env: AppEnv): Promise<ChampionOddsPayload 
 
 function isCacheStale(payload: ChampionOddsPayload): boolean {
   if (payload.modelVersion !== MODEL_VERSION) return true;
+  if (!payload.top.length || !payload.all.length) return true;
   const ageMs = Date.now() - new Date(payload.generatedAt).getTime();
   return ageMs > CACHE_TTL_SECONDS * 1000;
 }
@@ -242,13 +243,17 @@ export async function getChampionOddsForHome(
   ctx: { waitUntil: (promise: Promise<unknown>) => void },
 ): Promise<ChampionOddsPayload | null> {
   const cached = await readCachedChampionOdds(env);
+  if (cached && !isCacheStale(cached)) return cached;
+
   if (cached) {
-    if (isCacheStale(cached)) {
-      ctx.waitUntil(refreshChampionOdds(env).catch((err) => console.error('[champion-odds] background refresh failed', err)));
-    }
-    return cached;
+    ctx.waitUntil(refreshChampionOdds(env).catch((err) => console.error('[champion-odds] background refresh failed', err)));
+    return cached.top.length ? cached : null;
   }
 
-  ctx.waitUntil(refreshChampionOdds(env).catch((err) => console.error('[champion-odds] initial refresh failed', err)));
-  return null;
+  try {
+    return await refreshChampionOdds(env);
+  } catch (err) {
+    console.error('[champion-odds] sync refresh failed', err);
+    return null;
+  }
 }
