@@ -45,7 +45,7 @@ export function MatchesPage() {
   const [byDate, setByDate] = useState<Record<string, ScheduleMatch[]>>({});
   const [matches, setMatches] = useState<ScheduleMatch[]>([]);
   const [teams, setTeams] = useState<TeamSummary[]>([]);
-  const [probs, setProbs] = useState<Record<string, { homeWin: number; draw: number; awayWin: number }>>({});
+  const [probs, setProbs] = useState<Record<string, { homeWin: number; draw: number; awayWin: number; mostLikelyScore?: string; extraTimeProb?: number; penaltyProb?: number }>>({});
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -117,7 +117,7 @@ export function MatchesPage() {
       ) : tab === 'schedule' ? (
         <TournamentSchedulePanel byDate={byDate} matches={matches} probs={probs} />
       ) : tab === 'standings' ? (
-        <GroupStageBoard matches={matches} />
+        <GroupStageBoard matches={matches} initialProbs={probs} />
       ) : tab === 'favorites' ? (
         <FavoritesPanel matches={matches} teams={teams} />
       ) : (

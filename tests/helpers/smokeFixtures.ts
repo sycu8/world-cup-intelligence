@@ -171,11 +171,11 @@ export const sampleStandings: GroupStandingsPayload = {
   ],
 };
 
-export const sampleMatchProbs: Record<string, { homeWin: number; draw: number; awayWin: number }> = {
-  [SMOKE_MATCH_ID]: { homeWin: 0.42, draw: 0.28, awayWin: 0.3 },
+export const sampleMatchProbs: Record<string, { homeWin: number; draw: number; awayWin: number; mostLikelyScore?: string }> = {
+  [SMOKE_MATCH_ID]: { homeWin: 0.42, draw: 0.28, awayWin: 0.3, mostLikelyScore: '2-1' },
   'm-live': { homeWin: 0.55, draw: 0.25, awayWin: 0.2 },
   'm-done': { homeWin: 0.9, draw: 0.05, awayWin: 0.05 },
-  'm-r32': { homeWin: 0.38, draw: 0.3, awayWin: 0.32 },
+  'm-r32': { homeWin: 0.38, draw: 0.3, awayWin: 0.32, mostLikelyScore: '1-1', extraTimeProb: 0.255, penaltyProb: 0.105 },
   'm-b': { homeWin: 0.45, draw: 0.27, awayWin: 0.28 },
 };
 

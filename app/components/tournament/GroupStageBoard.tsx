@@ -14,6 +14,18 @@ import { groupStageLabel, KNOCKOUT_STAGE_ORDER, matchStageLabel } from '../../li
 import { MatchTeamsWithFlags, TeamNameWithFlag } from '../team/TeamNameWithFlag';
 import { MatchKickoffDisplay } from '../match/MatchKickoffDisplay';
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
+import { MatchScoreBreakdown } from '../match/MatchScoreBreakdown';
+import { MatchForecastScore } from '../match/MatchForecastScore';
+import { MatchForecastExtras } from '../match/MatchForecastExtras';
+
+export type BoardMatchProbability = {
+  homeWin: number;
+  draw: number;
+  awayWin: number;
+  mostLikelyScore?: string;
+  extraTimeProb?: number;
+  penaltyProb?: number;
+};
 
 const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as const;
 const STANDINGS_REFRESH_MS = 30_000;
@@ -50,24 +62,29 @@ function BoardTab({
 
 function BoardMatchRow({
   match,
+  prob,
   showDate = false,
   dense = false,
 }: {
   match: ScheduleMatch;
+  prob?: BoardMatchProbability;
   showDate?: boolean;
   dense?: boolean;
 }) {
   const { t } = useI18n();
+  const isFinal = match.status === 'completed' || match.status === 'finished';
   const showScore = hasMatchResult(match.status);
+  const showBreakdown = isFinal && !!match.scoreDetail;
+  const showForecast = match.status === 'scheduled' && !!prob?.mostLikelyScore;
 
   return (
     <Link
       to={resolveMatchHref(match)}
-      className={`group flex min-h-[2.75rem] items-center gap-1.5 rounded-md transition hover:bg-pressing/10 sm:gap-2 ${
+      className={`group grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-1.5 rounded-md transition hover:bg-pressing/10 sm:gap-2 ${
         dense ? 'px-2 py-2 sm:px-3' : 'px-2 py-1.5'
-      }`}
+      } ${showBreakdown ? 'gap-y-0.5 pb-1.5' : 'items-center'}`}
     >
-      <time className="shrink-0 whitespace-nowrap font-mono-data text-[10px] leading-none text-muted">
+      <time className="col-start-1 row-start-1 shrink-0 whitespace-nowrap font-mono-data text-[10px] leading-none text-muted">
         <MatchKickoffDisplay
           kickoffUtc={match.kickoff_utc}
           showDate={showDate}
@@ -76,7 +93,7 @@ function BoardMatchRow({
         />
       </time>
 
-      <span className="min-w-0 flex-1 truncate text-[10px] font-medium leading-tight text-foreground/90 sm:text-[11px]">
+      <span className="col-start-2 row-start-1 min-w-0 truncate text-[10px] font-medium leading-tight text-foreground/90 sm:text-[11px]">
         <MatchTeamsWithFlags
           homeName={match.home_name}
           awayName={match.away_name}
@@ -91,14 +108,22 @@ function BoardMatchRow({
         />
       </span>
 
-      <span className="flex shrink-0 items-center justify-end gap-1">
+      <span className="col-start-3 row-start-1 flex shrink-0 flex-col items-end justify-center gap-0.5 self-center">
         {showScore ? (
           <MatchResultScore
             homeScore={match.home_score}
             awayScore={match.away_score}
             status={match.status}
-            variant={match.status === 'completed' || match.status === 'finished' ? 'badge' : 'compact'}
+            variant={isFinal ? 'badge' : 'compact'}
           />
+        ) : showForecast ? (
+          <>
+            <MatchForecastScore score={prob!.mostLikelyScore!} />
+            <MatchForecastExtras
+              extraTimeProb={prob?.extraTimeProb}
+              penaltyProb={prob?.penaltyProb}
+            />
+          </>
         ) : (
           <span className="font-mono-data text-[10px] text-muted/35">–</span>
         )}
@@ -106,6 +131,17 @@ function BoardMatchRow({
           <span className="text-[9px] font-bold uppercase leading-none text-live">{t('common.live')}</span>
         )}
       </span>
+
+      {showBreakdown && (
+        <div className="col-start-2 col-end-4 row-start-2 min-w-0">
+          <MatchScoreBreakdown
+            detail={match.scoreDetail}
+            variant="stacked"
+            compact
+            className="w-full"
+          />
+        </div>
+      )}
     </Link>
   );
 }
@@ -115,11 +151,13 @@ function GroupCard({
   standings,
   fixtures,
   standingsUnavailable,
+  probs,
 }: {
   code: string;
   standings: GroupStandingsPayload['groups'][string] | undefined;
   fixtures: ScheduleMatch[];
   standingsUnavailable?: boolean;
+  probs: Record<string, BoardMatchProbability>;
 }) {
   const { t } = useI18n();
 
@@ -198,7 +236,7 @@ function GroupCard({
       <ul className="space-y-0 border-t border-border/40 pt-1">
         {fixtures.map((m) => (
           <li key={m.id}>
-            <BoardMatchRow match={m} showDate />
+            <BoardMatchRow match={m} prob={probs[m.id]} showDate />
           </li>
         ))}
       </ul>
@@ -209,9 +247,11 @@ function GroupCard({
 function KnockoutRoundPanel({
   stage,
   matches,
+  probs,
 }: {
   stage: KnockoutStage;
   matches: ScheduleMatch[];
+  probs: Record<string, BoardMatchProbability>;
 }) {
   const { t } = useI18n();
 
@@ -231,7 +271,7 @@ function KnockoutRoundPanel({
     <ul className="divide-y divide-border/40 rounded-lg border border-border/50 bg-panel2/20">
       {roundMatches.map((m) => (
         <li key={m.id}>
-          <BoardMatchRow match={m} showDate dense />
+          <BoardMatchRow match={m} prob={probs[m.id]} showDate dense />
         </li>
       ))}
     </ul>
@@ -242,10 +282,12 @@ function GroupStagePanel({
   standings,
   standingsError,
   groupFixtures,
+  probs,
 }: {
   standings: GroupStandingsPayload | null;
   standingsError: boolean;
   groupFixtures: Record<string, ScheduleMatch[]>;
+  probs: Record<string, BoardMatchProbability>;
 }) {
   const { t } = useI18n();
 
@@ -266,6 +308,7 @@ function GroupStagePanel({
             standings={standings?.groups[code]}
             fixtures={groupFixtures[code] ?? []}
             standingsUnavailable={standingsError}
+            probs={probs}
           />
         ))}
       </div>
@@ -302,11 +345,13 @@ function GroupStagePanel({
 type Props = {
   matches: ScheduleMatch[];
   initialStandings?: GroupStandingsPayload | null;
+  initialProbs?: Record<string, BoardMatchProbability>;
 };
 
 export function GroupStageBoard({
   matches,
   initialStandings = null,
+  initialProbs = {},
 }: Props) {
   const { t } = useI18n();
   const hasInitialBoard = !!initialStandings;
@@ -316,7 +361,14 @@ export function GroupStageBoard({
   const [standings, setStandings] = useState<GroupStandingsPayload | null>(initialStandings);
   const [standingsError, setStandingsError] = useState(false);
   const [groupLoading, setGroupLoading] = useState(!hasInitialBoard);
+  const [probs, setProbs] = useState<Record<string, BoardMatchProbability>>(initialProbs);
   const prevAllGroupsComplete = useRef(false);
+
+  useEffect(() => {
+    if (Object.keys(initialProbs).length > 0) {
+      setProbs(initialProbs);
+    }
+  }, [initialProbs]);
 
   useEffect(() => {
     if (initialStandings) {
@@ -361,6 +413,26 @@ export function GroupStageBoard({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- poll on tab change only; standings updated in-place
   }, [mainTab]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProbs = () => {
+      api
+        .tournamentMatchProbabilities(2026)
+        .then((res) => {
+          if (!cancelled) setProbs(res.data);
+        })
+        .catch(() => undefined);
+    };
+
+    loadProbs();
+    const timer = setInterval(loadProbs, STANDINGS_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
 
   const groupFixtures = useMemo(() => {
     const map: Record<string, ScheduleMatch[]> = {};
@@ -466,6 +538,7 @@ export function GroupStageBoard({
             standings={standings}
             standingsError={standingsError}
             groupFixtures={groupFixtures}
+            probs={probs}
           />
         )
       ) : (
@@ -515,7 +588,7 @@ export function GroupStageBoard({
             })}
           </div>
 
-          <KnockoutRoundPanel stage={knockoutStage} matches={knockoutMatches} />
+          <KnockoutRoundPanel stage={knockoutStage} matches={knockoutMatches} probs={probs} />
         </div>
       )}
     </div>

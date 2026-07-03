@@ -45,6 +45,36 @@ describe('tournamentMatchProbabilities', () => {
     expect(payload.data[FIXTURE_MATCH.id].homeWin).toBe(FIXTURE_SNAPSHOT.home_win_prob);
   });
 
+  it('attaches knockout ET/penalty forecast for elimination matches', async () => {
+    const koMatch = { ...FIXTURE_MATCH, id: 'm-r16', stage: 'Round of 16' };
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: (sql) => {
+          if (sql.includes('FROM probability_snapshots')) {
+            return {
+              results: [
+                {
+                  matchId: koMatch.id,
+                  homeWinProb: 0.4,
+                  drawProb: 0.3,
+                  awayWinProb: 0.3,
+                  mostLikelyScore: '1-1',
+                },
+              ],
+            };
+          }
+          if (sql.includes('FROM matches WHERE tournament_id')) {
+            return { results: [koMatch] };
+          }
+          return { results: [] };
+        },
+      }),
+    });
+    const payload = await buildTournamentMatchProbabilitiesPayload(env, WC2026_TOURNAMENT_ID);
+    expect(payload.data[koMatch.id].extraTimeProb).toBeCloseTo(0.255);
+    expect(payload.data[koMatch.id].penaltyProb).toBeCloseTo(0.105);
+  });
+
   it('skipInlineFill schedules background gap fill for missing ids', async () => {
     const kv = createMockKv();
     const env = createMockEnv({
