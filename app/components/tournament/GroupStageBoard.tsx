@@ -365,10 +365,12 @@ function KnockoutRoundPanel({
   stage,
   matches,
   probs,
+  limit,
 }: {
   stage: KnockoutStage;
   matches: ScheduleMatch[];
   probs: Record<string, BoardMatchProbability>;
+  limit?: number;
 }) {
   const { t } = useI18n();
 
@@ -380,18 +382,30 @@ function KnockoutRoundPanel({
     [matches, stage],
   );
 
+  const visible = limit ? roundMatches.slice(0, limit) : roundMatches;
+  const hiddenCount = limit ? Math.max(0, roundMatches.length - limit) : 0;
+
   if (roundMatches.length === 0) {
     return <p className="py-6 text-center text-sm text-muted">{t('groupBoard.knockoutEmpty')}</p>;
   }
 
   return (
-    <ul className="grid gap-2 sm:grid-cols-2">
-      {roundMatches.map((m) => (
-        <li key={m.id}>
-          <KnockoutBoardMatchRow match={m} prob={probs[m.id]} showDate />
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {visible.map((m) => (
+          <li key={m.id}>
+            <KnockoutBoardMatchRow match={m} prob={probs[m.id]} showDate />
+          </li>
+        ))}
+      </ul>
+      {hiddenCount > 0 && (
+        <p className="mt-3 text-center">
+          <Link to="/matches?tab=standings" className="text-sm font-medium text-cyan hover:underline">
+            +{hiddenCount} {t('groupBoard.tabKnockout').toLowerCase()} →
+          </Link>
+        </p>
+      )}
+    </>
   );
 }
 
@@ -402,6 +416,9 @@ function GroupStagePanel({
   probs,
   championOdds,
   championOddsLoading,
+  mode = 'full',
+  selectedGroup,
+  onSelectGroup,
 }: {
   standings: GroupStandingsPayload | null;
   standingsError: boolean;
@@ -409,32 +426,63 @@ function GroupStagePanel({
   probs: Record<string, BoardMatchProbability>;
   championOdds?: ChampionOddsPayload | null;
   championOddsLoading?: boolean;
+  mode?: 'full' | 'home';
+  selectedGroup?: string;
+  onSelectGroup?: (code: string) => void;
 }) {
   const { t } = useI18n();
+  const isHome = mode === 'home';
+  const groupsToShow = isHome && selectedGroup ? [selectedGroup] : [...GROUPS];
 
   return (
     <div className="space-y-4">
-      <BoardLegend />
-      <div className="min-w-0">
-        <p className="font-mono-data text-xs text-muted-dim sm:text-sm">
-          {t('groupBoard.standingsHint')}
-        </p>
-      </div>
+      {!isHome && <BoardLegend />}
+      {isHome && onSelectGroup && (
+        <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin" role="tablist">
+          {GROUPS.map((code) => (
+            <button
+              key={code}
+              type="button"
+              role="tab"
+              aria-selected={selectedGroup === code}
+              onClick={() => onSelectGroup(code)}
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                selectedGroup === code
+                  ? 'bg-cyan/15 text-cyan ring-1 ring-cyan/30'
+                  : 'text-muted hover:bg-panel2/50 hover:text-foreground'
+              }`}
+            >
+              {code}
+            </button>
+          ))}
+        </div>
+      )}
+      {!isHome && (
+        <div className="min-w-0">
+          <p className="font-mono-data text-xs text-muted-dim sm:text-sm">
+            {t('groupBoard.standingsHint')}
+          </p>
+        </div>
+      )}
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {GROUPS.map((code) => (
+      <div
+        className={
+          isHome ? 'max-w-xl' : 'grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+        }
+      >
+        {groupsToShow.map((code) => (
           <GroupCard
             key={code}
             code={code}
             standings={standings?.groups[code]}
-            fixtures={groupFixtures[code] ?? []}
+            fixtures={isHome ? (groupFixtures[code] ?? []).slice(0, 3) : groupFixtures[code] ?? []}
             standingsUnavailable={standingsError}
             probs={probs}
           />
         ))}
       </div>
 
-      {standings && standings.thirdPlaceRanking.length > 0 && (
+      {!isHome && standings && standings.thirdPlaceRanking.length > 0 && (
         <div className="rounded-lg border border-border/50 bg-panel2/20 px-3 py-2">
           <h3 className="text-xs font-semibold text-pressing">{t('standings.thirdPlace')}</h3>
           <ol className="mt-1.5 grid gap-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -460,7 +508,7 @@ function GroupStagePanel({
         </div>
       )}
 
-      {(championOdds || championOddsLoading) && (
+      {(championOdds || championOddsLoading) && !isHome && (
         <ChampionOddsPanel odds={championOdds ?? null} loading={championOddsLoading} layout="compact" />
       )}
     </div>
@@ -473,6 +521,7 @@ type Props = {
   initialProbs?: Record<string, BoardMatchProbability>;
   championOdds?: ChampionOddsPayload | null;
   championOddsLoading?: boolean;
+  mode?: 'full' | 'home';
 };
 
 export function GroupStageBoard({
@@ -481,8 +530,10 @@ export function GroupStageBoard({
   initialProbs = {},
   championOdds = null,
   championOddsLoading = false,
+  mode = 'full',
 }: Props) {
   const { t } = useI18n();
+  const isHome = mode === 'home';
   const hasInitialBoard = !!initialStandings;
   const [mainTab, setMainTab] = useState<MainTab>('group');
   const [knockoutStage, setKnockoutStage] = useState<KnockoutStage>('Round of 32');
@@ -491,6 +542,7 @@ export function GroupStageBoard({
   const [standingsError, setStandingsError] = useState(false);
   const [groupLoading, setGroupLoading] = useState(!hasInitialBoard);
   const [probs, setProbs] = useState<Record<string, BoardMatchProbability>>(initialProbs);
+  const [selectedGroup, setSelectedGroup] = useState<string>('A');
   const prevAllGroupsComplete = useRef(false);
 
   useEffect(() => {
@@ -641,10 +693,12 @@ export function GroupStageBoard({
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="section-title">{t('groupBoard.title')}</h2>
-        <p className="section-subtitle">{t('groupBoard.subtitle')}</p>
-      </div>
+      {!isHome && (
+        <div>
+          <h2 className="section-title">{t('groupBoard.title')}</h2>
+          <p className="section-subtitle">{t('groupBoard.subtitle')}</p>
+        </div>
+      )}
 
       <nav
         className="flex flex-wrap gap-2 rounded-xl border border-border/40 bg-panel2/20 p-1.5"
@@ -673,18 +727,21 @@ export function GroupStageBoard({
             probs={probs}
             championOdds={championOdds}
             championOddsLoading={championOddsLoading}
+            mode={mode}
+            selectedGroup={selectedGroup}
+            onSelectGroup={isHome ? setSelectedGroup : undefined}
           />
         )
       ) : (
         <div className="space-y-3">
-          <p className="text-xs text-muted">{t('groupBoard.knockoutSubtitle')}</p>
-          {!allGroupsComplete && (
+          {!isHome && <p className="text-xs text-muted">{t('groupBoard.knockoutSubtitle')}</p>}
+          {!allGroupsComplete && !isHome && (
             <p className="rounded-lg border border-border/50 bg-panel2/20 px-3 py-2 text-xs text-muted">
               {t('groupBoard.knockoutLocked')}
             </p>
           )}
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start">
+          <div className={isHome ? 'space-y-3' : 'grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start'}>
             <div className="space-y-3">
               <div
                 className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-thin"
@@ -716,30 +773,44 @@ export function GroupStageBoard({
                             : 'text-muted hover:bg-panel2/60 hover:text-foreground'
                       }`}
                     >
-                      <span className="flex flex-col items-start gap-1">
-                        <span>
+                      {isHome ? (
+                        <>
                           {label}
-                          <span className="ml-1 font-mono-data text-[10px] opacity-70">
+                          <span className="ml-1 font-mono-data opacity-70">
                             {progress.done}/{progress.total}
-                            {progress.live > 0 ? ` · ${progress.live} ${t('common.live')}` : ''}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="flex flex-col items-start gap-1">
+                          <span>
+                            {label}
+                            <span className="ml-1 font-mono-data text-[10px] opacity-70">
+                              {progress.done}/{progress.total}
+                              {progress.live > 0 ? ` · ${progress.live} ${t('common.live')}` : ''}
+                            </span>
+                          </span>
+                          <span className="h-1 w-full min-w-[4rem] overflow-hidden rounded-full bg-background2/80">
+                            <span
+                              className="progress-bar-fill block h-full rounded-full bg-current opacity-60"
+                              style={{ width: `${pctDone}%` }}
+                            />
                           </span>
                         </span>
-                        <span className="h-1 w-full min-w-[4rem] overflow-hidden rounded-full bg-background2/80">
-                          <span
-                            className="progress-bar-fill block h-full rounded-full bg-current opacity-60"
-                            style={{ width: `${pctDone}%` }}
-                          />
-                        </span>
-                      </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
 
-              <KnockoutRoundPanel stage={knockoutStage} matches={knockoutMatches} probs={probs} />
+              <KnockoutRoundPanel
+                stage={knockoutStage}
+                matches={knockoutMatches}
+                probs={probs}
+                limit={isHome ? 4 : undefined}
+              />
             </div>
 
-            {(championOdds || championOddsLoading) && (
+            {!isHome && (championOdds || championOddsLoading) && (
               <div className="xl:sticky xl:top-[4.5rem]">
                 <ChampionOddsPanel
                   odds={championOdds ?? null}
@@ -750,6 +821,14 @@ export function GroupStageBoard({
             )}
           </div>
         </div>
+      )}
+
+      {isHome && (
+        <p className="text-center">
+          <Link to="/matches?tab=standings" className="btn-ghost">
+            {t('home.viewFullBoard')}
+          </Link>
+        </p>
       )}
     </div>
   );

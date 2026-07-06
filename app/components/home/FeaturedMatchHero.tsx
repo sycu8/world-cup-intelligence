@@ -29,20 +29,21 @@ export function FeaturedMatchHero({ match }: Props) {
         : t('common.match');
 
   return (
-    <section className="space-y-3">
-      <p
-        className={
-          isLive
-            ? 'label-tactical text-live animate-pulse'
-            : 'label-tactical text-cyan'
-        }
-      >
-        {sectionLabel}
-      </p>
-      <div className="hero-glow overflow-hidden rounded-panel border border-cyan/25">
+    <section>
+      <div className="hero-glow overflow-hidden">
         <div className="border-b border-border/60 px-4 py-3 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="label-tactical text-muted-dim">{stageLabel}</p>
+            <p
+              className={
+                isLive
+                  ? 'label-tactical inline-flex items-center gap-1.5 text-live'
+                  : 'label-tactical text-cyan'
+              }
+            >
+              {isLive && <span className="live-dot" aria-hidden />}
+              {sectionLabel}
+            </p>
+            <p className="text-sm text-muted-dim">{stageLabel}</p>
             <MatchKickoffCountdown kickoffUtc={match.kickoff_utc} status={match.status} />
           </div>
 

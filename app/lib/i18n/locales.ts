@@ -265,6 +265,12 @@ export type LocaleKey =
   | 'home.quickStart'
   | 'home.headlines'
   | 'home.loadingHeadlines'
+  | 'home.upcomingTitle'
+  | 'home.upcomingSubtitle'
+  | 'home.viewFullBoard'
+  | 'home.moreInsights'
+  | 'home.exploreSchedule'
+  | 'home.exploreStandings'
   | 'home.newHere'
   | 'guide.title'
   | 'guide.quickStart'
@@ -1052,6 +1058,12 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   },
   'home.quickStart': { vi: 'Lần đầu vào? Bắt đầu trong 4 bước', en: 'New here? Start in 4 steps' },
   'home.headlines': { vi: 'Tin nổi bật', en: 'Headlines' },
+  'home.upcomingTitle': { vi: 'Sắp diễn ra', en: 'Coming up' },
+  'home.upcomingSubtitle': { vi: 'Trận live và trận sắp đá — chạm để xem chi tiết', en: 'Live and upcoming — tap for details' },
+  'home.viewFullBoard': { vi: 'Xem đầy đủ bảng đấu →', en: 'View full tournament board →' },
+  'home.moreInsights': { vi: 'Thêm số liệu & tin tức', en: 'More stats & news' },
+  'home.exploreSchedule': { vi: 'Lịch thi đấu', en: 'Schedule' },
+  'home.exploreStandings': { vi: 'Bảng xếp hạng', en: 'Standings' },
   'home.loadingHeadlines': { vi: 'Đang tải tin nổi bật…', en: 'Loading headlines…' },
   'home.newHere': { vi: 'Lần đầu vào? Bắt đầu trong 4 bước', en: 'New here? Start in 4 steps' },
   'guide.title': { vi: 'Hướng dẫn PitchIntel', en: 'PitchIntel guide' },

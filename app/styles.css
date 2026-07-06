@@ -302,6 +302,38 @@
       0 0 48px rgba(0, 229, 255, 0.06),
       inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
+
+  .home-pulse {
+    @apply rounded-card border border-border/50 bg-panel2/35 px-4 py-3 sm:px-5 sm:py-4;
+  }
+
+  .home-section {
+    @apply rounded-card border border-border/50 bg-panel/80 p-4 sm:p-5;
+  }
+
+  .home-sidebar {
+    @apply rounded-card border border-border/50 bg-panel2/30 p-4 sm:p-5;
+  }
+
+  .home-dashboard {
+    @apply grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start;
+  }
+
+  .home-match-chip {
+    @apply w-[11.5rem] rounded-xl border border-border/50 bg-panel2/40 p-3 transition duration-200;
+  }
+
+  .home-match-chip:hover {
+    @apply border-cyan/30 bg-panel2/60;
+  }
+
+  .home-match-chip--live {
+    @apply border-live/35 bg-live/5;
+  }
+
+  .home-insights-panel {
+    @apply rounded-card border border-border/40 bg-panel2/20;
+  }
 }
 
 @keyframes pulse-glow {

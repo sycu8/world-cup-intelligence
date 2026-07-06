@@ -1,14 +1,26 @@
 import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
+import { Link } from 'react-router-dom';
 import type { GroupStandingsPayload } from '../lib/api';
-import { api, type DashboardData, type NewsArticle, type ScheduleMatch, type ChampionOddsPayload, type PredictionAccuracyReport, type UpcomingProbabilityVerification, type TopScorersPayload } from '../lib/api';
+import {
+  api,
+  type DashboardData,
+  type NewsArticle,
+  type ScheduleMatch,
+  type ChampionOddsPayload,
+  type PredictionAccuracyReport,
+  type UpcomingProbabilityVerification,
+  type TopScorersPayload,
+} from '../lib/api';
 import { consumeHomePrefetch } from '../lib/homePrefetch';
 import { FeaturedMatchHero } from '../components/home/FeaturedMatchHero';
-import { WorldCupCountdown } from '../components/home/WorldCupCountdown';
-import { PlatformSnapshot } from '../components/home/PlatformSnapshot';
+import { HomeLivePulse } from '../components/home/HomeLivePulse';
+import { HomeUpcomingStrip } from '../components/home/HomeUpcomingStrip';
+import { HomeSidebarInsights } from '../components/home/HomeSidebarInsights';
 import { TopScorersPanel } from '../components/home/TopScorersPanel';
 import { PredictionAccuracyPanel } from '../components/home/PredictionAccuracyPanel';
-import { NewUserQuickStart } from '../components/home/NewUserQuickStart';
+import { PlatformSnapshot } from '../components/home/PlatformSnapshot';
 import { Bilingual } from '../components/i18n/Bilingual';
+import { useI18n } from '../lib/i18n/I18nContext';
 
 const HomeNewsPreview = lazy(() =>
   import('../components/home/HomeNewsPreview').then((m) => ({ default: m.HomeNewsPreview })),
@@ -19,24 +31,12 @@ const GroupStageBoard = lazy(() =>
 
 const REFRESH_MS = 30_000;
 
-function SectionFallback({ className = 'min-h-[12rem]' }: { className?: string }) {
-  return <div className={`panel animate-pulse rounded-panel bg-panel2/30 ${className}`} aria-hidden />;
-}
-
-function BoardSkeleton() {
-  return <SectionFallback className="min-h-[24rem]" />;
-}
-
-function HeroSkeleton() {
-  return (
-    <div className="page-hero-glow grid gap-4 lg:grid-cols-2" aria-hidden>
-      <div className="panel min-h-[17rem] animate-pulse bg-panel2/35" />
-      <div className="panel min-h-[12rem] animate-pulse bg-panel2/30" />
-    </div>
-  );
+function SectionFallback({ className = 'min-h-[10rem]' }: { className?: string }) {
+  return <div className={`animate-pulse rounded-card bg-panel2/30 ${className}`} aria-hidden />;
 }
 
 export function HomePage() {
+  const { t } = useI18n();
   const [matches, setMatches] = useState<ScheduleMatch[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [hotNews, setHotNews] = useState<NewsArticle[]>([]);
@@ -45,9 +45,9 @@ export function HomePage() {
   const [topScorers, setTopScorers] = useState<TopScorersPayload | null>(null);
   const [predictionAccuracy, setPredictionAccuracy] = useState<PredictionAccuracyReport | null>(null);
   const [upcomingVerification, setUpcomingVerification] = useState<UpcomingProbabilityVerification | null>(null);
+  const [probs, setProbs] = useState<Record<string, { mostLikelyScore?: string }>>({});
   const [predictionLoading, setPredictionLoading] = useState(true);
-  const [boardReady, setBoardReady] = useState(false);
-  const [extrasReady, setExtrasReady] = useState(false);
+  const [ready, setReady] = useState(false);
 
   const applyHome = useCallback((payload: Awaited<ReturnType<typeof api.home>>) => {
     setMatches(payload.data.schedule.matches);
@@ -64,25 +64,13 @@ export function HomePage() {
         .catch(() => undefined);
     }
     setTopScorers(payload.data.topScorers ?? null);
-    setBoardReady(true);
-    setExtrasReady(true);
-  }, []);
-
-  const loadBoardFast = useCallback(async () => {
-    const [scheduleRes, standingsRes] = await Promise.all([
-      api.schedule().catch(() => null),
-      api.tournamentStandings(2026).catch(() => null),
-    ]);
-    if (scheduleRes) setMatches(scheduleRes.data.matches);
-    if (standingsRes) setStandings(standingsRes.data);
-    if (scheduleRes || standingsRes) setBoardReady(true);
+    setReady(true);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     const run = async () => {
-      const fastBoard = loadBoardFast();
       try {
         const prefetched = await consumeHomePrefetch();
         if (cancelled) return;
@@ -90,40 +78,43 @@ export function HomePage() {
           applyHome(prefetched);
           return;
         }
-        await fastBoard;
-        if (cancelled) return;
         applyHome(await api.home());
       } catch {
-        if (cancelled) return;
-        await fastBoard.catch(() => undefined);
-        setDashboard(null);
-        setHotNews([]);
-        setChampionOdds(null);
-        setTopScorers(null);
-        setBoardReady(true);
-        setExtrasReady(true);
+        if (!cancelled) {
+          setDashboard(null);
+          setHotNews([]);
+          setChampionOdds(null);
+          setTopScorers(null);
+          setReady(true);
+        }
       }
     };
 
     void run();
-    let interval: ReturnType<typeof setInterval> | undefined;
-    const delay = window.setTimeout(() => {
-      interval = window.setInterval(() => {
-        void api
-          .home()
-          .then((payload) => {
-            if (!cancelled) applyHome(payload);
-          })
-          .catch(() => undefined);
-      }, REFRESH_MS);
+    const interval = window.setInterval(() => {
+      void api.home().then((payload) => {
+        if (!cancelled) applyHome(payload);
+      }).catch(() => undefined);
     }, REFRESH_MS);
 
     return () => {
       cancelled = true;
-      window.clearTimeout(delay);
-      if (interval) window.clearInterval(interval);
+      window.clearInterval(interval);
     };
-  }, [applyHome, loadBoardFast]);
+  }, [applyHome]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .tournamentMatchProbabilities(2026)
+      .then((res) => {
+        if (!cancelled) setProbs(res.data);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,75 +149,95 @@ export function HomePage() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <header className="max-w-3xl">
+      <header className="max-w-2xl">
         <Bilingual
           k="home.calendarTitle"
           as="h1"
-          className="font-heading text-2xl tracking-tight sm:text-4xl md:text-5xl"
+          className="font-heading text-2xl tracking-tight sm:text-4xl"
         />
         <Bilingual
           k="home.calendarSubtitle"
           as="p"
-          className="mt-2 text-sm leading-relaxed text-foreground/85 sm:mt-3 sm:text-base"
+          className="mt-2 text-sm leading-relaxed text-muted sm:text-base"
         />
       </header>
 
-      {!extrasReady ? (
-        <HeroSkeleton />
+      {!ready ? (
+        <SectionFallback className="min-h-[4rem]" />
       ) : (
-        <div className="page-hero-glow grid gap-4 lg:grid-cols-2 lg:items-stretch xl:gap-5">
-          <div className="order-1 lg:sticky lg:top-[4.5rem] lg:order-2">
+        <HomeLivePulse dashboard={dashboard} />
+      )}
+
+      {!ready ? (
+        <SectionFallback className="min-h-[20rem]" />
+      ) : (
+        <div className="home-dashboard">
+          <div className="min-w-0">
             {featured ? (
               <FeaturedMatchHero match={featured} />
             ) : (
-              <div className="panel flex min-h-[17rem] items-center justify-center text-muted">
+              <div className="home-section flex min-h-[16rem] items-center justify-center text-muted">
                 <Bilingual k="home.noFeatured" />
               </div>
             )}
           </div>
-          <div className="order-2 lg:order-1">
-            <WorldCupCountdown dashboard={dashboard} />
-          </div>
+          <HomeSidebarInsights
+            dashboard={dashboard}
+            championOdds={championOdds}
+            topScorers={topScorers}
+            loading={!ready}
+          />
         </div>
       )}
 
-      <NewUserQuickStart />
+      {ready && <HomeUpcomingStrip matches={matches} probs={probs} />}
 
-      {!boardReady ? (
-        <BoardSkeleton />
-      ) : (
-        <section className="panel-elevated">
-          <Suspense fallback={<BoardSkeleton />}>
+      <section className="home-section">
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="section-title">{t('groupBoard.title')}</h2>
+            <p className="section-subtitle">{t('groupBoard.subtitle')}</p>
+          </div>
+          <Link to="/matches?tab=standings" className="btn-ghost shrink-0 text-sm">
+            {t('home.exploreStandings')}
+          </Link>
+        </div>
+        {!ready ? (
+          <SectionFallback className="min-h-[16rem]" />
+        ) : (
+          <Suspense fallback={<SectionFallback className="min-h-[16rem]" />}>
             <GroupStageBoard
+              mode="home"
               matches={matches}
               initialStandings={standings}
-              championOdds={championOdds}
-              championOddsLoading={!extrasReady}
             />
           </Suspense>
-        </section>
-      )}
+        )}
+      </section>
 
-      {!extrasReady ? (
-        <div className="grid gap-4 lg:grid-cols-2" aria-hidden>
-          <SectionFallback className="min-h-[14rem]" />
-          <SectionFallback className="min-h-[14rem]" />
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-            <TopScorersPanel data={topScorers} loading={!extrasReady} />
-            <PlatformSnapshot dashboard={dashboard} />
+      {ready && (
+        <details className="home-insights-panel group">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 marker:content-none sm:px-5 [&::-webkit-details-marker]:hidden">
+            <span className="font-heading text-base text-foreground">{t('home.moreInsights')}</span>
+            <span className="text-muted transition-transform group-open:rotate-180" aria-hidden>
+              ▼
+            </span>
+          </summary>
+          <div className="space-y-4 border-t border-border/40 px-4 py-4 sm:px-5 sm:py-5">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <TopScorersPanel data={topScorers} loading={false} />
+              <PlatformSnapshot dashboard={dashboard} />
+            </div>
+            <PredictionAccuracyPanel
+              accuracy={predictionAccuracy}
+              upcoming={upcomingVerification}
+              loading={predictionLoading}
+            />
+            <Suspense fallback={<SectionFallback />}>
+              <HomeNewsPreview initialHot={hotNews} />
+            </Suspense>
           </div>
-          <PredictionAccuracyPanel
-            accuracy={predictionAccuracy}
-            upcoming={upcomingVerification}
-            loading={predictionLoading}
-          />
-          <Suspense fallback={<SectionFallback />}>
-            <HomeNewsPreview initialHot={hotNews} />
-          </Suspense>
-        </>
+        </details>
       )}
     </div>
   );
