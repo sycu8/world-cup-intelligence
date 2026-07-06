@@ -6,6 +6,7 @@ import { Bilingual } from '../i18n/Bilingual';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { formatLocalizedVersus, matchStageLabel } from '../../lib/i18n/stageLabels';
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
+import { MatchScoreBreakdown } from '../match/MatchScoreBreakdown';
 import { MatchKickoffDisplay, ScheduleTimezoneBanner } from '../match/MatchKickoffDisplay';
 import { formatKickoffDateLong, getViewerLocale, localDateKey, SCHEDULE_TZ } from '../../lib/matchKickoffDisplay';
 
@@ -161,6 +162,12 @@ export function MatchScheduleCalendar({ byDate, matches, totalExpected = 104 }: 
                                 m.status === 'completed' || m.status === 'finished' ? 'badge' : 'compact'
                               }
                             />
+                            {(m.status === 'completed' || m.status === 'finished') && (
+                              <>
+                                <span aria-hidden> · </span>
+                                <MatchScoreBreakdown detail={m.scoreDetail} />
+                              </>
+                            )}
                           </>
                         )}
                       </p>

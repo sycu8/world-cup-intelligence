@@ -1,5 +1,7 @@
 import type { AppEnv } from '../env';
-import { attachSlugToScheduleRow } from '../services/matchRef';
+import { attachSlugToScheduleRow } from './matchRef';
+import { attachParsedScoreDetail } from './matchScoreDetailApi';
+import { enrichScheduleScoreDetails } from './matchScoreDetail';
 import {
   resolveScheduleTournamentId,
   WC2026_MATCH_COUNT,
@@ -15,7 +17,7 @@ export async function buildSchedulePayload(
   const { results } = await env.DB.prepare(
     `SELECT m.id, m.kickoff_utc, m.status, m.stage, m.group_code,
             m.home_team_id, m.away_team_id,
-            m.home_score, m.away_score, m.minute, m.tournament_id,
+            m.home_score, m.away_score, m.minute, m.tournament_id, m.score_detail_json,
             ht.name AS home_name, ht.short_name AS home_short, ht.country_code AS home_country_code,
             at.name AS away_name, at.short_name AS away_short, at.country_code AS away_country_code,
             date(m.kickoff_utc) AS match_date
@@ -29,7 +31,17 @@ export async function buildSchedulePayload(
     .all();
 
   const byDate: Record<string, unknown[]> = {};
-  const list = (results ?? []).map((row) => attachSlugToScheduleRow(row as Record<string, unknown>));
+  type ScheduleDbRow = Record<string, unknown> & {
+    id: string;
+    home_team_id: string;
+    away_team_id: string;
+    status: string;
+  };
+  const list = (results ?? []).map((row) =>
+    attachParsedScoreDetail(attachSlugToScheduleRow(row as ScheduleDbRow)),
+  );
+
+  await enrichScheduleScoreDetails(env.DB, list);
   for (const row of list) {
     const d =
       (row as { match_date?: string; kickoff_utc?: string }).match_date ??

@@ -11,13 +11,16 @@ import { MatchTeamsWithFlags } from '../team/TeamNameWithFlag';
 import { CompactMatchProb } from './CompactMatchProb';
 import { MatchKickoffDisplay, ScheduleTimezoneBanner } from '../match/MatchKickoffDisplay';
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
+import { MatchScoreBreakdown } from '../match/MatchScoreBreakdown';
+import { MatchForecastScore } from '../match/MatchForecastScore';
+import { MatchForecastExtras } from '../match/MatchForecastExtras';
 import { formatKickoffDateLong, getViewerLocale, localDateKey, SCHEDULE_TZ } from '../../lib/matchKickoffDisplay';
 
 type Props = {
   byDate: Record<string, ScheduleMatch[]>;
   matches: ScheduleMatch[];
   totalExpected?: number;
-  probs?: Record<string, { homeWin: number; draw: number; awayWin: number }>;
+  probs?: Record<string, { homeWin: number; draw: number; awayWin: number; mostLikelyScore?: string; extraTimeProb?: number; penaltyProb?: number }>;
 };
 
 type StageFilter = 'all' | 'Group' | 'knockout';
@@ -149,6 +152,9 @@ export function TournamentSchedulePanel({
   }
 
   function renderMatchMeta(m: ScheduleMatch) {
+    const isFinal = m.status === 'completed' || m.status === 'finished';
+    const forecast = !hasMatchResult(m.status) ? probs[m.id]?.mostLikelyScore : undefined;
+
     return (
       <p className="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-muted">
         <MatchKickoffDisplay kickoffUtc={m.kickoff_utc} showLocalReference />
@@ -161,8 +167,26 @@ export function TournamentSchedulePanel({
               homeScore={m.home_score}
               awayScore={m.away_score}
               status={m.status}
-              variant={m.status === 'completed' || m.status === 'finished' ? 'badge' : 'compact'}
+              variant={isFinal ? 'badge' : 'compact'}
             />
+            {isFinal && (
+              <>
+                <span aria-hidden> · </span>
+                <MatchScoreBreakdown detail={m.scoreDetail} compact />
+              </>
+            )}
+          </>
+        )}
+        {forecast && (
+          <>
+            <span aria-hidden> · </span>
+            <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <MatchForecastScore score={forecast} showLabel />
+              <MatchForecastExtras
+                extraTimeProb={probs[m.id]?.extraTimeProb}
+                penaltyProb={probs[m.id]?.penaltyProb}
+              />
+            </span>
           </>
         )}
       </p>
@@ -350,19 +374,34 @@ export function TournamentSchedulePanel({
                               awayCountryCode={m.away_country_code}
                               separator={mode === 'en' ? ' vs ' : ' – '}
                             />
-                            {hasMatchResult(m.status) && (
-                              <MatchResultScore
-                                homeScore={m.home_score}
-                                awayScore={m.away_score}
-                                status={m.status}
-                                variant={
-                                  m.status === 'completed' || m.status === 'finished'
-                                    ? 'badge'
-                                    : 'inline'
-                                }
-                                className="ml-2"
-                              />
-                            )}
+                            {hasMatchResult(m.status) ? (
+                              <>
+                                <MatchResultScore
+                                  homeScore={m.home_score}
+                                  awayScore={m.away_score}
+                                  status={m.status}
+                                  variant={
+                                    m.status === 'completed' || m.status === 'finished'
+                                      ? 'badge'
+                                      : 'inline'
+                                  }
+                                  className="ml-2"
+                                />
+                                {(m.status === 'completed' || m.status === 'finished') && (
+                                  <span className="ml-2 inline-flex max-w-full flex-wrap">
+                                    <MatchScoreBreakdown detail={m.scoreDetail} compact />
+                                  </span>
+                                )}
+                              </>
+                            ) : prob?.mostLikelyScore ? (
+                              <span className="ml-2 inline-flex flex-col items-start gap-0.5 align-middle">
+                                <MatchForecastScore score={prob.mostLikelyScore} />
+                                <MatchForecastExtras
+                                  extraTimeProb={prob.extraTimeProb}
+                                  penaltyProb={prob.penaltyProb}
+                                />
+                              </span>
+                            ) : null}
                           </span>
                           {m.stage === 'Group' && m.group_code && (
                             <span className="text-[10px] text-muted">

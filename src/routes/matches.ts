@@ -16,6 +16,7 @@ import { parseEnv } from '../env';
 import { shouldSyncFifaMatch, syncFifaMatchByRef } from '../ingestion/fifa/fifaLiveSync';
 import { withPathCache } from '../services/workersPathCache';
 import * as teamsRepo from '../db/repositories/teamsRepo';
+import { attachResolvedScoreDetail } from '../services/matchScoreDetailApi';
 import { getMatchThumbnailPng, getMatchThumbnailSvg } from '../services/matchThumbnail';
 
 export const matchRoutes = new Hono<{ Bindings: AppEnv }>();
@@ -71,7 +72,8 @@ matchRoutes.get('/:matchId', async (c) => {
       );
     }
 
-    return c.json({ data: resolved }, 200, {
+    const enriched = await attachResolvedScoreDetail(c.env.DB, resolved);
+    return c.json({ data: enriched }, 200, {
       'Cache-Control': 'public, max-age=15, stale-while-revalidate=30',
     });
   });

@@ -104,9 +104,9 @@ export const api = {
   tournamentStandings: (year = 2026) =>
     get<{ data: GroupStandingsPayload }>(`/tournaments/${year}/standings`),
   tournamentMatchProbabilities: (year = 2026) =>
-    get<{ data: Record<string, { homeWin: number; draw: number; awayWin: number }> }>(
-      `/tournaments/${year}/match-probabilities`,
-    ),
+    get<{
+      data: Record<string, { homeWin: number; draw: number; awayWin: number; mostLikelyScore?: string; extraTimeProb?: number; penaltyProb?: number }>;
+    }>(`/tournaments/${year}/match-probabilities`),
   tournamentBracket: (year = 2026) =>
     get<{ data: BracketPayload }>(`/tournaments/${year}/bracket`),
   tournamentChampionOdds: (year = 2026) =>
@@ -208,6 +208,22 @@ export type DashboardData = {
   statusCounts?: Record<string, number>;
 };
 
+export type MatchScoreDetail = {
+  ht?: { home: number; away: number };
+  secondHalf?: { home: number; away: number };
+  ft90?: { home: number; away: number };
+  extraTime?: { home: number; away: number };
+  extraTime1?: { home: number; away: number };
+  extraTime2?: { home: number; away: number };
+  penalties?: { home: number; away: number };
+  stoppage?: {
+    firstHalf?: number;
+    secondHalf?: number;
+    extraTimeFirst?: number;
+    extraTimeSecond?: number;
+  };
+};
+
 export type ScheduleMatch = {
   id: string;
   slug?: string;
@@ -227,6 +243,7 @@ export type ScheduleMatch = {
   home_country_code?: string;
   away_country_code?: string;
   match_date?: string;
+  scoreDetail?: MatchScoreDetail | null;
 };
 
 export type SquadPlayer = {
@@ -408,6 +425,7 @@ export type MatchSummary = {
   minute?: number;
   kickoff_utc?: string;
   stage?: string;
+  scoreDetail?: MatchScoreDetail | null;
 };
 
 export type TeamSummary = {
