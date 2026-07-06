@@ -77,7 +77,7 @@ export function ChampionOddsPanel({ odds, loading = false, layout = 'featured' }
               </div>
               <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-background2 ring-1 ring-border/50">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-cyan/90 to-cyan shadow-[0_0_10px_rgba(0,229,255,0.3)]"
+                  className="progress-bar-fill h-full rounded-full bg-gradient-to-r from-cyan/90 to-cyan shadow-[0_0_10px_rgba(0,229,255,0.3)]"
                   style={{ width: `${Math.max(8, (entry.probability / maxProb) * 100)}%` }}
                 />
               </div>
@@ -127,7 +127,7 @@ export function ChampionOddsPanel({ odds, loading = false, layout = 'featured' }
             </div>
             <div className="mt-2.5 h-2.5 overflow-hidden rounded-full bg-background2 ring-1 ring-border/50 sm:h-3">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-cyan/90 to-cyan shadow-[0_0_12px_rgba(0,229,255,0.35)]"
+                className="progress-bar-fill h-full rounded-full bg-gradient-to-r from-cyan/90 to-cyan shadow-[0_0_12px_rgba(0,229,255,0.35)]"
                 style={{ width: `${Math.max(10, (entry.probability / maxProb) * 100)}%` }}
               />
             </div>

@@ -26,7 +26,7 @@ export function TopNav() {
   const loc = useLocation();
   return (
     <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-3">
+      <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-3 px-4 py-3">
         <BrandLogo />
         <nav className="hidden gap-1 md:flex">
           {links.map((l) => {

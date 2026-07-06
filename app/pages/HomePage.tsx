@@ -27,15 +27,11 @@ function BoardSkeleton() {
   return <SectionFallback className="min-h-[24rem]" />;
 }
 
-function HomeExtrasSkeleton() {
+function HeroSkeleton() {
   return (
-    <div className="space-y-4 sm:space-y-6" aria-hidden>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="order-2 panel min-h-[5rem] animate-pulse rounded-panel bg-panel2/40 lg:order-1" />
-        <div className="order-1 panel min-h-[17rem] animate-pulse rounded-panel bg-panel2/40 lg:order-2" />
-      </div>
-      <SectionFallback className="min-h-[10rem]" />
-      <SectionFallback className="min-h-[8rem]" />
+    <div className="page-hero-glow grid gap-4 lg:grid-cols-2" aria-hidden>
+      <div className="panel min-h-[17rem] animate-pulse bg-panel2/35" />
+      <div className="panel min-h-[12rem] animate-pulse bg-panel2/30" />
     </div>
   );
 }
@@ -162,7 +158,7 @@ export function HomePage() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <header>
+      <header className="max-w-3xl">
         <Bilingual
           k="home.calendarTitle"
           as="h1"
@@ -171,52 +167,62 @@ export function HomePage() {
         <Bilingual
           k="home.calendarSubtitle"
           as="p"
-          className="mt-2 max-w-2xl text-sm text-foreground/80 sm:mt-3 sm:text-base"
+          className="mt-2 text-sm leading-relaxed text-foreground/85 sm:mt-3 sm:text-base"
         />
       </header>
+
+      {!extrasReady ? (
+        <HeroSkeleton />
+      ) : (
+        <div className="page-hero-glow grid gap-4 lg:grid-cols-2 lg:items-stretch xl:gap-5">
+          <div className="order-1 lg:sticky lg:top-[4.5rem] lg:order-2">
+            {featured ? (
+              <FeaturedMatchHero match={featured} />
+            ) : (
+              <div className="panel flex min-h-[17rem] items-center justify-center text-muted">
+                <Bilingual k="home.noFeatured" />
+              </div>
+            )}
+          </div>
+          <div className="order-2 lg:order-1">
+            <WorldCupCountdown dashboard={dashboard} />
+          </div>
+        </div>
+      )}
 
       <NewUserQuickStart />
 
       {!boardReady ? (
         <BoardSkeleton />
       ) : (
-        <Suspense fallback={<BoardSkeleton />}>
-          <GroupStageBoard
-            matches={matches}
-            initialStandings={standings}
-            championOdds={championOdds}
-            championOddsLoading={!extrasReady}
-          />
-        </Suspense>
+        <section className="panel-elevated">
+          <Suspense fallback={<BoardSkeleton />}>
+            <GroupStageBoard
+              matches={matches}
+              initialStandings={standings}
+              championOdds={championOdds}
+              championOddsLoading={!extrasReady}
+            />
+          </Suspense>
+        </section>
       )}
 
       {!extrasReady ? (
-        <HomeExtrasSkeleton />
+        <div className="grid gap-4 lg:grid-cols-2" aria-hidden>
+          <SectionFallback className="min-h-[14rem]" />
+          <SectionFallback className="min-h-[14rem]" />
+        </div>
       ) : (
         <>
-          <TopScorersPanel data={topScorers} loading={!extrasReady} />
-          <div className="space-y-4 sm:space-y-6">
-            <div className="grid gap-4 lg:grid-cols-2 lg:items-start xl:gap-6">
-              <div className="order-2 lg:order-1">
-                <WorldCupCountdown />
-              </div>
-              <div className="order-1 lg:order-2 lg:sticky lg:top-[4.5rem]">
-                {featured ? (
-                  <FeaturedMatchHero match={featured} />
-                ) : (
-                  <div className="panel flex min-h-[17rem] items-center justify-center text-muted">
-                    <Bilingual k="home.noFeatured" />
-                  </div>
-                )}
-              </div>
-            </div>
-            <PredictionAccuracyPanel
-              accuracy={predictionAccuracy}
-              upcoming={upcomingVerification}
-              loading={predictionLoading}
-            />
+          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+            <TopScorersPanel data={topScorers} loading={!extrasReady} />
             <PlatformSnapshot dashboard={dashboard} />
           </div>
+          <PredictionAccuracyPanel
+            accuracy={predictionAccuracy}
+            upcoming={upcomingVerification}
+            loading={predictionLoading}
+          />
           <Suspense fallback={<SectionFallback />}>
             <HomeNewsPreview initialHot={hotNews} />
           </Suspense>

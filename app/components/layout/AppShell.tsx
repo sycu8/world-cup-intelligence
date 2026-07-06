@@ -7,7 +7,7 @@ export function AppShell() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-background text-base leading-relaxed text-foreground">
       <TopNav />
-      <main className="mx-auto max-w-[1280px] px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-6 md:px-6 md:pb-10">
+      <main className="mobile-main-pad mx-auto max-w-[1280px] px-4 pt-6 md:px-6 md:pb-10">
         <Outlet />
         <Footer />
       </main>

@@ -79,7 +79,7 @@ export function TopScorersPanel({ data, loading = false }: Props) {
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-panel/80">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-amber-500/80 to-amber-400"
+                className="progress-bar-fill h-full rounded-full bg-gradient-to-r from-yellow/80 to-yellow"
                 style={{ width: `${Math.max(8, (entry.goals / maxGoals) * 100)}%` }}
               />
             </div>

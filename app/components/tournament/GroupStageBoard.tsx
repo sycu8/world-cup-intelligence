@@ -38,6 +38,26 @@ function formatGd(gd: number): string {
   return gd > 0 ? `+${gd}` : String(gd);
 }
 
+function BoardLegend() {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border/40 bg-panel2/20 px-3 py-2 text-xs text-muted">
+      <span className="font-semibold text-foreground/90">{t('groupBoard.legendTitle')}:</span>
+      <span className="inline-flex items-center gap-1">
+        <span className="qualify-badge qualify-badge--direct">Q</span>
+        {t('groupBoard.legendQualified')}
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="qualify-badge qualify-badge--third">3</span>
+        {t('groupBoard.legendThird')}
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="rounded border border-yellow/35 bg-yellow/10 px-1 font-mono-data text-yellow">2–1</span>
+        {t('groupBoard.legendForecast')}
+      </span>
+    </div>
+  );
+}
 function BoardTab({
   active,
   onClick,
@@ -51,9 +71,9 @@ function BoardTab({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-lg px-3 py-2 text-xs font-semibold transition sm:text-sm ${
+      className={`rounded-xl px-3 py-2 text-xs font-semibold transition sm:text-sm ${
         active
-          ? 'bg-pressing/15 text-pressing ring-1 ring-pressing/30'
+          ? 'bg-cyan/15 text-cyan ring-1 ring-cyan/30'
           : 'text-muted hover:bg-panel2/60 hover:text-foreground'
       }`}
     >
@@ -184,7 +204,7 @@ function KnockoutBoardMatchRow({
   return (
     <Link
       to={resolveMatchHref(match)}
-      className="group block rounded-lg border border-border/50 bg-panel2/25 px-3 py-2.5 transition hover:border-cyan/25 hover:bg-panel2/40 sm:px-4"
+      className="surface-interactive group block rounded-lg border border-border/50 bg-panel2/25 px-3 py-2.5 sm:px-4"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <time className="font-mono-data text-[10px] leading-none text-muted sm:text-[11px]">
@@ -304,8 +324,11 @@ function GroupCard({
                     compact={!row.shortName}
                     flagClassName="h-2.5 w-4 rounded-sm object-cover ring-1 ring-white/10 sm:h-3 sm:w-[1.125rem]"
                   />
+                  {row.rank <= 2 && (
+                    <span className="qualify-badge qualify-badge--direct">Q</span>
+                  )}
                   {row.rank === 3 && (
-                    <span className="ml-0.5 text-[8px] text-yellow">{t('standings.thirdBadge')}</span>
+                    <span className="qualify-badge qualify-badge--third">3</span>
                   )}
                 </td>
                 <td className="py-0.5 text-right font-mono-data">{row.played}</td>
@@ -391,9 +414,9 @@ function GroupStagePanel({
 
   return (
     <div className="space-y-4">
+      <BoardLegend />
       <div className="min-w-0">
-        <p className="text-xs text-muted">{t('groupBoard.subtitle')}</p>
-        <p className="mt-1 font-mono-data text-[10px] text-muted-dim sm:text-xs">
+        <p className="font-mono-data text-xs text-muted-dim sm:text-sm">
           {t('groupBoard.standingsHint')}
         </p>
       </div>
@@ -618,10 +641,13 @@ export function GroupStageBoard({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wider text-pressing">{t('groupBoard.title')}</h2>
+      <div>
+        <h2 className="section-title">{t('groupBoard.title')}</h2>
+        <p className="section-subtitle">{t('groupBoard.subtitle')}</p>
+      </div>
 
       <nav
-        className="flex flex-wrap gap-2 border-b border-border/60 pb-3"
+        className="flex flex-wrap gap-2 rounded-xl border border-border/40 bg-panel2/20 p-1.5"
         aria-label={t('groupBoard.title')}
       >
         <BoardTab
@@ -670,6 +696,8 @@ export function GroupStageBoard({
                   if (progress.total === 0) return null;
                   const isActive = activeKnockoutStage === stage;
                   const isSelected = knockoutStage === stage;
+                  const pctDone =
+                    progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
                   return (
                     <button
                       key={stage}
@@ -680,7 +708,7 @@ export function GroupStageBoard({
                         setKnockoutStage(stage);
                         setKnockoutStagePinned(true);
                       }}
-                      className={`mobile-touch-target shrink-0 rounded-full px-3.5 py-2 text-xs font-medium transition sm:text-sm ${
+                      className={`mobile-touch-target shrink-0 rounded-xl px-3.5 py-2 text-xs font-medium transition sm:text-sm ${
                         isSelected
                           ? 'bg-cyan/15 text-cyan ring-1 ring-cyan/30'
                           : isActive
@@ -688,10 +716,20 @@ export function GroupStageBoard({
                             : 'text-muted hover:bg-panel2/60 hover:text-foreground'
                       }`}
                     >
-                      {label}
-                      <span className="ml-1 font-mono-data text-[10px] opacity-70">
-                        ({progress.done}/{progress.total}
-                        {progress.live > 0 ? ` · ${progress.live} ${t('common.live')}` : ''})
+                      <span className="flex flex-col items-start gap-1">
+                        <span>
+                          {label}
+                          <span className="ml-1 font-mono-data text-[10px] opacity-70">
+                            {progress.done}/{progress.total}
+                            {progress.live > 0 ? ` · ${progress.live} ${t('common.live')}` : ''}
+                          </span>
+                        </span>
+                        <span className="h-1 w-full min-w-[4rem] overflow-hidden rounded-full bg-background2/80">
+                          <span
+                            className="progress-bar-fill block h-full rounded-full bg-current opacity-60"
+                            style={{ width: `${pctDone}%` }}
+                          />
+                        </span>
                       </span>
                     </button>
                   );

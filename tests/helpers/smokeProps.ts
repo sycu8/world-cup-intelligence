@@ -381,7 +381,7 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
     totalExpected: 104,
   },
   ViewModeToggle: { mode: 'tactical', onChange: () => {} },
-  WorldCupCountdown: { targetUtc: '2026-06-11T14:00:00Z', title: 'WC 2026' },
+  WorldCupCountdown: { title: 'WC 2026', dashboard: null },
 };
 
 /** Components that need nested Routes (Outlet or route hooks). */

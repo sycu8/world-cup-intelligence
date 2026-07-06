@@ -241,6 +241,67 @@
   .mobile-touch-target {
     min-height: 2.75rem;
   }
+
+  .section-title {
+    @apply font-heading text-lg font-bold tracking-tight text-foreground sm:text-xl;
+  }
+
+  .section-subtitle {
+    @apply mt-1 text-sm leading-relaxed text-muted;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl border border-cyan/45 bg-cyan/15 px-5 py-2.5 text-sm font-semibold text-cyan transition duration-200;
+  }
+
+  .btn-primary:hover {
+    @apply border-cyan/60 bg-cyan/25 text-foreground;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-xl border border-border/60 bg-panel2/30 px-4 py-2 text-sm font-medium text-foreground/85 transition duration-200;
+  }
+
+  .btn-ghost:hover {
+    @apply border-cyan/35 bg-panel2/55 text-foreground;
+  }
+
+  .surface-interactive {
+    @apply transition duration-200;
+  }
+
+  .surface-interactive:hover {
+    @apply border-cyan/25 bg-panel2/45;
+  }
+
+  .progress-bar-fill {
+    transform-origin: left center;
+    animation: bar-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .qualify-badge {
+    @apply ml-1 inline-flex rounded px-1 py-px text-[0.65rem] font-bold uppercase leading-none;
+  }
+
+  .qualify-badge--direct {
+    @apply bg-defending/15 text-defending ring-1 ring-defending/30;
+  }
+
+  .qualify-badge--third {
+    @apply bg-yellow/15 text-yellow ring-1 ring-yellow/30;
+  }
+
+  .live-dot {
+    @apply inline-block h-2 w-2 shrink-0 rounded-full bg-live;
+    animation: live-pulse 1.4s ease-in-out infinite;
+  }
+
+  .page-hero-glow {
+    @apply relative overflow-hidden rounded-panel border border-cyan/20 bg-panel2/40 p-1;
+    box-shadow:
+      0 0 48px rgba(0, 229, 255, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
 }
 
 @keyframes pulse-glow {
@@ -250,5 +311,28 @@
   }
   50% {
     box-shadow: 0 0 28px rgba(0, 229, 255, 0.16);
+  }
+}
+
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+    opacity: 0.5;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.85);
   }
 }
