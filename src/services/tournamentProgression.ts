@@ -259,6 +259,28 @@ async function applyKnockoutLinks(env: AppEnv, sourceMatchId: string): Promise<s
   return [...affected];
 }
 
+/** Re-apply winner/loser links for every completed knockout match (idempotent backfill). */
+export async function replayKnockoutBracketFromCompleted(env: AppEnv): Promise<string[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT id FROM matches
+     WHERE tournament_id = ? AND stage != 'Group' AND status = 'completed'
+     ORDER BY kickoff_utc ASC`,
+  )
+    .bind(WC2026_TOURNAMENT_ID)
+    .all<{ id: string }>();
+
+  const affected = new Set<string>();
+  for (const row of results ?? []) {
+    const targets = await applyKnockoutLinks(env, row.id);
+    targets.forEach((id) => affected.add(id));
+  }
+
+  if (affected.size) {
+    logInfo('knockout bracket replay applied', { slots: affected.size });
+  }
+  return [...affected];
+}
+
 /** After a match is marked completed: advance bracket + schedule full probability recompute. */
 export async function processMatchCompletion(env: AppEnv, matchId: string): Promise<string[]> {
   const match = await matchesRepo.getMatch(env.DB, matchId);

@@ -7,6 +7,7 @@ import {
   computeGroupStandings,
   computeGroupStandingsFromMatchRows,
   processMatchCompletion,
+  replayKnockoutBracketFromCompleted,
 } from '../src/services/tournamentProgression';
 import { createMockDb, createMockEnv } from './helpers/mockEnv';
 import { FIXTURE_MATCH } from './helpers/fixtures';
@@ -381,5 +382,55 @@ describe('tournamentProgression async helpers', () => {
       }),
     });
     await expect(processMatchCompletion(env, knockoutMatch.id)).resolves.toEqual([]);
+  });
+
+  it('replayKnockoutBracketFromCompleted applies winner links for all completed KO matches', async () => {
+    const completedKo = {
+      ...FIXTURE_MATCH,
+      id: 'm-w26-r32-01',
+      status: 'completed',
+      home_score: 1,
+      away_score: 0,
+      stage: 'Round of 32',
+      group_code: null,
+    };
+    const runCalls: string[] = [];
+    const env = createMockEnv({
+      DB: createMockDb({
+        all: (sql) => {
+          if (sql.includes("stage != 'Group'") && sql.includes('status = \'completed\'')) {
+            return { results: [{ id: completedKo.id }] };
+          }
+          if (sql.includes('source_match_id = ?')) {
+            return {
+              results: [
+                {
+                  id: 'link-r32',
+                  source_match_id: completedKo.id,
+                  target_match_id: 'm-w26-r16-01',
+                  target_slot: 'home',
+                  rule_type: 'winner',
+                  rule_json: null,
+                },
+              ],
+            };
+          }
+          return { results: [] };
+        },
+        first: (sql) => {
+          if (sql.includes('FROM matches WHERE id')) return completedKo;
+          if (sql.includes('AS team_id FROM matches')) return { team_id: 'team-w26-ko-r16-h1' };
+          return null;
+        },
+        run: (sql) => {
+          if (sql.includes('UPDATE matches SET')) runCalls.push(sql);
+          return { success: true };
+        },
+      }),
+    });
+
+    const affected = await replayKnockoutBracketFromCompleted(env);
+    expect(affected).toEqual(['m-w26-r16-01']);
+    expect(runCalls.some((sql) => sql.includes('home_team_id'))).toBe(true);
   });
 });

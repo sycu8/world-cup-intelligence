@@ -100,6 +100,49 @@ describe('ingestion fifaLiveSync', () => {
     vi.useRealTimers();
   });
 
+  it('syncTeamsFromFifaSide assigns knockout teams from FIFA calendar row', async () => {
+    vi.setSystemTime(new Date('2026-07-01T00:00:00Z'));
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    vi.mocked(api.fetchFifaWc2026FixturesCalendar).mockResolvedValue([
+      calendarRow({
+        IdMatch: '400021530',
+        MatchNumber: 90,
+        Date: '2026-07-04T12:00:00Z',
+        MatchStatus: 1,
+        Period: 0,
+        MatchTime: "0'",
+        HomeTeamScore: 0,
+        AwayTeamScore: 0,
+        Home: { IdCountry: 'CAN', TeamName: [{ Locale: 'en-GB', Description: 'Canada' }] },
+        Away: { IdCountry: 'MAR', TeamName: [{ Locale: 'en-GB', Description: 'Morocco' }] },
+      }),
+    ]);
+    const { env } = createIngestionEnv({
+      teams: [
+        ...(FIXTURE_TEAMS as never[]),
+        { id: 'team-w26-b1', name: 'Canada', short_name: 'CAN', country_code: 'CA' },
+        { id: 'team-w26-c4', name: 'Morocco', short_name: 'MAR', country_code: 'MA' },
+      ],
+      matches: [
+        {
+          id: 'm-w26-r16-02',
+          tournament_id: FIXTURE_MATCH.tournament_id,
+          home_team_id: 'team-w26-ko-r16-h2',
+          away_team_id: 'team-w26-ko-r16-a2',
+          kickoff_utc: '2026-07-04T12:00:00Z',
+          status: 'scheduled',
+          stage: 'Round of 16',
+          minute: 0,
+          home_score: 0,
+          away_score: 0,
+          fifa_match_id: '400021530',
+        },
+      ],
+    });
+    const result = await syncFifaWc2026Matches(env);
+    expect(result.teamUpdatedIds).toContain('m-w26-r16-02');
+  });
+
   it('needsFullFifaMatchInfo respects live and kickoff window', () => {
     const row = calendarRow({ Date: kickoff });
     const now = new Date('2026-06-11T21:00:00Z').getTime();

@@ -6,7 +6,7 @@ import { crawlWorldCupNews } from '../ingestion/newsCrawler';
 import { ingestStatsbombWorldCup } from '../ingestion/statsbombIngest';
 import { getIngestHandler } from '../ingestion/sourceRegistry';
 import { recomputeMatchProbability } from '../services/recomputeMatch';
-import { processMatchCompletion } from '../services/tournamentProgression';
+import { processMatchCompletion, replayKnockoutBracketFromCompleted } from '../services/tournamentProgression';
 import {
   runBulkRecomputeIfPending,
   scheduleRecomputeAfterDataChange,
@@ -30,10 +30,15 @@ export async function handleIngestBatch(
     try {
       switch (msg.body.type) {
         case 'refresh_minute': {
-          const { updatedIds, completedIds } = await refreshMatchData(env);
+          const { updatedIds, completedIds, teamUpdatedIds } = await refreshMatchData(env);
 
           if (completedIds.length) {
             await handleCompletedMatches(env, completedIds);
+          }
+
+          const bracketUpdatedIds = await replayKnockoutBracketFromCompleted(env);
+          if (teamUpdatedIds.length || bracketUpdatedIds.length) {
+            await scheduleRecomputeAfterDataChange(env, 'knockout-teams-bracket', { queue: true });
           }
 
           if (await runBulkRecomputeIfPending(env)) break;
