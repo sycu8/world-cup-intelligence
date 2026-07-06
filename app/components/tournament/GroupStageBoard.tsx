@@ -17,6 +17,8 @@ import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
 import { MatchScoreBreakdown } from '../match/MatchScoreBreakdown';
 import { MatchForecastScore } from '../match/MatchForecastScore';
 import { MatchForecastExtras } from '../match/MatchForecastExtras';
+import { ChampionOddsPanel } from '../home/ChampionOddsPanel';
+import type { ChampionOddsPayload } from '../../lib/api';
 
 export type BoardMatchProbability = {
   homeWin: number;
@@ -64,12 +66,10 @@ function BoardMatchRow({
   match,
   prob,
   showDate = false,
-  dense = false,
 }: {
   match: ScheduleMatch;
   prob?: BoardMatchProbability;
   showDate?: boolean;
-  dense?: boolean;
 }) {
   const { t } = useI18n();
   const isFinal = match.status === 'completed' || match.status === 'finished';
@@ -80,9 +80,9 @@ function BoardMatchRow({
   return (
     <Link
       to={resolveMatchHref(match)}
-      className={`group grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-1.5 rounded-md transition hover:bg-pressing/10 sm:gap-2 ${
-        dense ? 'px-2 py-2 sm:px-3' : 'px-2 py-1.5'
-      } ${showBreakdown ? 'gap-y-0.5 pb-1.5' : 'items-center'}`}
+      className={`group grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-1.5 rounded-md px-2 py-1.5 transition hover:bg-pressing/10 sm:gap-2 ${
+        showBreakdown ? 'gap-y-0.5 pb-1.5' : 'items-center'
+      }`}
     >
       <time className="col-start-1 row-start-1 shrink-0 whitespace-nowrap font-mono-data text-[10px] leading-none text-muted">
         <MatchKickoffDisplay
@@ -139,6 +139,100 @@ function BoardMatchRow({
             variant="stacked"
             compact
             className="w-full"
+          />
+        </div>
+      )}
+    </Link>
+  );
+}
+
+function KnockoutBoardMatchRow({
+  match,
+  prob,
+  showDate = false,
+}: {
+  match: ScheduleMatch;
+  prob?: BoardMatchProbability;
+  showDate?: boolean;
+}) {
+  const { t } = useI18n();
+  const isFinal = match.status === 'completed' || match.status === 'finished';
+  const showScore = hasMatchResult(match.status);
+  const showBreakdown = isFinal && !!match.scoreDetail;
+  const showForecast = match.status === 'scheduled' && !!prob?.mostLikelyScore;
+  const flagClassName = 'h-3.5 w-5 shrink-0 rounded-sm object-cover ring-1 ring-white/10 sm:h-4 sm:w-6';
+
+  const scoreCell = showScore ? (
+    <MatchResultScore
+      homeScore={match.home_score}
+      awayScore={match.away_score}
+      status={match.status}
+      variant={isFinal ? 'badge' : 'compact'}
+    />
+  ) : showForecast ? (
+    <div className="flex flex-col items-center gap-0.5">
+      <MatchForecastScore score={prob!.mostLikelyScore!} />
+      <MatchForecastExtras
+        extraTimeProb={prob?.extraTimeProb}
+        penaltyProb={prob?.penaltyProb}
+      />
+    </div>
+  ) : (
+    <span className="font-mono-data text-xs text-muted/40">vs</span>
+  );
+
+  return (
+    <Link
+      to={resolveMatchHref(match)}
+      className="group block rounded-lg border border-border/50 bg-panel2/25 px-3 py-2.5 transition hover:border-cyan/25 hover:bg-panel2/40 sm:px-4"
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <time className="font-mono-data text-[10px] leading-none text-muted sm:text-[11px]">
+          <MatchKickoffDisplay
+            kickoffUtc={match.kickoff_utc}
+            showDate={showDate}
+            inlineDate={showDate}
+            showLocalReference={false}
+          />
+        </time>
+        {match.status === 'live' && (
+          <span className="text-[9px] font-bold uppercase leading-none text-live">{t('common.live')}</span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 sm:gap-x-3">
+        <div className="flex min-w-0 justify-end">
+          <TeamNameWithFlag
+            name={match.home_short?.trim() || match.home_name}
+            flagName={match.home_name}
+            countryCode={match.home_country_code}
+            compact
+            flagClassName={flagClassName}
+            className="max-w-full justify-end truncate text-right text-[11px] font-medium sm:text-xs"
+          />
+        </div>
+
+        <div className="flex shrink-0 flex-col items-center justify-center px-0.5">{scoreCell}</div>
+
+        <div className="flex min-w-0 justify-start">
+          <TeamNameWithFlag
+            name={match.away_short?.trim() || match.away_name}
+            flagName={match.away_name}
+            countryCode={match.away_country_code}
+            compact
+            flagClassName={flagClassName}
+            className="max-w-full truncate text-[11px] font-medium sm:text-xs"
+          />
+        </div>
+      </div>
+
+      {showBreakdown && (
+        <div className="mt-2 border-t border-border/40 pt-1.5">
+          <MatchScoreBreakdown
+            detail={match.scoreDetail}
+            variant="stacked"
+            compact
+            className="justify-center"
           />
         </div>
       )}
@@ -268,10 +362,10 @@ function KnockoutRoundPanel({
   }
 
   return (
-    <ul className="divide-y divide-border/40 rounded-lg border border-border/50 bg-panel2/20">
+    <ul className="grid gap-2 sm:grid-cols-2">
       {roundMatches.map((m) => (
         <li key={m.id}>
-          <BoardMatchRow match={m} prob={probs[m.id]} showDate dense />
+          <KnockoutBoardMatchRow match={m} prob={probs[m.id]} showDate />
         </li>
       ))}
     </ul>
@@ -283,11 +377,15 @@ function GroupStagePanel({
   standingsError,
   groupFixtures,
   probs,
+  championOdds,
+  championOddsLoading,
 }: {
   standings: GroupStandingsPayload | null;
   standingsError: boolean;
   groupFixtures: Record<string, ScheduleMatch[]>;
   probs: Record<string, BoardMatchProbability>;
+  championOdds?: ChampionOddsPayload | null;
+  championOddsLoading?: boolean;
 }) {
   const { t } = useI18n();
 
@@ -338,6 +436,10 @@ function GroupStagePanel({
           </ol>
         </div>
       )}
+
+      {(championOdds || championOddsLoading) && (
+        <ChampionOddsPanel odds={championOdds ?? null} loading={championOddsLoading} layout="compact" />
+      )}
     </div>
   );
 }
@@ -346,12 +448,16 @@ type Props = {
   matches: ScheduleMatch[];
   initialStandings?: GroupStandingsPayload | null;
   initialProbs?: Record<string, BoardMatchProbability>;
+  championOdds?: ChampionOddsPayload | null;
+  championOddsLoading?: boolean;
 };
 
 export function GroupStageBoard({
   matches,
   initialStandings = null,
   initialProbs = {},
+  championOdds = null,
+  championOddsLoading = false,
 }: Props) {
   const { t } = useI18n();
   const hasInitialBoard = !!initialStandings;
@@ -539,6 +645,8 @@ export function GroupStageBoard({
             standingsError={standingsError}
             groupFixtures={groupFixtures}
             probs={probs}
+            championOdds={championOdds}
+            championOddsLoading={championOddsLoading}
           />
         )
       ) : (
@@ -550,45 +658,59 @@ export function GroupStageBoard({
             </p>
           )}
 
-          <div
-            className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin"
-            role="tablist"
-            aria-label={t('groupBoard.tabKnockout')}
-          >
-            {knockoutRoundLabels.map(({ stage, label }) => {
-              const progress = knockoutRoundProgress(knockoutMatches, stage);
-              if (progress.total === 0) return null;
-              const isActive = activeKnockoutStage === stage;
-              const isSelected = knockoutStage === stage;
-              return (
-                <button
-                  key={stage}
-                  type="button"
-                  role="tab"
-                  aria-selected={isSelected}
-                  onClick={() => {
-                    setKnockoutStage(stage);
-                    setKnockoutStagePinned(true);
-                  }}
-                  className={`mobile-touch-target shrink-0 rounded-full px-3.5 py-2 text-xs font-medium transition sm:text-sm ${
-                    isSelected
-                      ? 'bg-cyan/15 text-cyan ring-1 ring-cyan/30'
-                      : isActive
-                        ? 'bg-live/10 text-live ring-1 ring-live/25'
-                        : 'text-muted hover:bg-panel2/60 hover:text-foreground'
-                  }`}
-                >
-                  {label}
-                  <span className="ml-1 font-mono-data text-[10px] opacity-70">
-                    ({progress.done}/{progress.total}
-                    {progress.live > 0 ? ` · ${progress.live} ${t('common.live')}` : ''})
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start">
+            <div className="space-y-3">
+              <div
+                className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-thin"
+                role="tablist"
+                aria-label={t('groupBoard.tabKnockout')}
+              >
+                {knockoutRoundLabels.map(({ stage, label }) => {
+                  const progress = knockoutRoundProgress(knockoutMatches, stage);
+                  if (progress.total === 0) return null;
+                  const isActive = activeKnockoutStage === stage;
+                  const isSelected = knockoutStage === stage;
+                  return (
+                    <button
+                      key={stage}
+                      type="button"
+                      role="tab"
+                      aria-selected={isSelected}
+                      onClick={() => {
+                        setKnockoutStage(stage);
+                        setKnockoutStagePinned(true);
+                      }}
+                      className={`mobile-touch-target shrink-0 rounded-full px-3.5 py-2 text-xs font-medium transition sm:text-sm ${
+                        isSelected
+                          ? 'bg-cyan/15 text-cyan ring-1 ring-cyan/30'
+                          : isActive
+                            ? 'bg-live/10 text-live ring-1 ring-live/25'
+                            : 'text-muted hover:bg-panel2/60 hover:text-foreground'
+                      }`}
+                    >
+                      {label}
+                      <span className="ml-1 font-mono-data text-[10px] opacity-70">
+                        ({progress.done}/{progress.total}
+                        {progress.live > 0 ? ` · ${progress.live} ${t('common.live')}` : ''})
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
 
-          <KnockoutRoundPanel stage={knockoutStage} matches={knockoutMatches} probs={probs} />
+              <KnockoutRoundPanel stage={knockoutStage} matches={knockoutMatches} probs={probs} />
+            </div>
+
+            {(championOdds || championOddsLoading) && (
+              <div className="xl:sticky xl:top-[4.5rem]">
+                <ChampionOddsPanel
+                  odds={championOdds ?? null}
+                  loading={championOddsLoading}
+                  layout="compact"
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

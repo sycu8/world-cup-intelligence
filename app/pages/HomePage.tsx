@@ -5,7 +5,6 @@ import { consumeHomePrefetch } from '../lib/homePrefetch';
 import { FeaturedMatchHero } from '../components/home/FeaturedMatchHero';
 import { WorldCupCountdown } from '../components/home/WorldCupCountdown';
 import { PlatformSnapshot } from '../components/home/PlatformSnapshot';
-import { ChampionOddsPanel } from '../components/home/ChampionOddsPanel';
 import { TopScorersPanel } from '../components/home/TopScorersPanel';
 import { PredictionAccuracyPanel } from '../components/home/PredictionAccuracyPanel';
 import { NewUserQuickStart } from '../components/home/NewUserQuickStart';
@@ -32,10 +31,7 @@ function HomeExtrasSkeleton() {
   return (
     <div className="space-y-4 sm:space-y-6" aria-hidden>
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="order-2 flex flex-col gap-4 lg:order-1">
-          <div className="panel min-h-[5rem] animate-pulse rounded-panel bg-panel2/40" />
-          <div className="panel min-h-[12rem] animate-pulse rounded-panel bg-panel2/35" />
-        </div>
+        <div className="order-2 panel min-h-[5rem] animate-pulse rounded-panel bg-panel2/40 lg:order-1" />
         <div className="order-1 panel min-h-[17rem] animate-pulse rounded-panel bg-panel2/40 lg:order-2" />
       </div>
       <SectionFallback className="min-h-[10rem]" />
@@ -188,6 +184,8 @@ export function HomePage() {
           <GroupStageBoard
             matches={matches}
             initialStandings={standings}
+            championOdds={championOdds}
+            championOddsLoading={!extrasReady}
           />
         </Suspense>
       )}
@@ -199,9 +197,8 @@ export function HomePage() {
           <TopScorersPanel data={topScorers} loading={!extrasReady} />
           <div className="space-y-4 sm:space-y-6">
             <div className="grid gap-4 lg:grid-cols-2 lg:items-start xl:gap-6">
-              <div className="order-2 flex flex-col gap-4 lg:order-1">
+              <div className="order-2 lg:order-1">
                 <WorldCupCountdown />
-                <ChampionOddsPanel odds={championOdds} loading={!extrasReady} />
               </div>
               <div className="order-1 lg:order-2 lg:sticky lg:top-[4.5rem]">
                 {featured ? (
