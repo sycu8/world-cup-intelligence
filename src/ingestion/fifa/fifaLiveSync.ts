@@ -153,7 +153,7 @@ export async function syncTeamsFromFifaSide(
 
   logInfo('fifa knockout teams synced', {
     match_id: internal.id,
-    stage: internal.stage,
+    stage: internal.stage ?? undefined,
     home_team_id: homeId,
     away_team_id: awayId,
   });
