@@ -30,15 +30,16 @@ function BoardSkeleton() {
 
 function HomeExtrasSkeleton() {
   return (
-    <div className="space-y-8" aria-hidden>
-      <div className="grid min-h-[17rem] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-        <div className="flex flex-col gap-4">
-          <div className="panel min-h-[12rem] animate-pulse rounded-panel bg-panel2/40" />
-          <div className="panel min-h-[10rem] flex-1 animate-pulse rounded-panel bg-panel2/35" />
+    <div className="space-y-4 sm:space-y-6" aria-hidden>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="order-2 flex flex-col gap-4 lg:order-1">
+          <div className="panel min-h-[5rem] animate-pulse rounded-panel bg-panel2/40" />
+          <div className="panel min-h-[12rem] animate-pulse rounded-panel bg-panel2/35" />
         </div>
-        <div className="panel min-h-[17rem] animate-pulse rounded-panel bg-panel2/40" />
+        <div className="order-1 panel min-h-[17rem] animate-pulse rounded-panel bg-panel2/40 lg:order-2" />
       </div>
-      <SectionFallback />
+      <SectionFallback className="min-h-[10rem]" />
+      <SectionFallback className="min-h-[8rem]" />
     </div>
   );
 }
@@ -196,24 +197,28 @@ export function HomePage() {
       ) : (
         <>
           <TopScorersPanel data={topScorers} loading={!extrasReady} />
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-stretch">
-            <div className="flex flex-col gap-4">
-              <WorldCupCountdown />
-              <ChampionOddsPanel odds={championOdds} loading={!extrasReady} />
-              <PredictionAccuracyPanel
-                accuracy={predictionAccuracy}
-                upcoming={upcomingVerification}
-                loading={predictionLoading}
-              />
-              <PlatformSnapshot dashboard={dashboard} compact />
-            </div>
-            {featured ? (
-              <FeaturedMatchHero match={featured} />
-            ) : (
-              <div className="panel flex min-h-[17rem] items-center justify-center text-muted">
-                <Bilingual k="home.noFeatured" />
+          <div className="space-y-4 sm:space-y-6">
+            <div className="grid gap-4 lg:grid-cols-2 lg:items-start xl:gap-6">
+              <div className="order-2 flex flex-col gap-4 lg:order-1">
+                <WorldCupCountdown />
+                <ChampionOddsPanel odds={championOdds} loading={!extrasReady} />
               </div>
-            )}
+              <div className="order-1 lg:order-2 lg:sticky lg:top-[4.5rem]">
+                {featured ? (
+                  <FeaturedMatchHero match={featured} />
+                ) : (
+                  <div className="panel flex min-h-[17rem] items-center justify-center text-muted">
+                    <Bilingual k="home.noFeatured" />
+                  </div>
+                )}
+              </div>
+            </div>
+            <PredictionAccuracyPanel
+              accuracy={predictionAccuracy}
+              upcoming={upcomingVerification}
+              loading={predictionLoading}
+            />
+            <PlatformSnapshot dashboard={dashboard} />
           </div>
           <Suspense fallback={<SectionFallback />}>
             <HomeNewsPreview initialHot={hotNews} />

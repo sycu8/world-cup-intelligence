@@ -155,15 +155,15 @@ export function FeaturedMatchHero({ match }: Props) {
         ) : match.status !== 'completed' && match.status !== 'finished' ? (
           <p className="px-4 pb-4 text-sm text-muted md:px-6">{t('featured.probLoading')}</p>
         ) : null}
-      </div>
 
-      <div className="flex justify-center">
-        <Link
-          to={resolveMatchHref(match)}
-          className="rounded-full border border-cyan/40 bg-cyan/10 px-8 py-2.5 text-sm font-semibold text-cyan transition hover:bg-cyan/20"
-        >
-          <Bilingual k="match.fullAnalysis" as="span" /> →
-        </Link>
+        <div className="border-t border-border/60 px-4 py-3 md:px-6">
+          <Link
+            to={resolveMatchHref(match)}
+            className="flex w-full items-center justify-center rounded-lg border border-cyan/40 bg-cyan/10 px-6 py-2.5 text-sm font-semibold text-cyan transition hover:bg-cyan/20"
+          >
+            <Bilingual k="match.fullAnalysis" as="span" /> →
+          </Link>
+        </div>
       </div>
     </section>
   );
