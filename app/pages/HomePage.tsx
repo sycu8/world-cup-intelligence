@@ -148,7 +148,7 @@ export function HomePage() {
   const featured = dashboard?.featuredMatch ?? null;
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="layout-contained space-y-6 sm:space-y-8">
       <header className="max-w-2xl">
         <Bilingual
           k="home.calendarTitle"
@@ -171,7 +171,7 @@ export function HomePage() {
       {!ready ? (
         <SectionFallback className="min-h-[20rem]" />
       ) : (
-        <div className="home-dashboard">
+        <div className="home-dashboard layout-contained">
           <div className="min-w-0">
             {featured ? (
               <FeaturedMatchHero match={featured} />
@@ -192,13 +192,13 @@ export function HomePage() {
 
       {ready && <HomeUpcomingStrip matches={matches} probs={probs} />}
 
-      <section className="home-section">
-        <div className="mb-4 flex items-end justify-between gap-3">
-          <div>
+      <section className="home-section layout-contained">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
             <h2 className="section-title">{t('groupBoard.title')}</h2>
             <p className="section-subtitle">{t('groupBoard.subtitle')}</p>
           </div>
-          <Link to="/matches?tab=standings" className="btn-ghost shrink-0 text-sm">
+          <Link to="/matches?tab=standings" className="btn-ghost shrink-0 self-start text-sm sm:self-auto">
             {t('home.exploreStandings')}
           </Link>
         </div>
@@ -216,7 +216,7 @@ export function HomePage() {
       </section>
 
       {ready && (
-        <details className="home-insights-panel group">
+        <details className="home-insights-panel layout-contained group">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 marker:content-none sm:px-5 [&::-webkit-details-marker]:hidden">
             <span className="font-heading text-base text-foreground">{t('home.moreInsights')}</span>
             <span className="text-muted transition-transform group-open:rotate-180" aria-hidden>

@@ -204,10 +204,10 @@ function KnockoutBoardMatchRow({
   return (
     <Link
       to={resolveMatchHref(match)}
-      className="surface-interactive group block rounded-lg border border-border/50 bg-panel2/25 px-3 py-2.5 sm:px-4"
+      className="surface-interactive group block min-w-0 max-w-full overflow-hidden rounded-lg border border-border/50 bg-panel2/25 px-3 py-2.5 sm:px-4"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <time className="font-mono-data text-[10px] leading-none text-muted sm:text-[11px]">
+        <time className="shrink-0 font-mono-data text-[10px] leading-none text-muted sm:text-[11px]">
           <MatchKickoffDisplay
             kickoffUtc={match.kickoff_utc}
             showDate={showDate}
@@ -216,32 +216,34 @@ function KnockoutBoardMatchRow({
           />
         </time>
         {match.status === 'live' && (
-          <span className="text-[9px] font-bold uppercase leading-none text-live">{t('common.live')}</span>
+          <span className="shrink-0 text-[9px] font-bold uppercase leading-none text-live">{t('common.live')}</span>
         )}
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 sm:gap-x-3">
-        <div className="flex min-w-0 justify-end">
+      <div className="flex w-full min-w-0 items-center gap-1 sm:gap-2">
+        <div className="flex min-w-0 flex-1 justify-end overflow-hidden">
           <TeamNameWithFlag
             name={match.home_short?.trim() || match.home_name}
             flagName={match.home_name}
             countryCode={match.home_country_code}
             compact
             flagClassName={flagClassName}
-            className="max-w-full justify-end truncate text-right text-[11px] font-medium sm:text-xs"
+            className="max-w-full justify-end text-[11px] font-medium sm:text-xs"
           />
         </div>
 
-        <div className="flex shrink-0 flex-col items-center justify-center px-0.5">{scoreCell}</div>
+        <div className="flex w-[4.25rem] shrink-0 flex-col items-center justify-center sm:w-auto sm:px-1">
+          {scoreCell}
+        </div>
 
-        <div className="flex min-w-0 justify-start">
+        <div className="flex min-w-0 flex-1 justify-start overflow-hidden">
           <TeamNameWithFlag
             name={match.away_short?.trim() || match.away_name}
             flagName={match.away_name}
             countryCode={match.away_country_code}
             compact
             flagClassName={flagClassName}
-            className="max-w-full truncate text-[11px] font-medium sm:text-xs"
+            className="max-w-full text-[11px] font-medium sm:text-xs"
           />
         </div>
       </div>
@@ -391,7 +393,7 @@ function KnockoutRoundPanel({
 
   return (
     <>
-      <ul className="grid gap-2 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
         {visible.map((m) => (
           <li key={m.id}>
             <KnockoutBoardMatchRow match={m} prob={probs[m.id]} showDate />
@@ -438,7 +440,11 @@ function GroupStagePanel({
     <div className="space-y-4">
       {!isHome && <BoardLegend />}
       {isHome && onSelectGroup && (
-        <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin" role="tablist">
+        <div
+          className="scroll-strip max-w-full"
+          role="tablist"
+          aria-label={t('groupBoard.tabGroup')}
+        >
           {GROUPS.map((code) => (
             <button
               key={code}
@@ -692,7 +698,7 @@ export function GroupStageBoard({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 max-w-full space-y-4">
       {!isHome && (
         <div>
           <h2 className="section-title">{t('groupBoard.title')}</h2>
@@ -741,10 +747,10 @@ export function GroupStageBoard({
             </p>
           )}
 
-          <div className={isHome ? 'space-y-3' : 'grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start'}>
-            <div className="space-y-3">
+          <div className={isHome ? 'min-w-0 space-y-3' : 'grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start'}>
+            <div className="min-w-0 space-y-3">
               <div
-                className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-thin"
+                className="scroll-strip max-w-full"
                 role="tablist"
                 aria-label={t('groupBoard.tabKnockout')}
               >
@@ -789,7 +795,7 @@ export function GroupStageBoard({
                               {progress.live > 0 ? ` · ${progress.live} ${t('common.live')}` : ''}
                             </span>
                           </span>
-                          <span className="h-1 w-full min-w-[4rem] overflow-hidden rounded-full bg-background2/80">
+                          <span className="hidden h-1 w-full min-w-[3rem] overflow-hidden rounded-full bg-background2/80 sm:block">
                             <span
                               className="progress-bar-fill block h-full rounded-full bg-current opacity-60"
                               style={{ width: `${pctDone}%` }}

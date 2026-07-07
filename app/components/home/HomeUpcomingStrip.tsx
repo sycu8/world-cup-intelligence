@@ -51,9 +51,9 @@ export function HomeUpcomingStrip({ matches, probs = {} }: Props) {
   if (stripMatches.length === 0) return null;
 
   return (
-    <section className="home-section">
-      <div className="mb-3 flex items-end justify-between gap-2">
-        <div>
+    <section className="home-section layout-contained">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <h2 className="section-title">{t('home.upcomingTitle')}</h2>
           <p className="section-subtitle">{t('home.upcomingSubtitle')}</p>
         </div>
@@ -62,7 +62,7 @@ export function HomeUpcomingStrip({ matches, probs = {} }: Props) {
         </Link>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-thin">
+      <div className="scroll-strip -mx-4 px-4 sm:-mx-5 sm:px-5">
         {stripMatches.map((m) => {
           const forecast = !hasMatchResult(m.status) ? probs[m.id]?.mostLikelyScore : undefined;
           const isLive = m.status === 'live';

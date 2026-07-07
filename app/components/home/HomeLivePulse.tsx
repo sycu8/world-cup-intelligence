@@ -16,7 +16,7 @@ export function HomeLivePulse({ dashboard }: Props) {
   const progressPct = expected > 0 ? Math.min(100, Math.round((done / expected) * 100)) : 0;
 
   return (
-    <section className="home-pulse" aria-label={t('wc.title')}>
+    <section className="home-pulse layout-contained" aria-label={t('wc.title')}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="text-xl" aria-hidden>

@@ -304,23 +304,23 @@
   }
 
   .home-pulse {
-    @apply rounded-card border border-border/50 bg-panel2/35 px-4 py-3 sm:px-5 sm:py-4;
+    @apply min-w-0 max-w-full rounded-card border border-border/50 bg-panel2/35 px-4 py-3 sm:px-5 sm:py-4;
   }
 
   .home-section {
-    @apply rounded-card border border-border/50 bg-panel/80 p-4 sm:p-5;
+    @apply min-w-0 max-w-full overflow-hidden rounded-card border border-border/50 bg-panel/80 p-4 sm:p-5;
   }
 
   .home-sidebar {
-    @apply rounded-card border border-border/50 bg-panel2/30 p-4 sm:p-5;
+    @apply min-w-0 max-w-full rounded-card border border-border/50 bg-panel2/30 p-4 sm:p-5;
   }
 
   .home-dashboard {
-    @apply grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start;
+    @apply grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start;
   }
 
   .home-match-chip {
-    @apply w-[11.5rem] rounded-xl border border-border/50 bg-panel2/40 p-3 transition duration-200;
+    @apply w-[min(11.5rem,78vw)] shrink-0 rounded-xl border border-border/50 bg-panel2/40 p-3 transition duration-200;
   }
 
   .home-match-chip:hover {
@@ -332,7 +332,15 @@
   }
 
   .home-insights-panel {
-    @apply rounded-card border border-border/40 bg-panel2/20;
+    @apply min-w-0 max-w-full overflow-hidden rounded-card border border-border/40 bg-panel2/20;
+  }
+
+  .scroll-strip {
+    @apply -mx-1 flex gap-2 overflow-x-auto overscroll-x-contain pb-1 scrollbar-thin sm:mx-0;
+  }
+
+  .layout-contained {
+    @apply min-w-0 max-w-full overflow-x-hidden;
   }
 }
 
