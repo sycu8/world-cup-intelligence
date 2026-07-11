@@ -56,7 +56,12 @@ vi.mock('../src/services/recomputeMatch', () => ({
 }));
 
 vi.mock('../src/ingestion/matchDataRefresh', () => ({
-  refreshMatchData: vi.fn(async () => ({ updatedIds: [], completedIds: ['m-done'] })),
+  refreshMatchData: vi.fn(async () => ({
+    updatedIds: [],
+    completedIds: ['m-done'],
+    teamUpdatedIds: [],
+    bracketUpdatedIds: [],
+  })),
   handleCompletedMatches: vi.fn(async () => undefined),
 }));
 
@@ -74,6 +79,7 @@ vi.mock('../src/ingestion/sourceRegistry', () => ({
 
 vi.mock('../src/services/tournamentProgression', () => ({
   processMatchCompletion: vi.fn(async () => undefined),
+  replayKnockoutBracketFromCompleted: vi.fn(async () => []),
 }));
 
 vi.mock('../src/models/scenarios/backtesting/scenarioBacktestRunner', () => ({
@@ -502,7 +508,12 @@ describe('coverage branches — global backend gaps', () => {
 
   it('handleIngestBatch refresh_minute uses DB fallback when no updated ids', async () => {
     const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
-    vi.mocked(refreshMatchData).mockResolvedValueOnce({ updatedIds: [], completedIds: [] });
+    vi.mocked(refreshMatchData).mockResolvedValueOnce({
+      updatedIds: [],
+      completedIds: [],
+      teamUpdatedIds: [],
+      bracketUpdatedIds: [],
+    });
     const send = vi.fn(async () => undefined);
     await handleIngestBatch(
       createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'k4' } }]),

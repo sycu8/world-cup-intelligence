@@ -39,6 +39,8 @@ export function PredictionAccuracyPanel({ accuracy, upcoming, loading = false }:
   const hitRate = accuracy.favoriteHitRate != null ? pct(accuracy.favoriteHitRate) : '—';
   const scoreRate = accuracy.scorelineHitRate != null ? pct(accuracy.scorelineHitRate) : '—';
   const top3Rate = accuracy.scorelineTop3HitRate != null ? pct(accuracy.scorelineTop3HitRate) : '—';
+  const actualScoreProb =
+    accuracy.avgActualScoreProb != null ? pct(accuracy.avgActualScoreProb) : '—';
   const brier = accuracy.avgBrier != null ? accuracy.avgBrier.toFixed(3) : '—';
 
   return (
@@ -52,32 +54,34 @@ export function PredictionAccuracyPanel({ accuracy, upcoming, loading = false }:
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        <div className="rounded-lg border border-border/50 bg-panel2/30 px-3 py-2 text-center">
-          <p className="font-heading text-xl text-foreground">{hitRate}</p>
-          <p className="mt-1 text-[11px] text-muted">
-            {t('home.predictionAccuracy.favoriteHit').replace(
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+        {[
+          {
+            value: hitRate,
+            label: t('home.predictionAccuracy.favoriteHit').replace(
               '{n}',
               String(accuracy.favoriteHits),
-            ).replace('{total}', String(accuracy.completedWithSnapshot))}
-          </p>
-        </div>
-        <div className="rounded-lg border border-border/50 bg-panel2/30 px-3 py-2 text-center">
-          <p className="font-heading text-xl text-foreground">{scoreRate}</p>
-          <p className="mt-1 text-[11px] text-muted">{t('home.predictionAccuracy.scorelineHit')}</p>
-        </div>
-        <div className="rounded-lg border border-border/50 bg-panel2/30 px-3 py-2 text-center">
-          <p className="font-heading text-xl text-foreground">{top3Rate}</p>
-          <p className="mt-1 text-[11px] text-muted">{t('home.predictionAccuracy.scorelineTop3Hit')}</p>
-        </div>
-        <div className="rounded-lg border border-border/50 bg-panel2/30 px-3 py-2 text-center">
-          <p className="font-heading text-xl text-foreground">{brier}</p>
-          <p className="mt-1 text-[11px] text-muted">{t('home.predictionAccuracy.avgBrier')}</p>
-        </div>
-        <div className="col-span-2 rounded-lg border border-border/50 bg-panel2/30 px-3 py-2 text-center sm:col-span-1">
-          <p className="font-heading text-xl text-foreground">{accuracy.completedWithSnapshot}</p>
-          <p className="mt-1 text-[11px] text-muted">{t('home.predictionAccuracy.evaluated')}</p>
-        </div>
+            ).replace('{total}', String(accuracy.completedWithSnapshot)),
+          },
+          { value: scoreRate, label: t('home.predictionAccuracy.scorelineHit') },
+          { value: top3Rate, label: t('home.predictionAccuracy.scorelineTop3Hit') },
+          { value: actualScoreProb, label: t('home.predictionAccuracy.avgActualScoreProb') },
+          { value: brier, label: t('home.predictionAccuracy.avgBrier') },
+          {
+            value: String(accuracy.completedWithSnapshot),
+            label: t('home.predictionAccuracy.evaluated'),
+          },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-lg border border-border/50 bg-panel2/30 px-3 py-2.5 text-center"
+          >
+            <p className="text-[10px] font-medium uppercase leading-snug tracking-wide text-muted sm:text-[11px]">
+              {stat.label}
+            </p>
+            <p className="mt-1 font-heading text-xl text-foreground sm:text-2xl">{stat.value}</p>
+          </div>
+        ))}
       </div>
 
       {accuracy.recent.length > 0 && (

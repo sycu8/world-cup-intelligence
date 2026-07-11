@@ -243,6 +243,7 @@ export type LocaleKey =
   | 'home.predictionAccuracy.favoriteHit'
   | 'home.predictionAccuracy.scorelineHit'
   | 'home.predictionAccuracy.scorelineTop3Hit'
+  | 'home.predictionAccuracy.avgActualScoreProb'
   | 'home.predictionAccuracy.avgBrier'
   | 'home.predictionAccuracy.evaluated'
   | 'home.predictionAccuracy.upcomingTitle'
@@ -264,6 +265,12 @@ export type LocaleKey =
   | 'home.quickStart'
   | 'home.headlines'
   | 'home.loadingHeadlines'
+  | 'home.upcomingTitle'
+  | 'home.upcomingSubtitle'
+  | 'home.viewFullBoard'
+  | 'home.moreInsights'
+  | 'home.exploreSchedule'
+  | 'home.exploreStandings'
   | 'home.newHere'
   | 'guide.title'
   | 'guide.quickStart'
@@ -319,6 +326,9 @@ export type LocaleKey =
   | 'wc.title'
   | 'wc.underway'
   | 'wc.countdownTo'
+  | 'wc.progress'
+  | 'wc.liveNow'
+  | 'wc.nextUp'
   | 'multiVar.loading'
   | 'history.moreMeetings'
   | 'calendar.filterAll'
@@ -367,6 +377,10 @@ export type LocaleKey =
   | 'groupBoard.knockoutSubtitle'
   | 'groupBoard.knockoutLocked'
   | 'groupBoard.openAnalysis'
+  | 'groupBoard.legendTitle'
+  | 'groupBoard.legendQualified'
+  | 'groupBoard.legendThird'
+  | 'groupBoard.legendForecast'
   | 'compactProb.noAnalysis'
   | 'compactProb.noAnalysisTitle'
   | 'home.newUserHint'
@@ -984,6 +998,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     vi: 'Tỉ số thật nằm trong top 3',
     en: 'Actual score in top 3 picks',
   },
+  'home.predictionAccuracy.avgActualScoreProb': {
+    vi: 'Xác suất tỉ số thật (TB)',
+    en: 'Avg prob. of actual score',
+  },
   'home.predictionAccuracy.avgBrier': {
     vi: 'Brier trung bình (W/D/L)',
     en: 'Avg Brier (W/D/L)',
@@ -1040,6 +1058,12 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   },
   'home.quickStart': { vi: 'Lần đầu vào? Bắt đầu trong 4 bước', en: 'New here? Start in 4 steps' },
   'home.headlines': { vi: 'Tin nổi bật', en: 'Headlines' },
+  'home.upcomingTitle': { vi: 'Sắp diễn ra', en: 'Coming up' },
+  'home.upcomingSubtitle': { vi: 'Trận live và trận sắp đá — chạm để xem chi tiết', en: 'Live and upcoming — tap for details' },
+  'home.viewFullBoard': { vi: 'Xem đầy đủ bảng đấu →', en: 'View full tournament board →' },
+  'home.moreInsights': { vi: 'Thêm số liệu & tin tức', en: 'More stats & news' },
+  'home.exploreSchedule': { vi: 'Lịch thi đấu', en: 'Schedule' },
+  'home.exploreStandings': { vi: 'Bảng xếp hạng', en: 'Standings' },
   'home.loadingHeadlines': { vi: 'Đang tải tin nổi bật…', en: 'Loading headlines…' },
   'home.newHere': { vi: 'Lần đầu vào? Bắt đầu trong 4 bước', en: 'New here? Start in 4 steps' },
   'guide.title': { vi: 'Hướng dẫn PitchIntel', en: 'PitchIntel guide' },
@@ -1118,6 +1142,9 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'wc.title': { vi: 'World Cup 2026', en: 'FIFA World Cup 2026' },
   'wc.underway': { vi: 'Đang diễn ra', en: 'Ongoing' },
   'wc.countdownTo': { vi: 'Đếm ngược tới World Cup 2026', en: 'Countdown to FIFA World Cup 2026' },
+  'wc.progress': { vi: '{done}/{total} trận đã đá', en: '{done}/{total} matches played' },
+  'wc.liveNow': { vi: '{n} trận đang live', en: '{n} live now' },
+  'wc.nextUp': { vi: 'Tiếp theo', en: 'Up next' },
   'multiVar.loading': { vi: 'Đang phân tích…', en: 'Analyzing…' },
   'history.moreMeetings': {
     vi: 'Các trận đã kết thúc giữa hai đội tại WC 2026.',
@@ -1213,6 +1240,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'Knockout fixtures appear once all 12 groups are complete.',
   },
   'groupBoard.openAnalysis': { vi: 'Phân tích', en: 'Analysis' },
+  'groupBoard.legendTitle': { vi: 'Chú thích', en: 'Legend' },
+  'groupBoard.legendQualified': { vi: 'Vào vòng knockout', en: 'Qualified for knockout' },
+  'groupBoard.legendThird': { vi: 'Hạng 3 (có thể vào vòng 32)', en: '3rd place (may qualify for R32)' },
+  'groupBoard.legendForecast': { vi: 'Tỉ số dự đoán', en: 'Predicted score' },
   'home.newUserHint': { vi: 'Lần đầu? Xem', en: 'New? See the' },
   'home.newUserHintLink': { vi: 'hướng dẫn', en: 'guide' },
   'home.newUserHintTail': { vi: 'hoặc làm theo 4 bước bên dưới.', en: 'or follow the 4 steps below.' },

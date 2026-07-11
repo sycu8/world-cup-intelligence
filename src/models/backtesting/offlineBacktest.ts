@@ -14,7 +14,7 @@ import {
 } from '../../services/predictionAccuracy';
 import { buildMatchFeaturesWithForm } from '../../services/matchFeatures';
 import * as teamsRepo from '../../db/repositories/teamsRepo';
-import { computeProbability } from '../probability/engine';
+import { computeProbability, type ProbabilityEngineMode } from '../probability/engine';
 import type { CalibrationOverrides } from '../probability/calibration';
 
 export type OfflineBacktestMatch = {
@@ -121,6 +121,7 @@ export async function evaluateOfflineMatch(
   env: AppEnv,
   row: OfflineBacktestMatch,
   calibrationOverrides?: CalibrationOverrides,
+  engineMode: ProbabilityEngineMode = 'v5',
 ): Promise<OfflineBacktestSample | null> {
   const bundle = await loadMatchBundle(env, row);
   if (!bundle) return null;
@@ -132,7 +133,7 @@ export async function evaluateOfflineMatch(
     bundle.away,
     bundle.tournamentYear,
   );
-  const result = await computeProbability(features, calibrationOverrides);
+  const result = await computeProbability(features, calibrationOverrides, { mode: engineMode });
   const actualScore = `${row.homeScore}-${row.awayScore}`;
   const actualOutcome = outcomeFromScore(row.homeScore, row.awayScore);
   const predictedOutcome = favoriteOutcome(
@@ -211,14 +212,18 @@ export async function runOfflineBacktestFromEnv(
   years: number[],
   calibrationOverrides?: CalibrationOverrides,
   limit?: number,
+  engineMode: ProbabilityEngineMode = 'v5',
 ): Promise<OfflineBacktestReport> {
   const rows = await loadOfflineBacktestMatches(env.DB, years);
   const slice = limit ? rows.slice(0, limit) : rows;
   const samples: OfflineBacktestSample[] = [];
 
   for (const row of slice) {
-    const sample = await evaluateOfflineMatch(env, row, calibrationOverrides);
+    const sample = await evaluateOfflineMatch(env, row, calibrationOverrides, engineMode);
     if (sample) samples.push(sample);
+    if (samples.length > 0 && samples.length % 10 === 0) {
+      console.log(`  evaluated ${samples.length}/${slice.length} matches`);
+    }
   }
 
   return aggregateOfflineBacktest(samples, years);

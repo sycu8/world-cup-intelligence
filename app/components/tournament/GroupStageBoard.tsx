@@ -17,6 +17,8 @@ import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
 import { MatchScoreBreakdown } from '../match/MatchScoreBreakdown';
 import { MatchForecastScore } from '../match/MatchForecastScore';
 import { MatchForecastExtras } from '../match/MatchForecastExtras';
+import { ChampionOddsPanel } from '../home/ChampionOddsPanel';
+import type { ChampionOddsPayload } from '../../lib/api';
 
 export type BoardMatchProbability = {
   homeWin: number;
@@ -36,6 +38,26 @@ function formatGd(gd: number): string {
   return gd > 0 ? `+${gd}` : String(gd);
 }
 
+function BoardLegend() {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border/40 bg-panel2/20 px-3 py-2 text-xs text-muted">
+      <span className="font-semibold text-foreground/90">{t('groupBoard.legendTitle')}:</span>
+      <span className="inline-flex items-center gap-1">
+        <span className="qualify-badge qualify-badge--direct">Q</span>
+        {t('groupBoard.legendQualified')}
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="qualify-badge qualify-badge--third">3</span>
+        {t('groupBoard.legendThird')}
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="rounded border border-yellow/35 bg-yellow/10 px-1 font-mono-data text-yellow">2–1</span>
+        {t('groupBoard.legendForecast')}
+      </span>
+    </div>
+  );
+}
 function BoardTab({
   active,
   onClick,
@@ -49,9 +71,9 @@ function BoardTab({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-lg px-3 py-2 text-xs font-semibold transition sm:text-sm ${
+      className={`rounded-xl px-3 py-2 text-xs font-semibold transition sm:text-sm ${
         active
-          ? 'bg-pressing/15 text-pressing ring-1 ring-pressing/30'
+          ? 'bg-cyan/15 text-cyan ring-1 ring-cyan/30'
           : 'text-muted hover:bg-panel2/60 hover:text-foreground'
       }`}
     >
@@ -64,12 +86,10 @@ function BoardMatchRow({
   match,
   prob,
   showDate = false,
-  dense = false,
 }: {
   match: ScheduleMatch;
   prob?: BoardMatchProbability;
   showDate?: boolean;
-  dense?: boolean;
 }) {
   const { t } = useI18n();
   const isFinal = match.status === 'completed' || match.status === 'finished';
@@ -80,9 +100,9 @@ function BoardMatchRow({
   return (
     <Link
       to={resolveMatchHref(match)}
-      className={`group grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-1.5 rounded-md transition hover:bg-pressing/10 sm:gap-2 ${
-        dense ? 'px-2 py-2 sm:px-3' : 'px-2 py-1.5'
-      } ${showBreakdown ? 'gap-y-0.5 pb-1.5' : 'items-center'}`}
+      className={`group grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-1.5 rounded-md px-2 py-1.5 transition hover:bg-pressing/10 sm:gap-2 ${
+        showBreakdown ? 'gap-y-0.5 pb-1.5' : 'items-center'
+      }`}
     >
       <time className="col-start-1 row-start-1 shrink-0 whitespace-nowrap font-mono-data text-[10px] leading-none text-muted">
         <MatchKickoffDisplay
@@ -139,6 +159,102 @@ function BoardMatchRow({
             variant="stacked"
             compact
             className="w-full"
+          />
+        </div>
+      )}
+    </Link>
+  );
+}
+
+function KnockoutBoardMatchRow({
+  match,
+  prob,
+  showDate = false,
+}: {
+  match: ScheduleMatch;
+  prob?: BoardMatchProbability;
+  showDate?: boolean;
+}) {
+  const { t } = useI18n();
+  const isFinal = match.status === 'completed' || match.status === 'finished';
+  const showScore = hasMatchResult(match.status);
+  const showBreakdown = isFinal && !!match.scoreDetail;
+  const showForecast = match.status === 'scheduled' && !!prob?.mostLikelyScore;
+  const flagClassName = 'h-3.5 w-5 shrink-0 rounded-sm object-cover ring-1 ring-white/10 sm:h-4 sm:w-6';
+
+  const scoreCell = showScore ? (
+    <MatchResultScore
+      homeScore={match.home_score}
+      awayScore={match.away_score}
+      status={match.status}
+      variant={isFinal ? 'badge' : 'compact'}
+    />
+  ) : showForecast ? (
+    <div className="flex flex-col items-center gap-0.5">
+      <MatchForecastScore score={prob!.mostLikelyScore!} />
+      <MatchForecastExtras
+        extraTimeProb={prob?.extraTimeProb}
+        penaltyProb={prob?.penaltyProb}
+      />
+    </div>
+  ) : (
+    <span className="font-mono-data text-xs text-muted/40">vs</span>
+  );
+
+  return (
+    <Link
+      to={resolveMatchHref(match)}
+      className="surface-interactive group block min-w-0 max-w-full overflow-hidden rounded-lg border border-border/50 bg-panel2/25 px-3 py-2.5 sm:px-4"
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <time className="shrink-0 font-mono-data text-[10px] leading-none text-muted sm:text-[11px]">
+          <MatchKickoffDisplay
+            kickoffUtc={match.kickoff_utc}
+            showDate={showDate}
+            inlineDate={showDate}
+            showLocalReference={false}
+          />
+        </time>
+        {match.status === 'live' && (
+          <span className="shrink-0 text-[9px] font-bold uppercase leading-none text-live">{t('common.live')}</span>
+        )}
+      </div>
+
+      <div className="flex w-full min-w-0 items-center gap-1 sm:gap-2">
+        <div className="flex min-w-0 flex-1 justify-end overflow-hidden">
+          <TeamNameWithFlag
+            name={match.home_short?.trim() || match.home_name}
+            flagName={match.home_name}
+            countryCode={match.home_country_code}
+            compact
+            flagClassName={flagClassName}
+            className="max-w-full justify-end text-[11px] font-medium sm:text-xs"
+          />
+        </div>
+
+        <div className="flex w-[4.25rem] shrink-0 flex-col items-center justify-center sm:w-auto sm:px-1">
+          {scoreCell}
+        </div>
+
+        <div className="flex min-w-0 flex-1 justify-start overflow-hidden">
+          <TeamNameWithFlag
+            name={match.away_short?.trim() || match.away_name}
+            flagName={match.away_name}
+            countryCode={match.away_country_code}
+            compact
+            flagClassName={flagClassName}
+            className="max-w-full text-[11px] font-medium sm:text-xs"
+          />
+        </div>
+      </div>
+
+      {showBreakdown && (
+        <div className="mt-2 border-t border-border/40 pt-1.5">
+          <MatchScoreBreakdown
+            detail={match.scoreDetail}
+            variant="stacked"
+            compact
+            className="justify-center"
           />
         </div>
       )}
@@ -210,8 +326,11 @@ function GroupCard({
                     compact={!row.shortName}
                     flagClassName="h-2.5 w-4 rounded-sm object-cover ring-1 ring-white/10 sm:h-3 sm:w-[1.125rem]"
                   />
+                  {row.rank <= 2 && (
+                    <span className="qualify-badge qualify-badge--direct">Q</span>
+                  )}
                   {row.rank === 3 && (
-                    <span className="ml-0.5 text-[8px] text-yellow">{t('standings.thirdBadge')}</span>
+                    <span className="qualify-badge qualify-badge--third">3</span>
                   )}
                 </td>
                 <td className="py-0.5 text-right font-mono-data">{row.played}</td>
@@ -248,10 +367,12 @@ function KnockoutRoundPanel({
   stage,
   matches,
   probs,
+  limit,
 }: {
   stage: KnockoutStage;
   matches: ScheduleMatch[];
   probs: Record<string, BoardMatchProbability>;
+  limit?: number;
 }) {
   const { t } = useI18n();
 
@@ -263,18 +384,30 @@ function KnockoutRoundPanel({
     [matches, stage],
   );
 
+  const visible = limit ? roundMatches.slice(0, limit) : roundMatches;
+  const hiddenCount = limit ? Math.max(0, roundMatches.length - limit) : 0;
+
   if (roundMatches.length === 0) {
     return <p className="py-6 text-center text-sm text-muted">{t('groupBoard.knockoutEmpty')}</p>;
   }
 
   return (
-    <ul className="divide-y divide-border/40 rounded-lg border border-border/50 bg-panel2/20">
-      {roundMatches.map((m) => (
-        <li key={m.id}>
-          <BoardMatchRow match={m} prob={probs[m.id]} showDate dense />
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        {visible.map((m) => (
+          <li key={m.id}>
+            <KnockoutBoardMatchRow match={m} prob={probs[m.id]} showDate />
+          </li>
+        ))}
+      </ul>
+      {hiddenCount > 0 && (
+        <p className="mt-3 text-center">
+          <Link to="/matches?tab=standings" className="text-sm font-medium text-cyan hover:underline">
+            +{hiddenCount} {t('groupBoard.tabKnockout').toLowerCase()} →
+          </Link>
+        </p>
+      )}
+    </>
   );
 }
 
@@ -283,37 +416,79 @@ function GroupStagePanel({
   standingsError,
   groupFixtures,
   probs,
+  championOdds,
+  championOddsLoading,
+  mode = 'full',
+  selectedGroup,
+  onSelectGroup,
 }: {
   standings: GroupStandingsPayload | null;
   standingsError: boolean;
   groupFixtures: Record<string, ScheduleMatch[]>;
   probs: Record<string, BoardMatchProbability>;
+  championOdds?: ChampionOddsPayload | null;
+  championOddsLoading?: boolean;
+  mode?: 'full' | 'home';
+  selectedGroup?: string;
+  onSelectGroup?: (code: string) => void;
 }) {
   const { t } = useI18n();
+  const isHome = mode === 'home';
+  const groupsToShow = isHome && selectedGroup ? [selectedGroup] : [...GROUPS];
 
   return (
     <div className="space-y-4">
-      <div className="min-w-0">
-        <p className="text-xs text-muted">{t('groupBoard.subtitle')}</p>
-        <p className="mt-1 font-mono-data text-[10px] text-muted-dim sm:text-xs">
-          {t('groupBoard.standingsHint')}
-        </p>
-      </div>
+      {!isHome && <BoardLegend />}
+      {isHome && onSelectGroup && (
+        <div
+          className="scroll-strip max-w-full"
+          role="tablist"
+          aria-label={t('groupBoard.tabGroup')}
+        >
+          {GROUPS.map((code) => (
+            <button
+              key={code}
+              type="button"
+              role="tab"
+              aria-selected={selectedGroup === code}
+              onClick={() => onSelectGroup(code)}
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                selectedGroup === code
+                  ? 'bg-cyan/15 text-cyan ring-1 ring-cyan/30'
+                  : 'text-muted hover:bg-panel2/50 hover:text-foreground'
+              }`}
+            >
+              {code}
+            </button>
+          ))}
+        </div>
+      )}
+      {!isHome && (
+        <div className="min-w-0">
+          <p className="font-mono-data text-xs text-muted-dim sm:text-sm">
+            {t('groupBoard.standingsHint')}
+          </p>
+        </div>
+      )}
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {GROUPS.map((code) => (
+      <div
+        className={
+          isHome ? 'max-w-xl' : 'grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+        }
+      >
+        {groupsToShow.map((code) => (
           <GroupCard
             key={code}
             code={code}
             standings={standings?.groups[code]}
-            fixtures={groupFixtures[code] ?? []}
+            fixtures={isHome ? (groupFixtures[code] ?? []).slice(0, 3) : groupFixtures[code] ?? []}
             standingsUnavailable={standingsError}
             probs={probs}
           />
         ))}
       </div>
 
-      {standings && standings.thirdPlaceRanking.length > 0 && (
+      {!isHome && standings && standings.thirdPlaceRanking.length > 0 && (
         <div className="rounded-lg border border-border/50 bg-panel2/20 px-3 py-2">
           <h3 className="text-xs font-semibold text-pressing">{t('standings.thirdPlace')}</h3>
           <ol className="mt-1.5 grid gap-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -338,6 +513,10 @@ function GroupStagePanel({
           </ol>
         </div>
       )}
+
+      {(championOdds || championOddsLoading) && !isHome && (
+        <ChampionOddsPanel odds={championOdds ?? null} loading={championOddsLoading} layout="compact" />
+      )}
     </div>
   );
 }
@@ -346,14 +525,21 @@ type Props = {
   matches: ScheduleMatch[];
   initialStandings?: GroupStandingsPayload | null;
   initialProbs?: Record<string, BoardMatchProbability>;
+  championOdds?: ChampionOddsPayload | null;
+  championOddsLoading?: boolean;
+  mode?: 'full' | 'home';
 };
 
 export function GroupStageBoard({
   matches,
   initialStandings = null,
   initialProbs = {},
+  championOdds = null,
+  championOddsLoading = false,
+  mode = 'full',
 }: Props) {
   const { t } = useI18n();
+  const isHome = mode === 'home';
   const hasInitialBoard = !!initialStandings;
   const [mainTab, setMainTab] = useState<MainTab>('group');
   const [knockoutStage, setKnockoutStage] = useState<KnockoutStage>('Round of 32');
@@ -362,6 +548,7 @@ export function GroupStageBoard({
   const [standingsError, setStandingsError] = useState(false);
   const [groupLoading, setGroupLoading] = useState(!hasInitialBoard);
   const [probs, setProbs] = useState<Record<string, BoardMatchProbability>>(initialProbs);
+  const [selectedGroup, setSelectedGroup] = useState<string>('A');
   const prevAllGroupsComplete = useRef(false);
 
   useEffect(() => {
@@ -511,11 +698,16 @@ export function GroupStageBoard({
   );
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wider text-pressing">{t('groupBoard.title')}</h2>
+    <div className="min-w-0 max-w-full space-y-4">
+      {!isHome && (
+        <div>
+          <h2 className="section-title">{t('groupBoard.title')}</h2>
+          <p className="section-subtitle">{t('groupBoard.subtitle')}</p>
+        </div>
+      )}
 
       <nav
-        className="flex flex-wrap gap-2 border-b border-border/60 pb-3"
+        className="flex flex-wrap gap-2 rounded-xl border border-border/40 bg-panel2/20 p-1.5"
         aria-label={t('groupBoard.title')}
       >
         <BoardTab
@@ -539,57 +731,110 @@ export function GroupStageBoard({
             standingsError={standingsError}
             groupFixtures={groupFixtures}
             probs={probs}
+            championOdds={championOdds}
+            championOddsLoading={championOddsLoading}
+            mode={mode}
+            selectedGroup={selectedGroup}
+            onSelectGroup={isHome ? setSelectedGroup : undefined}
           />
         )
       ) : (
         <div className="space-y-3">
-          <p className="text-xs text-muted">{t('groupBoard.knockoutSubtitle')}</p>
-          {!allGroupsComplete && (
+          {!isHome && <p className="text-xs text-muted">{t('groupBoard.knockoutSubtitle')}</p>}
+          {!allGroupsComplete && !isHome && (
             <p className="rounded-lg border border-border/50 bg-panel2/20 px-3 py-2 text-xs text-muted">
               {t('groupBoard.knockoutLocked')}
             </p>
           )}
 
-          <div
-            className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin"
-            role="tablist"
-            aria-label={t('groupBoard.tabKnockout')}
-          >
-            {knockoutRoundLabels.map(({ stage, label }) => {
-              const progress = knockoutRoundProgress(knockoutMatches, stage);
-              if (progress.total === 0) return null;
-              const isActive = activeKnockoutStage === stage;
-              const isSelected = knockoutStage === stage;
-              return (
-                <button
-                  key={stage}
-                  type="button"
-                  role="tab"
-                  aria-selected={isSelected}
-                  onClick={() => {
-                    setKnockoutStage(stage);
-                    setKnockoutStagePinned(true);
-                  }}
-                  className={`mobile-touch-target shrink-0 rounded-full px-3.5 py-2 text-xs font-medium transition sm:text-sm ${
-                    isSelected
-                      ? 'bg-cyan/15 text-cyan ring-1 ring-cyan/30'
-                      : isActive
-                        ? 'bg-live/10 text-live ring-1 ring-live/25'
-                        : 'text-muted hover:bg-panel2/60 hover:text-foreground'
-                  }`}
-                >
-                  {label}
-                  <span className="ml-1 font-mono-data text-[10px] opacity-70">
-                    ({progress.done}/{progress.total}
-                    {progress.live > 0 ? ` · ${progress.live} ${t('common.live')}` : ''})
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <div className={isHome ? 'min-w-0 space-y-3' : 'grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start'}>
+            <div className="min-w-0 space-y-3">
+              <div
+                className="scroll-strip max-w-full"
+                role="tablist"
+                aria-label={t('groupBoard.tabKnockout')}
+              >
+                {knockoutRoundLabels.map(({ stage, label }) => {
+                  const progress = knockoutRoundProgress(knockoutMatches, stage);
+                  if (progress.total === 0) return null;
+                  const isActive = activeKnockoutStage === stage;
+                  const isSelected = knockoutStage === stage;
+                  const pctDone =
+                    progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+                  return (
+                    <button
+                      key={stage}
+                      type="button"
+                      role="tab"
+                      aria-selected={isSelected}
+                      onClick={() => {
+                        setKnockoutStage(stage);
+                        setKnockoutStagePinned(true);
+                      }}
+                      className={`mobile-touch-target shrink-0 rounded-xl px-3.5 py-2 text-xs font-medium transition sm:text-sm ${
+                        isSelected
+                          ? 'bg-cyan/15 text-cyan ring-1 ring-cyan/30'
+                          : isActive
+                            ? 'bg-live/10 text-live ring-1 ring-live/25'
+                            : 'text-muted hover:bg-panel2/60 hover:text-foreground'
+                      }`}
+                    >
+                      {isHome ? (
+                        <>
+                          {label}
+                          <span className="ml-1 font-mono-data opacity-70">
+                            {progress.done}/{progress.total}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="flex flex-col items-start gap-1">
+                          <span>
+                            {label}
+                            <span className="ml-1 font-mono-data text-[10px] opacity-70">
+                              {progress.done}/{progress.total}
+                              {progress.live > 0 ? ` · ${progress.live} ${t('common.live')}` : ''}
+                            </span>
+                          </span>
+                          <span className="hidden h-1 w-full min-w-[3rem] overflow-hidden rounded-full bg-background2/80 sm:block">
+                            <span
+                              className="progress-bar-fill block h-full rounded-full bg-current opacity-60"
+                              style={{ width: `${pctDone}%` }}
+                            />
+                          </span>
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
 
-          <KnockoutRoundPanel stage={knockoutStage} matches={knockoutMatches} probs={probs} />
+              <KnockoutRoundPanel
+                stage={knockoutStage}
+                matches={knockoutMatches}
+                probs={probs}
+                limit={isHome ? 4 : undefined}
+              />
+            </div>
+
+            {!isHome && (championOdds || championOddsLoading) && (
+              <div className="xl:sticky xl:top-[4.5rem]">
+                <ChampionOddsPanel
+                  odds={championOdds ?? null}
+                  loading={championOddsLoading}
+                  layout="compact"
+                />
+              </div>
+            )}
+          </div>
         </div>
+      )}
+
+      {isHome && (
+        <p className="text-center">
+          <Link to="/matches?tab=standings" className="btn-ghost">
+            {t('home.viewFullBoard')}
+          </Link>
+        </p>
       )}
     </div>
   );

@@ -29,20 +29,21 @@ export function FeaturedMatchHero({ match }: Props) {
         : t('common.match');
 
   return (
-    <section className="space-y-3">
-      <p
-        className={
-          isLive
-            ? 'label-tactical text-live animate-pulse'
-            : 'label-tactical text-cyan'
-        }
-      >
-        {sectionLabel}
-      </p>
-      <div className="hero-glow overflow-hidden rounded-panel border border-cyan/25">
+    <section>
+      <div className="hero-glow overflow-hidden">
         <div className="border-b border-border/60 px-4 py-3 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="label-tactical text-muted-dim">{stageLabel}</p>
+            <p
+              className={
+                isLive
+                  ? 'label-tactical inline-flex items-center gap-1.5 text-live'
+                  : 'label-tactical text-cyan'
+              }
+            >
+              {isLive && <span className="live-dot" aria-hidden />}
+              {sectionLabel}
+            </p>
+            <p className="text-sm text-muted-dim">{stageLabel}</p>
             <MatchKickoffCountdown kickoffUtc={match.kickoff_utc} status={match.status} />
           </div>
 
@@ -79,17 +80,17 @@ export function FeaturedMatchHero({ match }: Props) {
             </p>
           )}
 
-          <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-4">
-            <h2 className="font-heading text-right text-xl uppercase leading-none tracking-tight text-foreground md:text-3xl lg:text-4xl">
+          <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 sm:gap-2 md:gap-4">
+            <h2 className="min-w-0 font-heading text-right text-base uppercase leading-tight tracking-tight text-foreground sm:text-xl md:text-3xl lg:text-4xl">
               <TeamNameWithFlag
                 name={match.home_short?.trim() || match.home_name}
                 flagName={match.home_name}
                 countryCode={match.home_country_code}
                 className="justify-end font-heading uppercase"
-                flagClassName="h-6 w-9 rounded-sm object-cover ring-1 ring-white/10 md:h-8 md:w-12 lg:h-10 lg:w-[3.75rem]"
+                flagClassName="h-5 w-7 rounded-sm object-cover ring-1 ring-white/10 sm:h-6 sm:w-9 md:h-8 md:w-12 lg:h-10 lg:w-[3.75rem]"
               />
             </h2>
-            <div className="score-pulse rounded-card border border-cyan/30 bg-background/80 px-5 py-3 md:px-8 md:py-4">
+            <div className="score-pulse shrink-0 rounded-card border border-cyan/30 bg-background/80 px-3 py-2 sm:px-5 sm:py-3 md:px-8 md:py-4">
               {(isLive || match.status === 'completed') && (
                 <p className="mb-1 flex justify-center">
                   <DataKindBadge kind="actual" compact />
@@ -100,7 +101,7 @@ export function FeaturedMatchHero({ match }: Props) {
                   <p className="mb-1 flex justify-center">
                     <DataKindBadge kind="predicted" compact />
                   </p>
-                  <p className="font-heading text-3xl tabular-nums text-yellow md:text-5xl">
+                  <p className="font-heading text-2xl tabular-nums text-yellow sm:text-3xl md:text-5xl">
                     {p.mostLikelyScore.replace('-', '–')}
                   </p>
                   <p className="mt-1 text-center text-[10px] uppercase tracking-wide text-yellow/80">
@@ -109,7 +110,7 @@ export function FeaturedMatchHero({ match }: Props) {
                 </>
               ) : (
                 <>
-                  <p className="font-heading text-4xl tabular-nums text-foreground md:text-6xl">
+                  <p className="font-heading text-2xl tabular-nums text-foreground sm:text-4xl md:text-6xl">
                     {(isLive || match.status === 'completed') && <DataKindMark kind="actual" />}
                     {match.home_score}
                     <span className="mx-1 text-cyan/70">–</span>
@@ -126,13 +127,13 @@ export function FeaturedMatchHero({ match }: Props) {
                 </>
               )}
             </div>
-            <h2 className="font-heading text-left text-xl uppercase leading-none tracking-tight text-foreground md:text-3xl lg:text-4xl">
+            <h2 className="min-w-0 font-heading text-left text-base uppercase leading-tight tracking-tight text-foreground sm:text-xl md:text-3xl lg:text-4xl">
               <TeamNameWithFlag
                 name={match.away_short?.trim() || match.away_name}
                 flagName={match.away_name}
                 countryCode={match.away_country_code}
                 className="font-heading uppercase"
-                flagClassName="h-6 w-9 rounded-sm object-cover ring-1 ring-white/10 md:h-8 md:w-12 lg:h-10 lg:w-[3.75rem]"
+                flagClassName="h-5 w-7 rounded-sm object-cover ring-1 ring-white/10 sm:h-6 sm:w-9 md:h-8 md:w-12 lg:h-10 lg:w-[3.75rem]"
               />
             </h2>
           </div>
@@ -155,15 +156,12 @@ export function FeaturedMatchHero({ match }: Props) {
         ) : match.status !== 'completed' && match.status !== 'finished' ? (
           <p className="px-4 pb-4 text-sm text-muted md:px-6">{t('featured.probLoading')}</p>
         ) : null}
-      </div>
 
-      <div className="flex justify-center">
-        <Link
-          to={resolveMatchHref(match)}
-          className="rounded-full border border-cyan/40 bg-cyan/10 px-8 py-2.5 text-sm font-semibold text-cyan transition hover:bg-cyan/20"
-        >
-          <Bilingual k="match.fullAnalysis" as="span" /> →
-        </Link>
+        <div className="border-t border-border/60 px-4 py-3 md:px-6">
+          <Link to={resolveMatchHref(match)} className="btn-primary w-full">
+            <Bilingual k="match.fullAnalysis" as="span" /> →
+          </Link>
+        </div>
       </div>
     </section>
   );

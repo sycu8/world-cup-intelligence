@@ -50,11 +50,7 @@ export function PlatformSnapshot({ dashboard, compact = false }: Props) {
         {stats.map((s) => (
           <li
             key={s.label}
-            className={
-              compact
-                ? 'rounded-lg border border-border/60 bg-panel2/50 px-2 py-1.5 text-center'
-                : 'rounded-lg border border-border/60 bg-panel2/50 px-3 py-2 text-center'
-            }
+            className="rounded-xl border border-border/50 bg-panel2/40 px-3 py-2.5 text-center transition hover:border-cyan/25 hover:bg-panel2/55"
           >
             <p
               className={

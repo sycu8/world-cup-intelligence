@@ -1,14 +1,65 @@
 import { describe, expect, it } from 'vitest';
 import { BEST_THIRD_R32_SLOTS } from '../src/services/tournamentProgression';
+import {
+  assignThirdPlaceToR32Slots,
+  resolveThirdPlaceAssignments,
+  WC2026_THIRD_PLACE_AWAY_SLOTS,
+} from '../src/services/wc2026ThirdPlaceBracket';
 import { rankBestThirdPlace } from '../src/services/tournamentStandings';
 
 describe('best third place qualification', () => {
-  it('defines 8 R32 slots on matches 13-16', () => {
+  it('defines 8 FIFA third-place away slots on R32 matches', () => {
     expect(BEST_THIRD_R32_SLOTS).toHaveLength(8);
+    expect(WC2026_THIRD_PLACE_AWAY_SLOTS).toHaveLength(8);
     const matchIds = new Set(BEST_THIRD_R32_SLOTS.map((s) => s.matchId));
     expect(matchIds).toEqual(
-      new Set(['m-w26-r32-13', 'm-w26-r32-14', 'm-w26-r32-15', 'm-w26-r32-16']),
+      new Set([
+        'm-w26-r32-02',
+        'm-w26-r32-05',
+        'm-w26-r32-07',
+        'm-w26-r32-08',
+        'm-w26-r32-09',
+        'm-w26-r32-10',
+        'm-w26-r32-13',
+        'm-w26-r32-15',
+      ]),
     );
+    expect(BEST_THIRD_R32_SLOTS.every((slot) => slot.slot === 'away')).toBe(true);
+  });
+
+  it('resolves FIFA combination 67 for groups B,D,E,F,I,J,K,L', () => {
+    const assign = resolveThirdPlaceAssignments(['B', 'D', 'E', 'F', 'I', 'J', 'K', 'L']);
+    expect(assign).toEqual({
+      A: 'E',
+      B: 'J',
+      D: 'B',
+      E: 'D',
+      G: 'I',
+      I: 'F',
+      K: 'L',
+      L: 'K',
+    });
+  });
+
+  it('assigns third-place teams to away slots via combination table', () => {
+    const qualifyingGroups = ['B', 'D', 'E', 'F', 'I', 'J', 'K', 'L'];
+    const thirdPlaceByGroup = new Map(
+      qualifyingGroups.map((group) => [
+        group,
+        {
+          group,
+          teamId: `team-${group.toLowerCase()}`,
+          played: 3,
+          points: 6,
+          gf: 4,
+          ga: 2,
+          gd: 2,
+        },
+      ]),
+    );
+    const assignments = assignThirdPlaceToR32Slots(thirdPlaceByGroup);
+    expect(assignments).toHaveLength(8);
+    expect(assignments.find((row) => row.matchId === 'm-w26-r32-02')?.teamId).toBe('team-d');
   });
 
   it('ranks third-place teams by points then GD', () => {

@@ -14,17 +14,14 @@ import { scheduleChampionOddsRefresh } from './tournamentChampionOdds';
 
 const GROUP_CODES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as const;
 
-/** Eight slots on R32 matches 13–16 for best third-place qualifiers. */
-export const BEST_THIRD_R32_SLOTS: { matchId: string; slot: 'home' | 'away' }[] = [
-  { matchId: 'm-w26-r32-13', slot: 'home' },
-  { matchId: 'm-w26-r32-13', slot: 'away' },
-  { matchId: 'm-w26-r32-14', slot: 'home' },
-  { matchId: 'm-w26-r32-14', slot: 'away' },
-  { matchId: 'm-w26-r32-15', slot: 'home' },
-  { matchId: 'm-w26-r32-15', slot: 'away' },
-  { matchId: 'm-w26-r32-16', slot: 'home' },
-  { matchId: 'm-w26-r32-16', slot: 'away' },
-];
+import {
+  assignThirdPlaceToR32Slots,
+  WC2026_THIRD_PLACE_AWAY_SLOTS,
+} from './wc2026ThirdPlaceBracket';
+
+/** @deprecated Use WC2026_THIRD_PLACE_AWAY_SLOTS — kept for tests referencing away third-place slots. */
+export const BEST_THIRD_R32_SLOTS: { matchId: string; slot: 'home' | 'away' }[] =
+  WC2026_THIRD_PLACE_AWAY_SLOTS.map((row) => ({ matchId: row.matchId, slot: 'away' as const }));
 
 function compareStandings(a: GroupStanding, b: GroupStanding): number {
   if (b.points !== a.points) return b.points - a.points;
@@ -53,17 +50,17 @@ export async function applyBestThirdQualifiers(env: AppEnv): Promise<string[]> {
   if (!(await areAllGroupsComplete(env.DB))) return [];
 
   const candidates = await collectThirdPlaceCandidates(env.DB);
-  const top8 = candidates.slice(0, 8);
+  const thirdPlaceByGroup = new Map(candidates.map((row) => [row.group, row]));
+  const assignments = assignThirdPlaceToR32Slots(thirdPlaceByGroup);
   const affected = new Set<string>();
 
-  for (let i = 0; i < top8.length && i < BEST_THIRD_R32_SLOTS.length; i++) {
-    const { matchId, slot } = BEST_THIRD_R32_SLOTS[i];
-    const changed = await assignTeamToSlot(env, matchId, slot, top8[i].teamId);
+  for (const { matchId, slot, teamId } of assignments) {
+    const changed = await assignTeamToSlot(env, matchId, slot, teamId);
     if (changed) affected.add(matchId);
   }
 
   if (affected.size) {
-    logInfo('best third-place qualifiers applied', { teams: top8.length, matches: affected.size });
+    logInfo('best third-place qualifiers applied', { teams: assignments.length, matches: affected.size });
   }
   return [...affected];
 }
@@ -255,6 +252,28 @@ async function applyKnockoutLinks(env: AppEnv, sourceMatchId: string): Promise<s
 
   if (affected.size) {
     logInfo('knockout bracket advanced', { source: sourceMatchId, targets: affected.size });
+  }
+  return [...affected];
+}
+
+/** Re-apply winner/loser links for every completed knockout match (idempotent backfill). */
+export async function replayKnockoutBracketFromCompleted(env: AppEnv): Promise<string[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT id FROM matches
+     WHERE tournament_id = ? AND stage != 'Group' AND status = 'completed'
+     ORDER BY kickoff_utc ASC`,
+  )
+    .bind(WC2026_TOURNAMENT_ID)
+    .all<{ id: string }>();
+
+  const affected = new Set<string>();
+  for (const row of results ?? []) {
+    const targets = await applyKnockoutLinks(env, row.id);
+    targets.forEach((id) => affected.add(id));
+  }
+
+  if (affected.size) {
+    logInfo('knockout bracket replay applied', { slots: affected.size });
   }
   return [...affected];
 }

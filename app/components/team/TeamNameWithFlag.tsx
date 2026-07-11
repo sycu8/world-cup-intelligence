@@ -38,7 +38,7 @@ export function TeamNameWithFlag({
   const label = placeholder ? t('common.tbd') : compact ? compactTeamLabel(name) : name;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 ${className}`}>
+    <span className={`inline-flex max-w-full items-center gap-1.5 ${className}`}>
       {flagSrc ? (
         <img
           src={flagSrc}
@@ -49,10 +49,10 @@ export function TeamNameWithFlag({
           height={15}
           loading="lazy"
           decoding="async"
-          className={flagClassName}
+          className={`shrink-0 ${flagClassName}`}
         />
       ) : null}
-      <span>{label}</span>
+      <span className="truncate">{label}</span>
     </span>
   );
 }
