@@ -1,22 +1,28 @@
 import type { AppEnv } from '../env';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import { getDb } from '../db/client';
-import type { TeamRow } from '../db/schema';
+import { getTeamsByTournament } from '../db/repositories/teamsRepo';
 import { applyEffectiveTeamProfile } from './teamProfile';
 import { loadRecentH2HTriples } from './tournamentMcSignals';
 import { loadTeamStrengthProfiles } from './tournamentTeamStrength';
 import {
+  hasConfirmedKnockoutPairing,
   runTournamentMonteCarlo,
   type McBracketLink,
   type McGroupMatch,
   type McKnockoutMatch,
   type TournamentMonteCarloInput,
 } from '../models/tournament/tournamentMonteCarlo';
+import { resolveWinnerTeamId } from './matchLifecycle';
 
 const CACHE_KEY = 'meta:mc_champion_odds:v1';
 const CACHE_TTL_SECONDS = 60 * 60;
+const FINAL_SCHEDULED_CACHE_TTL_SECONDS = 5 * 60;
+const FINAL_LIVE_CACHE_TTL_SECONDS = 60;
 const DEFAULT_SIMULATIONS = 4_000;
 const CHAMPION_REFRESH_KV_KEY = 'meta:champion_odds_refresh_pending';
+
+export type ChampionOddsPhase = 'group' | 'knockout' | 'final' | 'final_live' | 'decided';
 
 export interface ChampionOddsEntry {
   teamId: string;
@@ -30,6 +36,8 @@ export interface ChampionOddsPayload {
   generatedAt: string;
   simulations: number;
   modelVersion: string;
+  phase: ChampionOddsPhase;
+  finalMatchId?: string;
   top: ChampionOddsEntry[];
   all: ChampionOddsEntry[];
 }
@@ -51,23 +59,75 @@ type MatchRow = {
   home_score: number | null;
   away_score: number | null;
   status: string;
+  minute: number | null;
 };
 
-const MODEL_VERSION = 'mc-strength-v3';
+const MODEL_VERSION = 'mc-strength-v4';
+
+function isFinishedStatus(status: string | undefined): boolean {
+  return status === 'completed' || status === 'finished';
+}
+
+function isLiveStatus(status: string | undefined): boolean {
+  return status === 'live' || status === 'in_progress';
+}
+
+function findFinalMatch(matches: McKnockoutMatch[]): McKnockoutMatch | undefined {
+  return matches.find((m) => m.id === 'm-w26-final-01') ?? matches.find((m) => m.stage === 'Final');
+}
+
+function detectChampionOddsPhase(
+  groupMatches: McGroupMatch[],
+  knockoutMatches: McKnockoutMatch[],
+): { phase: ChampionOddsPhase; finalMatchId?: string } {
+  const final = findFinalMatch(knockoutMatches);
+  if (final) {
+    if (isFinishedStatus(final.status)) return { phase: 'decided', finalMatchId: final.id };
+    if (isLiveStatus(final.status) && hasConfirmedKnockoutPairing(final)) {
+      return { phase: 'final_live', finalMatchId: final.id };
+    }
+    if (hasConfirmedKnockoutPairing(final)) return { phase: 'final', finalMatchId: final.id };
+  }
+
+  const groupOpen = groupMatches.some((m) => !isFinishedStatus(m.status));
+  if (groupOpen) return { phase: 'group' };
+  return { phase: 'knockout' };
+}
+
+function resolveCacheTtlSeconds(knockoutMatches: McKnockoutMatch[]): number {
+  const final = findFinalMatch(knockoutMatches);
+  if (!final || !hasConfirmedKnockoutPairing(final)) return CACHE_TTL_SECONDS;
+  if (isLiveStatus(final.status)) return FINAL_LIVE_CACHE_TTL_SECONDS;
+  if (!isFinishedStatus(final.status)) return FINAL_SCHEDULED_CACHE_TTL_SECONDS;
+  return CACHE_TTL_SECONDS;
+}
+
+function resolveCacheTtlForPayload(payload: ChampionOddsPayload): number {
+  switch (payload.phase) {
+    case 'final_live':
+      return FINAL_LIVE_CACHE_TTL_SECONDS;
+    case 'final':
+      return FINAL_SCHEDULED_CACHE_TTL_SECONDS;
+    default:
+      return CACHE_TTL_SECONDS;
+  }
+}
 
 async function loadMonteCarloInput(
   env: AppEnv,
   simulations: number,
-): Promise<{ input: TournamentMonteCarloInput; teamMeta: Map<string, { name: string; countryCode: string | null }> }> {
+): Promise<{
+  input: TournamentMonteCarloInput;
+  teamMeta: Map<string, { name: string; countryCode: string | null }>;
+  knockoutMatches: McKnockoutMatch[];
+}> {
   const db = getDb(env);
 
-  const [teamsRes, matchesRes, linksRes] = await Promise.all([
-    db
-      .prepare(`SELECT * FROM teams WHERE id LIKE 'team-w26-%' ORDER BY id ASC`)
-      .all<TeamRow>(),
+  const [teams, matchesRes, linksRes] = await Promise.all([
+    getTeamsByTournament(db, WC2026_TOURNAMENT_ID),
     db
       .prepare(
-        `SELECT id, stage, group_code, home_team_id, away_team_id, home_score, away_score, status
+        `SELECT id, stage, group_code, home_team_id, away_team_id, home_score, away_score, status, minute
          FROM matches
          WHERE tournament_id = ?`,
       )
@@ -83,14 +143,14 @@ async function loadMonteCarloInput(
       .all<BracketLinkRow>(),
   ]);
 
-  const teams = (teamsRes.results ?? []).map((row) => applyEffectiveTeamProfile(row));
+  const ratedTeams = teams.map((row) => applyEffectiveTeamProfile(row));
   const [teamStrength, h2hTriples] = await Promise.all([
-    loadTeamStrengthProfiles(env, teams),
+    loadTeamStrengthProfiles(env, ratedTeams),
     loadRecentH2HTriples(db),
   ]);
 
   const teamMeta = new Map<string, { name: string; countryCode: string | null }>();
-  for (const team of teams) {
+  for (const team of ratedTeams) {
     teamMeta.set(team.id, { name: team.name, countryCode: team.country_code ?? null });
   }
 
@@ -135,7 +195,16 @@ async function loadMonteCarloInput(
       });
       continue;
     }
-    knockoutMatches.push({ id: match.id, stage: match.stage });
+    knockoutMatches.push({
+      id: match.id,
+      stage: match.stage,
+      homeTeamId: match.home_team_id,
+      awayTeamId: match.away_team_id,
+      homeScore: match.home_score ?? 0,
+      awayScore: match.away_score ?? 0,
+      status: match.status,
+      minute: match.minute ?? 0,
+    });
   }
 
   return {
@@ -149,12 +218,15 @@ async function loadMonteCarloInput(
       simulations,
     },
     teamMeta,
+    knockoutMatches,
   };
 }
 
 function toPayload(
   result: ReturnType<typeof runTournamentMonteCarlo>,
   teamMeta: Map<string, { name: string; countryCode: string | null }>,
+  phase: ChampionOddsPhase,
+  finalMatchId?: string,
 ): ChampionOddsPayload {
   const generatedAt = new Date().toISOString();
   const all = result.championCounts
@@ -175,9 +247,58 @@ function toPayload(
     generatedAt,
     simulations: result.simulations,
     modelVersion: MODEL_VERSION,
+    phase,
+    finalMatchId,
     top: all.slice(0, 3),
     all,
   };
+}
+
+function toDecidedPayload(
+  winnerId: string,
+  teamMeta: Map<string, { name: string; countryCode: string | null }>,
+  finalMatchId: string,
+): ChampionOddsPayload {
+  const meta = teamMeta.get(winnerId);
+  const entry: ChampionOddsEntry = {
+    teamId: winnerId,
+    teamName: meta?.name ?? winnerId,
+    countryCode: meta?.countryCode ?? null,
+    probability: 1,
+    rank: 1,
+  };
+  return {
+    generatedAt: new Date().toISOString(),
+    simulations: 1,
+    modelVersion: MODEL_VERSION,
+    phase: 'decided',
+    finalMatchId,
+    top: [entry],
+    all: [entry],
+  };
+}
+
+function computeChampionOddsFromLoaded(
+  input: TournamentMonteCarloInput,
+  teamMeta: Map<string, { name: string; countryCode: string | null }>,
+  knockoutMatches: McKnockoutMatch[],
+): ChampionOddsPayload {
+  const { phase, finalMatchId } = detectChampionOddsPhase(input.groupMatches, knockoutMatches);
+
+  const final = findFinalMatch(knockoutMatches);
+  if (final && isFinishedStatus(final.status) && hasConfirmedKnockoutPairing(final)) {
+    const winnerId = resolveWinnerTeamId({
+      home_team_id: final.homeTeamId!,
+      away_team_id: final.awayTeamId!,
+      home_score: final.homeScore ?? 0,
+      away_score: final.awayScore ?? 0,
+      stage: final.stage,
+    });
+    if (winnerId) return toDecidedPayload(winnerId, teamMeta, final.id);
+  }
+
+  const result = runTournamentMonteCarlo(input);
+  return toPayload(result, teamMeta, phase, finalMatchId);
 }
 
 export async function computeChampionOdds(
@@ -185,14 +306,15 @@ export async function computeChampionOdds(
   options?: { simulations?: number },
 ): Promise<ChampionOddsPayload> {
   const simulations = options?.simulations ?? DEFAULT_SIMULATIONS;
-  const { input, teamMeta } = await loadMonteCarloInput(env, simulations);
-  const result = runTournamentMonteCarlo(input);
-  return toPayload(result, teamMeta);
+  const loaded = await loadMonteCarloInput(env, simulations);
+  return computeChampionOddsFromLoaded(loaded.input, loaded.teamMeta, loaded.knockoutMatches);
 }
 
 export async function refreshChampionOdds(env: AppEnv): Promise<ChampionOddsPayload> {
-  const payload = await computeChampionOdds(env);
-  await env.KV.put(CACHE_KEY, JSON.stringify(payload), { expirationTtl: CACHE_TTL_SECONDS });
+  const loaded = await loadMonteCarloInput(env, DEFAULT_SIMULATIONS);
+  const payload = computeChampionOddsFromLoaded(loaded.input, loaded.teamMeta, loaded.knockoutMatches);
+  const ttl = resolveCacheTtlSeconds(loaded.knockoutMatches);
+  await env.KV.put(CACHE_KEY, JSON.stringify(payload), { expirationTtl: ttl });
   await env.KV.delete(CHAMPION_REFRESH_KV_KEY);
   return payload;
 }
@@ -218,16 +340,16 @@ async function readCachedChampionOdds(env: AppEnv): Promise<ChampionOddsPayload 
   }
 }
 
-function isCacheStale(payload: ChampionOddsPayload): boolean {
+function isCacheStale(payload: ChampionOddsPayload, cacheTtlSeconds: number): boolean {
   if (payload.modelVersion !== MODEL_VERSION) return true;
   if (!payload.top.length || !payload.all.length) return true;
   const ageMs = Date.now() - new Date(payload.generatedAt).getTime();
-  return ageMs > CACHE_TTL_SECONDS * 1000;
+  return ageMs > cacheTtlSeconds * 1000;
 }
 
 export async function getChampionOddsForDisplay(env: AppEnv): Promise<ChampionOddsPayload | null> {
   const cached = await readCachedChampionOdds(env);
-  if (cached && !isCacheStale(cached)) return cached;
+  if (cached && !isCacheStale(cached, resolveCacheTtlForPayload(cached))) return cached;
 
   try {
     return await refreshChampionOdds(env);

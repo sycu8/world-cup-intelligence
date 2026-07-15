@@ -37,6 +37,11 @@ export function ChampionOddsPanel({ odds, loading = false, layout = 'featured' }
 
   if (!odds?.top.length) return null;
 
+  const subtitleKey =
+    odds.phase === 'final' || odds.phase === 'final_live'
+      ? 'home.championOdds.subtitleFinal'
+      : 'home.championOdds.subtitle';
+
   const entries =
     layout === 'compact'
       ? (odds.all.length ? odds.all : odds.top).slice(0, 8)
@@ -51,7 +56,7 @@ export function ChampionOddsPanel({ odds, loading = false, layout = 'featured' }
             <Bilingual k="home.championOdds.title" />
           </p>
           <p className="mt-1 text-sm text-muted">
-            <Bilingual k="home.championOdds.subtitle" />
+            <Bilingual k={subtitleKey} />
           </p>
         </div>
 
@@ -99,7 +104,7 @@ export function ChampionOddsPanel({ odds, loading = false, layout = 'featured' }
           <Bilingual k="home.championOdds.title" />
         </p>
         <p className="mt-1 text-sm text-muted">
-          <Bilingual k="home.championOdds.subtitle" />
+          <Bilingual k={subtitleKey} />
         </p>
       </div>
 
