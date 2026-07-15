@@ -53,6 +53,7 @@ Demo live: [Mexico vs South Africa](https://wcstat.orangecloud.vn/matches/vong-b
 | **Bảng đấu — xác suất trận** | Trận đã phân tích hiện **C · H · K** (% mô hình); trận chưa có hiện **«Chưa có»**. API gap-fill (xem [Thuật toán gap-fill](#gap-fill-xác-suất-bảng-đấu)). |
 | **Mobile UX trang trận** | Thanh tỉ số dính, điều hướng section (`MatchSectionNav`), panel dự đoán/tóm tắt/analytics. |
 | **SEO tiếng Việt** | 8 landing page + `sitemap.xml`. |
+| **Mobile (iOS / Android)** | Capacitor apps `vn.orangecloud.pitchintel` — `npm run build:mobile`, `./scripts/mobile-android-release.sh`, [docs/MOBILE_STORE_SUBMISSION.md](./docs/MOBILE_STORE_SUBMISSION.md). |
 | **Tài liệu API** | `/docs/api` (HTML) · `/docs/api.md` · `/.well-known/openapi.json` — Core / Tournament / Teams & news / Admin. |
 | **UAT tách biệt** | `npm run deploy:uat` / `deploy:production` / `deploy:both` — [docs/UAT.md](./docs/UAT.md). |
 

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { brandTheme } from '../../lib/brand/brandTheme';
 import { useI18n } from '../../lib/i18n/I18nContext';
 
@@ -17,6 +18,9 @@ export function Footer() {
           </p>
           <p className="mt-1 text-base text-foreground/85">{t('footer.tagline')}</p>
           <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">{t('footer.description')}</p>
+          <Link to="/privacy" className="mt-3 inline-block text-sm font-medium text-muted hover:text-cyan hover:underline">
+            {t('footer.privacy')}
+          </Link>
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <p className="text-sm text-muted-dim">

@@ -179,4 +179,10 @@ describe('computeProbability calibration overrides', () => {
     expect(base.modelVersion).toBe('wc-prob-v5');
     expect(tuned.drawProb).not.toBeNaN();
   });
+
+  it('runs wc-prob-v4 legacy mode with flat attack/defense', async () => {
+    const v4 = await computeProbability(miniInput(0.8, 0.5), undefined, { mode: 'v4' });
+    expect(v4.modelVersion).toBe('wc-prob-v4');
+    expect(v4.homeWinProb + v4.drawProb + v4.awayWinProb).toBeCloseTo(1, 5);
+  });
 });

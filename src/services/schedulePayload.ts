@@ -1,5 +1,7 @@
 import type { AppEnv } from '../env';
-import { attachSlugToScheduleRow } from '../services/matchRef';
+import { attachSlugToScheduleRow } from './matchRef';
+import { attachParsedScoreDetail } from './matchScoreDetailApi';
+import { enrichScheduleScoreDetails } from './matchScoreDetail';
 import {
   resolveScheduleTournamentId,
   WC2026_MATCH_COUNT,
@@ -19,6 +21,7 @@ type ScheduleMatchRow = {
   away_score: number;
   minute: number;
   tournament_id: string;
+  score_detail_json: string | null;
 };
 
 type TeamMeta = {
@@ -41,7 +44,7 @@ export async function buildSchedulePayload(
     env.DB.prepare(
       `SELECT id, kickoff_utc, status, stage, group_code,
               home_team_id, away_team_id,
-              home_score, away_score, minute, tournament_id
+              home_score, away_score, minute, tournament_id, score_detail_json
        FROM matches
        WHERE tournament_id = ?
        ORDER BY kickoff_utc ASC`,
@@ -58,23 +61,27 @@ export async function buildSchedulePayload(
   const list = (matchesResult.results ?? []).map((row) => {
     const home = teamMap.get(row.home_team_id);
     const away = teamMap.get(row.away_team_id);
-    const enriched = attachSlugToScheduleRow({
-      ...row,
-      home_score: Number(row.home_score ?? 0),
-      away_score: Number(row.away_score ?? 0),
-      minute: Number(row.minute ?? 0),
-      home_name: home?.name ?? 'TBD',
-      home_short: home?.short_name ?? null,
-      home_country_code: home?.country_code ?? null,
-      away_name: away?.name ?? 'TBD',
-      away_short: away?.short_name ?? null,
-      away_country_code: away?.country_code ?? null,
-    });
+    const enriched = attachParsedScoreDetail(
+      attachSlugToScheduleRow({
+        ...row,
+        home_score: Number(row.home_score ?? 0),
+        away_score: Number(row.away_score ?? 0),
+        minute: Number(row.minute ?? 0),
+        home_name: home?.name ?? 'TBD',
+        home_short: home?.short_name ?? null,
+        home_country_code: home?.country_code ?? null,
+        away_name: away?.name ?? 'TBD',
+        away_short: away?.short_name ?? null,
+        away_country_code: away?.country_code ?? null,
+      }),
+    );
     const dateKey = scheduleDateKey(row.kickoff_utc);
     if (!byDate[dateKey]) byDate[dateKey] = [];
     byDate[dateKey].push(enriched);
     return enriched;
   });
+
+  await enrichScheduleScoreDetails(env.DB, list);
 
   return {
     data: { byDate, matches: list, tournamentId, total: list.length },

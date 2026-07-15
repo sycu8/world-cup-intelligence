@@ -116,6 +116,8 @@ export type ProbabilityResult = {
   expectedHomeGoals: number;
   expectedAwayGoals: number;
   mostLikelyScore: string;
+  /** Rounded λ hint when it differs from mostLikelyScore (not used as primary prediction). */
+  expectedScore?: string | null;
   scorelineDistribution: Record<string, number>;
   intervalDistribution: Record<IntervalKey, IntervalProbability>;
   confidence: number;

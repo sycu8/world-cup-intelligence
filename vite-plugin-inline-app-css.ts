@@ -3,10 +3,14 @@ import path from 'node:path';
 import type { Plugin } from 'vite';
 
 const STYLESHEET_LINK =
-  /<link\s+rel="stylesheet"[^>]*href="(\/assets\/[^"]+\.css)"[^>]*>\s*/i;
+  /<link\s+rel="stylesheet"[^>]*href="(\.?\/assets\/[^"]+\.css)"[^>]*>\s*/i;
+
+type InlineAppCssOptions = {
+  apiOrigin?: string;
+};
 
 /** Inline extracted app CSS into index.html to avoid render-blocking stylesheet requests. */
-export function inlineAppCss(clientOutDir = 'dist/client'): Plugin {
+export function inlineAppCss(clientOutDir = 'dist/client', opts: InlineAppCssOptions = {}): Plugin {
   return {
     name: 'inline-app-css',
     apply: 'build',
@@ -32,17 +36,18 @@ export function inlineAppCss(clientOutDir = 'dist/client'): Plugin {
         // Keep the extracted .css file — lazy chunks still preload it via Vite's CSS map.
 
         const jsMatch = out.match(
-          /<script type="module" crossorigin src="(\/assets\/[^"]+\.js)"><\/script>/,
+          /<script type="module" crossorigin src="(\.?\/assets\/[^"]+\.js)"><\/script>/,
         );
         if (jsMatch && !out.includes('rel="modulepreload"')) {
           const preload = `<link rel="modulepreload" crossorigin href="${jsMatch[1]}">\n    `;
           out = out.replace(jsMatch[0], `${preload}${jsMatch[0]}`);
         }
 
-        if (!out.includes('rel="preload" href="/api/home"')) {
+        const preloadHref = opts.apiOrigin ? `${opts.apiOrigin.replace(/\/$/, '')}/api/home` : '/api/home';
+        if (!out.includes('rel="preload" href="/api/home"') && !out.includes(`rel="preload" href="${preloadHref}"`)) {
           out = out.replace(
             '</head>',
-            '    <link rel="preload" href="/api/home" as="fetch" crossorigin>\n  </head>',
+            `    <link rel="preload" href="${preloadHref}" as="fetch" crossorigin>\n  </head>`,
           );
         }
 

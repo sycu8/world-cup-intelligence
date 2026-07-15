@@ -575,6 +575,69 @@ const SCENARIOS = [
       };
     },
   },
+  {
+    id: 'S24',
+    capability: 'Per-period score breakdown (match API)',
+    criteria: [
+      'Completed opener returns scoreDetail object',
+      'Half-time score is 1-0 (Mexico vs South Africa)',
+      'Second-half goals are 1-0',
+      'Stoppage time recorded for second half',
+      'ft90 matches final score 2-0',
+    ],
+    async run() {
+      const { status, body } = await fetchJson('/api/matches/m-w26-ga-1v2');
+      const d = body?.data?.scoreDetail;
+      const pass =
+        status === 200 &&
+        d?.ht?.home === 1 &&
+        d?.ht?.away === 0 &&
+        d?.secondHalf?.home === 1 &&
+        d?.secondHalf?.away === 0 &&
+        d?.ft90?.home === 2 &&
+        d?.ft90?.away === 0 &&
+        (d?.stoppage?.secondHalf ?? 0) >= 1;
+      return {
+        pass,
+        evidence: {
+          status,
+          scoreDetail: d,
+          home_score: body?.data?.home_score,
+          away_score: body?.data?.away_score,
+        },
+      };
+    },
+  },
+  {
+    id: 'S25',
+    capability: 'Per-period score breakdown (schedule API)',
+    criteria: [
+      'GET /api/schedule returns scoreDetail on completed fixtures',
+      'Mexico opener in schedule has ht + secondHalf breakdown',
+      'At least 1 completed match exposes scoreDetail with half-time score',
+    ],
+    async run() {
+      const { status, body } = await fetchJson('/api/schedule?tournament=t-2026');
+      const matches = body?.data?.matches ?? [];
+      const completed = matches.filter((m) => m.status === 'completed');
+      const withDetail = completed.filter((m) => m.scoreDetail?.ht != null);
+      const mex = matches.find((m) => m.id === 'm-w26-ga-1v2');
+      const pass =
+        status === 200 &&
+        mex?.scoreDetail?.ht?.home === 1 &&
+        mex?.scoreDetail?.ht?.away === 0 &&
+        withDetail.length >= 1;
+      return {
+        pass,
+        evidence: {
+          status,
+          completedCount: completed.length,
+          withDetailCount: withDetail.length,
+          mexicoHt: mex?.scoreDetail?.ht,
+        },
+      };
+    },
+  },
 ];
 
 async function main() {

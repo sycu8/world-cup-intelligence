@@ -1,4 +1,5 @@
 import type { DashboardData, GroupStandingsPayload, NewsArticle, ScheduleMatch, ChampionOddsPayload, TopScorersPayload } from './api';
+import { apiUrl } from './apiOrigin';
 
 export type HomePayload = {
   data: {
@@ -29,7 +30,7 @@ declare global {
 
 export function startHomePrefetch(): void {
   if (typeof window === 'undefined' || window.__PITCHINTEL_HOME__) return;
-  window.__PITCHINTEL_HOME__ = fetch('/api/home')
+  window.__PITCHINTEL_HOME__ = fetch(apiUrl('/api/home'))
     .then((r) => (r.ok ? (r.json() as Promise<HomePayload>) : Promise.reject()))
     .catch(() => null);
 }

@@ -1,15 +1,26 @@
 import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
+import { Link } from 'react-router-dom';
 import type { GroupStandingsPayload } from '../lib/api';
-import { api, type DashboardData, type NewsArticle, type ScheduleMatch, type ChampionOddsPayload, type PredictionAccuracyReport, type UpcomingProbabilityVerification, type TopScorersPayload } from '../lib/api';
+import {
+  api,
+  type DashboardData,
+  type NewsArticle,
+  type ScheduleMatch,
+  type ChampionOddsPayload,
+  type PredictionAccuracyReport,
+  type UpcomingProbabilityVerification,
+  type TopScorersPayload,
+} from '../lib/api';
 import { consumeHomePrefetch } from '../lib/homePrefetch';
 import { FeaturedMatchHero } from '../components/home/FeaturedMatchHero';
-import { WorldCupCountdown } from '../components/home/WorldCupCountdown';
-import { PlatformSnapshot } from '../components/home/PlatformSnapshot';
-import { ChampionOddsPanel } from '../components/home/ChampionOddsPanel';
+import { HomeLivePulse } from '../components/home/HomeLivePulse';
+import { HomeUpcomingStrip } from '../components/home/HomeUpcomingStrip';
+import { HomeSidebarInsights } from '../components/home/HomeSidebarInsights';
 import { TopScorersPanel } from '../components/home/TopScorersPanel';
 import { PredictionAccuracyPanel } from '../components/home/PredictionAccuracyPanel';
-import { NewUserQuickStart } from '../components/home/NewUserQuickStart';
+import { PlatformSnapshot } from '../components/home/PlatformSnapshot';
 import { Bilingual } from '../components/i18n/Bilingual';
+import { useI18n } from '../lib/i18n/I18nContext';
 
 const HomeNewsPreview = lazy(() =>
   import('../components/home/HomeNewsPreview').then((m) => ({ default: m.HomeNewsPreview })),
@@ -20,30 +31,12 @@ const GroupStageBoard = lazy(() =>
 
 const REFRESH_MS = 30_000;
 
-function SectionFallback({ className = 'min-h-[12rem]' }: { className?: string }) {
-  return <div className={`panel animate-pulse rounded-panel bg-panel2/30 ${className}`} aria-hidden />;
-}
-
-function BoardSkeleton() {
-  return <SectionFallback className="min-h-[24rem]" />;
-}
-
-function HomeExtrasSkeleton() {
-  return (
-    <div className="space-y-8" aria-hidden>
-      <div className="grid min-h-[17rem] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-        <div className="flex flex-col gap-4">
-          <div className="panel min-h-[12rem] animate-pulse rounded-panel bg-panel2/40" />
-          <div className="panel min-h-[10rem] flex-1 animate-pulse rounded-panel bg-panel2/35" />
-        </div>
-        <div className="panel min-h-[17rem] animate-pulse rounded-panel bg-panel2/40" />
-      </div>
-      <SectionFallback />
-    </div>
-  );
+function SectionFallback({ className = 'min-h-[10rem]' }: { className?: string }) {
+  return <div className={`animate-pulse rounded-card bg-panel2/30 ${className}`} aria-hidden />;
 }
 
 export function HomePage() {
+  const { t } = useI18n();
   const [matches, setMatches] = useState<ScheduleMatch[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [hotNews, setHotNews] = useState<NewsArticle[]>([]);
@@ -52,9 +45,9 @@ export function HomePage() {
   const [topScorers, setTopScorers] = useState<TopScorersPayload | null>(null);
   const [predictionAccuracy, setPredictionAccuracy] = useState<PredictionAccuracyReport | null>(null);
   const [upcomingVerification, setUpcomingVerification] = useState<UpcomingProbabilityVerification | null>(null);
+  const [probs, setProbs] = useState<Record<string, { mostLikelyScore?: string }>>({});
   const [predictionLoading, setPredictionLoading] = useState(true);
-  const [boardReady, setBoardReady] = useState(false);
-  const [extrasReady, setExtrasReady] = useState(false);
+  const [ready, setReady] = useState(false);
 
   const applyHome = useCallback((payload: Awaited<ReturnType<typeof api.home>>) => {
     setMatches(payload.data.schedule.matches);
@@ -62,26 +55,22 @@ export function HomePage() {
     setHotNews(payload.data.hotNews.slice(0, 3));
     setStandings(payload.data.standings ?? null);
     setChampionOdds(payload.data.championOdds ?? null);
+    if (!payload.data.championOdds?.top.length) {
+      void api
+        .tournamentChampionOdds(2026)
+        .then((res) => {
+          if (res.data.top.length) setChampionOdds(res.data);
+        })
+        .catch(() => undefined);
+    }
     setTopScorers(payload.data.topScorers ?? null);
-    setBoardReady(true);
-    setExtrasReady(true);
-  }, []);
-
-  const loadBoardFast = useCallback(async () => {
-    const [scheduleRes, standingsRes] = await Promise.all([
-      api.schedule().catch(() => null),
-      api.tournamentStandings(2026).catch(() => null),
-    ]);
-    if (scheduleRes) setMatches(scheduleRes.data.matches);
-    if (standingsRes) setStandings(standingsRes.data);
-    if (scheduleRes || standingsRes) setBoardReady(true);
+    setReady(true);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     const run = async () => {
-      const fastBoard = loadBoardFast();
       try {
         const prefetched = await consumeHomePrefetch();
         if (cancelled) return;
@@ -89,40 +78,43 @@ export function HomePage() {
           applyHome(prefetched);
           return;
         }
-        await fastBoard;
-        if (cancelled) return;
         applyHome(await api.home());
       } catch {
-        if (cancelled) return;
-        await fastBoard.catch(() => undefined);
-        setDashboard(null);
-        setHotNews([]);
-        setChampionOdds(null);
-        setTopScorers(null);
-        setBoardReady(true);
-        setExtrasReady(true);
+        if (!cancelled) {
+          setDashboard(null);
+          setHotNews([]);
+          setChampionOdds(null);
+          setTopScorers(null);
+          setReady(true);
+        }
       }
     };
 
     void run();
-    let interval: ReturnType<typeof setInterval> | undefined;
-    const delay = window.setTimeout(() => {
-      interval = window.setInterval(() => {
-        void api
-          .home()
-          .then((payload) => {
-            if (!cancelled) applyHome(payload);
-          })
-          .catch(() => undefined);
-      }, REFRESH_MS);
+    const interval = window.setInterval(() => {
+      void api.home().then((payload) => {
+        if (!cancelled) applyHome(payload);
+      }).catch(() => undefined);
     }, REFRESH_MS);
 
     return () => {
       cancelled = true;
-      window.clearTimeout(delay);
-      if (interval) window.clearInterval(interval);
+      window.clearInterval(interval);
     };
-  }, [applyHome, loadBoardFast]);
+  }, [applyHome]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .tournamentMatchProbabilities(2026)
+      .then((res) => {
+        if (!cancelled) setProbs(res.data);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,61 +148,96 @@ export function HomePage() {
   const featured = dashboard?.featuredMatch ?? null;
 
   return (
-    <div className="space-y-6 sm:space-y-8">
-      <header>
+    <div className="layout-contained space-y-6 sm:space-y-8">
+      <header className="max-w-2xl">
         <Bilingual
           k="home.calendarTitle"
           as="h1"
-          className="font-heading text-2xl tracking-tight sm:text-4xl md:text-5xl"
+          className="font-heading text-2xl tracking-tight sm:text-4xl"
         />
         <Bilingual
           k="home.calendarSubtitle"
           as="p"
-          className="mt-2 max-w-2xl text-sm text-foreground/80 sm:mt-3 sm:text-base"
+          className="mt-2 text-sm leading-relaxed text-muted sm:text-base"
         />
       </header>
 
-      <NewUserQuickStart />
-
-      {!boardReady ? (
-        <BoardSkeleton />
+      {!ready ? (
+        <SectionFallback className="min-h-[4rem]" />
       ) : (
-        <Suspense fallback={<BoardSkeleton />}>
-          <GroupStageBoard
-            matches={matches}
-            initialStandings={standings}
-          />
-        </Suspense>
+        <HomeLivePulse dashboard={dashboard} />
       )}
 
-      {!extrasReady ? (
-        <HomeExtrasSkeleton />
+      {!ready ? (
+        <SectionFallback className="min-h-[20rem]" />
       ) : (
-        <>
-          <TopScorersPanel data={topScorers} loading={!extrasReady} />
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-stretch">
-            <div className="flex flex-col gap-4">
-              <WorldCupCountdown />
-              <ChampionOddsPanel odds={championOdds} loading={!extrasReady} />
-              <PredictionAccuracyPanel
-                accuracy={predictionAccuracy}
-                upcoming={upcomingVerification}
-                loading={predictionLoading}
-              />
-              <PlatformSnapshot dashboard={dashboard} compact />
-            </div>
+        <div className="home-dashboard layout-contained">
+          <div className="min-w-0">
             {featured ? (
               <FeaturedMatchHero match={featured} />
             ) : (
-              <div className="panel flex min-h-[17rem] items-center justify-center text-muted">
+              <div className="home-section flex min-h-[16rem] items-center justify-center text-muted">
                 <Bilingual k="home.noFeatured" />
               </div>
             )}
           </div>
-          <Suspense fallback={<SectionFallback />}>
-            <HomeNewsPreview initialHot={hotNews} />
+          <HomeSidebarInsights
+            dashboard={dashboard}
+            championOdds={championOdds}
+            topScorers={topScorers}
+            loading={!ready}
+          />
+        </div>
+      )}
+
+      {ready && <HomeUpcomingStrip matches={matches} probs={probs} />}
+
+      <section className="home-section layout-contained">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="section-title">{t('groupBoard.title')}</h2>
+            <p className="section-subtitle">{t('groupBoard.subtitle')}</p>
+          </div>
+          <Link to="/matches?tab=standings" className="btn-ghost shrink-0 self-start text-sm sm:self-auto">
+            {t('home.exploreStandings')}
+          </Link>
+        </div>
+        {!ready ? (
+          <SectionFallback className="min-h-[16rem]" />
+        ) : (
+          <Suspense fallback={<SectionFallback className="min-h-[16rem]" />}>
+            <GroupStageBoard
+              mode="home"
+              matches={matches}
+              initialStandings={standings}
+            />
           </Suspense>
-        </>
+        )}
+      </section>
+
+      {ready && (
+        <details className="home-insights-panel layout-contained group">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 marker:content-none sm:px-5 [&::-webkit-details-marker]:hidden">
+            <span className="font-heading text-base text-foreground">{t('home.moreInsights')}</span>
+            <span className="text-muted transition-transform group-open:rotate-180" aria-hidden>
+              ▼
+            </span>
+          </summary>
+          <div className="space-y-4 border-t border-border/40 px-4 py-4 sm:px-5 sm:py-5">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <TopScorersPanel data={topScorers} loading={false} />
+              <PlatformSnapshot dashboard={dashboard} />
+            </div>
+            <PredictionAccuracyPanel
+              accuracy={predictionAccuracy}
+              upcoming={upcomingVerification}
+              loading={predictionLoading}
+            />
+            <Suspense fallback={<SectionFallback />}>
+              <HomeNewsPreview initialHot={hotNews} />
+            </Suspense>
+          </div>
+        </details>
       )}
     </div>
   );

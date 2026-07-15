@@ -12,6 +12,7 @@ vi.mock('../src/ingestion/fifa/fifaLiveSync', () => ({
   syncFifaWc2026Matches: vi.fn(async () => ({
     updatedIds: ['m-live'],
     completedIds: ['m-done'],
+    teamUpdatedIds: [],
     synced: 2,
     skipped: 0,
   })),
@@ -31,6 +32,7 @@ vi.mock('../src/services/cacheWarm', () => ({
 
 vi.mock('../src/services/tournamentProgression', () => ({
   processMatchCompletion: vi.fn(async () => undefined),
+  replayKnockoutBracketFromCompleted: vi.fn(async () => []),
 }));
 
 vi.mock('../src/services/matchLifecycle', () => ({

@@ -1,17 +1,20 @@
 /**
  * Compute and cache WC 2026 champion odds against remote D1/KV.
- * Usage: npx tsx scripts/refresh-champion-odds-remote.ts [simulations]
+ * Usage: npx tsx scripts/refresh-champion-odds-remote.ts [simulations] [--production]
  */
 import { getPlatformProxy } from 'wrangler';
 import type { AppEnv } from '../src/env';
 import { computeChampionOdds, refreshChampionOdds } from '../src/services/tournamentChampionOdds';
 
-const simulations = Number(process.argv[2] ?? 12_000);
+const args = process.argv.slice(2);
+const production = args.includes('--production');
+const simulations = Number(args.find((arg) => arg !== '--production') ?? 12_000);
 
 const { env, dispose } = await getPlatformProxy<AppEnv>({
   configPath: './wrangler.jsonc',
   persist: false,
   remoteBindings: true,
+  environment: production ? 'production' : undefined,
 });
 
 try {

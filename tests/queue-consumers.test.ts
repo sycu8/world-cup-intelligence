@@ -5,7 +5,12 @@ import { createMockDb, createMockEnv } from './helpers/mockEnv';
 import { createMockMessageBatch } from './helpers/mockMessageBatch';
 
 vi.mock('../src/ingestion/matchDataRefresh', () => ({
-  refreshMatchData: vi.fn(async () => ({ updatedIds: ['m-1'], completedIds: [] })),
+  refreshMatchData: vi.fn(async () => ({
+    updatedIds: ['m-1'],
+    completedIds: [],
+    teamUpdatedIds: [],
+    bracketUpdatedIds: [],
+  })),
   handleCompletedMatches: vi.fn(async () => undefined),
 }));
 
@@ -27,6 +32,11 @@ vi.mock('../src/services/recomputeMatch', () => ({
 
 vi.mock('../src/services/tournamentProgression', () => ({
   processMatchCompletion: vi.fn(async () => undefined),
+  replayKnockoutBracketFromCompleted: vi.fn(async () => []),
+}));
+
+vi.mock('../src/services/tournamentChampionOdds', () => ({
+  runChampionOddsRefreshIfPending: vi.fn(async () => false),
 }));
 
 vi.mock('../src/services/bulkRecomputeRunner', () => ({
@@ -167,7 +177,12 @@ describe('handleIngestBatch', () => {
 
   it('refresh_minute loads default match ids when refresh returns empty', async () => {
     const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
-    vi.mocked(refreshMatchData).mockResolvedValueOnce({ updatedIds: [], completedIds: [] });
+    vi.mocked(refreshMatchData).mockResolvedValueOnce({
+      updatedIds: [],
+      completedIds: [],
+      teamUpdatedIds: [],
+      bracketUpdatedIds: [],
+    });
     const send = vi.fn();
     await handleIngestBatch(
       createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'k5d' } }]),

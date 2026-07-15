@@ -1,5 +1,13 @@
 node_modules/
 dist/
+mobile/www/
+android/app/release/
+android/.gradle/
+android/local.properties
+ios/App/Pods/
+*.keystore
+mobile/release/*.keystore
+android/keystore.properties
 .wrangler/
 .dev.vars
 .env

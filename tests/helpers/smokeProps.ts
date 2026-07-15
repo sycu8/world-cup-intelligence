@@ -110,6 +110,35 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
   },
   GroupStandingsGrid: {},
   HomeNewsPreview: {},
+  HomeLivePulse: {
+    dashboard: {
+      featuredMatch: null,
+      matchCount: 52,
+      lastDataRefresh: null,
+      lastNewsCrawl: null,
+      refreshIntervalSec: 30,
+      newsCrawlIntervalSec: 900,
+      expectedMatches: 104,
+      hostCountries: ['USA', 'Mexico', 'Canada'],
+      statusCounts: { scheduled: 40, live: 2, completed: 52 },
+    },
+  },
+  HomeUpcomingStrip: { matches: sampleScheduleMatches, probs: sampleMatchProbs },
+  HomeSidebarInsights: {
+    dashboard: {
+      featuredMatch: null,
+      matchCount: 52,
+      lastDataRefresh: null,
+      lastNewsCrawl: null,
+      refreshIntervalSec: 30,
+      newsCrawlIntervalSec: 900,
+      expectedMatches: 104,
+      hostCountries: ['USA', 'Mexico', 'Canada'],
+      statusCounts: { scheduled: 40, live: 2, completed: 52 },
+    },
+    championOdds: null,
+    topScorers: null,
+  },
   HomePageSkeleton: {},
   LangSwitch: {},
   LineupColumn: { side: sampleLineupSide, label: 'Home' },
@@ -251,6 +280,8 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
       '45': { homeWinProb: 0.42, drawProb: 0.28, awayWinProb: 0.3 },
     },
   },
+  MatchForecastExtras: { extraTimeProb: 0.28, penaltyProb: 0.12 },
+  MatchForecastScore: { score: '2-1' },
   PredictedActualScores: { homeScore: 1, awayScore: 0, status: 'completed' },
   ProbabilityDeltaBadge: { delta: 0.05 },
   ProbabilityMovementPanel: { matchId: SMOKE_MATCH_ID, prob: sampleProbability, currentMinute: 55 },
@@ -379,7 +410,7 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
     totalExpected: 104,
   },
   ViewModeToggle: { mode: 'tactical', onChange: () => {} },
-  WorldCupCountdown: { targetUtc: '2026-06-11T14:00:00Z', title: 'WC 2026' },
+  WorldCupCountdown: { title: 'WC 2026', dashboard: null },
 };
 
 /** Components that need nested Routes (Outlet or route hooks). */

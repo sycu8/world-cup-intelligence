@@ -49,4 +49,19 @@ export function mostLikelyScore(matrix: Record<string, number>): string {
   return Object.entries(matrix).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '0-0';
 }
 
+/** Rounded xG pair used as a secondary hint when it disagrees with the matrix argmax. */
+export function roundedLambdaScore(lambdaHome: number, lambdaAway: number): string {
+  return `${Math.round(lambdaHome)}-${Math.round(lambdaAway)}`;
+}
+
+export function secondaryExpectedScore(
+  matrix: Record<string, number>,
+  lambdaHome: number,
+  lambdaAway: number,
+): string | null {
+  const top = mostLikelyScore(matrix);
+  const rounded = roundedLambdaScore(lambdaHome, lambdaAway);
+  return top !== rounded ? rounded : null;
+}
+
 export { aggregateWdl };

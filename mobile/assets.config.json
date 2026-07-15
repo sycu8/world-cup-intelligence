@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "appId": "vn.orangecloud.pitchintel",
+  "appName": "PitchIntel",
+  "webDir": "mobile/www",
+  "plugins": {
+    "SplashScreen": {
+      "backgroundColor": "#071014"
+    }
+  },
+  "android": {
+    "icon": {
+      "sources": [{ "src": "mobile/store-assets/icon.png" }]
+    },
+    "splash": {
+      "sources": [{ "src": "mobile/store-assets/splash.png" }]
+    }
+  },
+  "ios": {
+    "icon": {
+      "sources": [{ "src": "mobile/store-assets/icon.png" }]
+    },
+    "splash": {
+      "sources": [{ "src": "mobile/store-assets/splash.png" }]
+    }
+  }
+}
