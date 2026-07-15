@@ -108,6 +108,34 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+async function queryMatchesForTeamIds(
+  env: AppEnv,
+  ids: string[],
+  paired: boolean,
+): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => '?').join(',');
+  const sql = paired
+    ? `SELECT id FROM matches
+       WHERE tournament_id = ?
+         AND status IN ('scheduled', 'not_started', 'live')
+         AND home_team_id IN (${placeholders})
+         AND away_team_id IN (${placeholders})
+       ORDER BY kickoff_utc ASC
+       LIMIT 3`
+    : `SELECT id FROM matches
+       WHERE tournament_id = ?
+         AND status IN ('scheduled', 'not_started', 'live')
+         AND (home_team_id IN (${placeholders}) OR away_team_id IN (${placeholders}))
+       ORDER BY kickoff_utc ASC
+       LIMIT 5`;
+
+  const { results } = await env.DB.prepare(sql)
+    .bind(WC2026_TOURNAMENT_ID, ...ids, ...ids)
+    .all<{ id: string }>();
+  return (results ?? []).map((r) => r.id);
+}
+
 async function findWc2026MatchesForTeams(env: AppEnv, teamIds: string[]): Promise<string[]> {
   if (teamIds.length === 0) return [];
 
@@ -126,36 +154,20 @@ async function findWc2026MatchesForTeams(env: AppEnv, teamIds: string[]): Promis
   }
 
   const ids = [...expanded];
-  const placeholders = ids.map(() => '?').join(',');
-
-  const { results: pairMatches } = await env.DB.prepare(
-    `SELECT id FROM matches
-     WHERE tournament_id = ?
-       AND status IN ('scheduled', 'not_started', 'live')
-       AND home_team_id IN (${placeholders})
-       AND away_team_id IN (${placeholders})
-     ORDER BY kickoff_utc ASC
-     LIMIT 3`,
-  )
-    .bind(WC2026_TOURNAMENT_ID, ...ids, ...ids)
-    .all<{ id: string }>();
-
-  if (pairMatches?.length) {
-    return pairMatches.map((r) => r.id);
+  const chunkSize = 40;
+  for (let offset = 0; offset < ids.length; offset += chunkSize) {
+    const chunk = ids.slice(offset, offset + chunkSize);
+    const paired = await queryMatchesForTeamIds(env, chunk, true);
+    if (paired.length) return paired;
   }
 
-  const { results } = await env.DB.prepare(
-    `SELECT id FROM matches
-     WHERE tournament_id = ?
-       AND status IN ('scheduled', 'not_started', 'live')
-       AND (home_team_id IN (${placeholders}) OR away_team_id IN (${placeholders}))
-     ORDER BY kickoff_utc ASC
-     LIMIT 5`,
-  )
-    .bind(WC2026_TOURNAMENT_ID, ...ids, ...ids)
-    .all<{ id: string }>();
+  for (let offset = 0; offset < ids.length; offset += chunkSize) {
+    const chunk = ids.slice(offset, offset + chunkSize);
+    const anySide = await queryMatchesForTeamIds(env, chunk, false);
+    if (anySide.length) return anySide;
+  }
 
-  return (results ?? []).map((r) => r.id);
+  return [];
 }
 
 export async function processNewsDocumentImpact(

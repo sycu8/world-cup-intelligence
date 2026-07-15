@@ -1,7 +1,7 @@
 import type { AppEnv } from '../env';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import { getDb } from '../db/client';
-import type { TeamRow } from '../db/schema';
+import { getTeamsByTournament } from '../db/repositories/teamsRepo';
 import { applyEffectiveTeamProfile } from './teamProfile';
 import { loadRecentH2HTriples } from './tournamentMcSignals';
 import { loadTeamStrengthProfiles } from './tournamentTeamStrength';
@@ -61,10 +61,8 @@ async function loadMonteCarloInput(
 ): Promise<{ input: TournamentMonteCarloInput; teamMeta: Map<string, { name: string; countryCode: string | null }> }> {
   const db = getDb(env);
 
-  const [teamsRes, matchesRes, linksRes] = await Promise.all([
-    db
-      .prepare(`SELECT * FROM teams WHERE id LIKE 'team-w26-%' ORDER BY id ASC`)
-      .all<TeamRow>(),
+  const [teams, matchesRes, linksRes] = await Promise.all([
+    getTeamsByTournament(db, WC2026_TOURNAMENT_ID),
     db
       .prepare(
         `SELECT id, stage, group_code, home_team_id, away_team_id, home_score, away_score, status
@@ -83,14 +81,14 @@ async function loadMonteCarloInput(
       .all<BracketLinkRow>(),
   ]);
 
-  const teams = (teamsRes.results ?? []).map((row) => applyEffectiveTeamProfile(row));
+  const ratedTeams = teams.map((row) => applyEffectiveTeamProfile(row));
   const [teamStrength, h2hTriples] = await Promise.all([
-    loadTeamStrengthProfiles(env, teams),
+    loadTeamStrengthProfiles(env, ratedTeams),
     loadRecentH2HTriples(db),
   ]);
 
   const teamMeta = new Map<string, { name: string; countryCode: string | null }>();
-  for (const team of teams) {
+  for (const team of ratedTeams) {
     teamMeta.set(team.id, { name: team.name, countryCode: team.country_code ?? null });
   }
 

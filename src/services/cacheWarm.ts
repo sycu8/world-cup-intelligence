@@ -13,7 +13,7 @@ export async function warmPayloadCaches(env: AppEnv): Promise<void> {
     (await env.KV.get('meta:last_fifa_sync')) ??
     'cold';
 
-  await Promise.all([
+  await Promise.allSettled([
     getCachedJsonWithVersion(env, 'home:t-2026', () => buildHomePayloadData(env), 60),
     getCachedJsonWithVersion(env, 'schedule:t-2026', () => buildSchedulePayload(env, 't-2026'), 60),
     getCachedJsonWithVersion(env, 'dashboard', () => buildDashboardPayload(env), 60),

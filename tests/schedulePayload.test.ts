@@ -3,7 +3,7 @@ import { WC2026_MATCH_COUNT, WC2026_TOURNAMENT_ID, WC2026_YEAR } from '../src/co
 import { buildSchedulePayload } from '../src/services/schedulePayload';
 import { createMockDb, createMockEnv } from './helpers/mockEnv';
 
-const sampleRow = {
+const sampleMatchRow = {
   id: 'm-w26-ga-1v2',
   kickoff_utc: '2026-06-15T18:00:00.000Z',
   status: 'scheduled',
@@ -15,21 +15,27 @@ const sampleRow = {
   away_score: 0,
   minute: 0,
   tournament_id: WC2026_TOURNAMENT_ID,
-  home_name: 'United States',
-  home_short: 'USA',
-  home_country_code: 'US',
-  away_name: 'Mexico',
-  away_short: 'MEX',
-  away_country_code: 'MX',
-  match_date: '2026-06-15',
 };
+
+const sampleTeams = [
+  { id: 't-usa', name: 'United States', short_name: 'USA', country_code: 'US' },
+  { id: 't-mex', name: 'Mexico', short_name: 'MEX', country_code: 'MX' },
+];
+
+function scheduleMockDb(matchRows: Record<string, unknown>[]) {
+  return createMockDb({
+    all: (sql) => {
+      if (sql.includes('FROM matches')) return { results: matchRows };
+      if (sql.includes('FROM teams')) return { results: sampleTeams };
+      return { results: [] };
+    },
+  });
+}
 
 describe('buildSchedulePayload', () => {
   it('groups matches by date and attaches slugs', async () => {
     const env = createMockEnv({
-      DB: createMockDb({
-        all: () => ({ results: [sampleRow] }),
-      }),
+      DB: scheduleMockDb([sampleMatchRow]),
     });
 
     const payload = await buildSchedulePayload(env, 't-2026');
@@ -47,11 +53,8 @@ describe('buildSchedulePayload', () => {
   });
 
   it('derives date from kickoff when match_date is missing', async () => {
-    const row = { ...sampleRow, match_date: undefined };
     const env = createMockEnv({
-      DB: createMockDb({
-        all: () => ({ results: [row] }),
-      }),
+      DB: scheduleMockDb([sampleMatchRow]),
     });
 
     const payload = await buildSchedulePayload(env);
@@ -59,11 +62,9 @@ describe('buildSchedulePayload', () => {
   });
 
   it('uses unknown bucket when no date fields exist', async () => {
-    const row = { ...sampleRow, match_date: undefined, kickoff_utc: undefined };
+    const row = { ...sampleMatchRow, kickoff_utc: undefined as unknown as string };
     const env = createMockEnv({
-      DB: createMockDb({
-        all: () => ({ results: [row] }),
-      }),
+      DB: scheduleMockDb([row]),
     });
 
     const payload = await buildSchedulePayload(env);
@@ -72,7 +73,7 @@ describe('buildSchedulePayload', () => {
 
   it('handles empty schedule', async () => {
     const env = createMockEnv({
-      DB: createMockDb({ all: () => ({ results: [] }) }),
+      DB: scheduleMockDb([]),
     });
 
     const payload = await buildSchedulePayload(env, null);
