@@ -306,21 +306,25 @@ export async function loadGoalEventsForMatches(
   const out = new Map<string, GoalEventRow[]>();
   if (!matchIds.length) return out;
 
-  const placeholders = matchIds.map(() => '?').join(',');
-  const { results } = await db
-    .prepare(
-      `SELECT match_id, team_id, minute, period, event_type
-       FROM match_events
-       WHERE match_id IN (${placeholders})
-         AND minute IS NOT NULL`,
-    )
-    .bind(...matchIds)
-    .all<GoalEventRow & { match_id: string }>();
+  const chunkSize = 40;
+  for (let offset = 0; offset < matchIds.length; offset += chunkSize) {
+    const chunk = matchIds.slice(offset, offset + chunkSize);
+    const placeholders = chunk.map(() => '?').join(',');
+    const { results } = await db
+      .prepare(
+        `SELECT match_id, team_id, minute, period, event_type
+         FROM match_events
+         WHERE match_id IN (${placeholders})
+           AND minute IS NOT NULL`,
+      )
+      .bind(...chunk)
+      .all<GoalEventRow & { match_id: string }>();
 
-  for (const row of results ?? []) {
-    const bucket = out.get(row.match_id) ?? [];
-    bucket.push(row);
-    out.set(row.match_id, bucket);
+    for (const row of results ?? []) {
+      const bucket = out.get(row.match_id) ?? [];
+      bucket.push(row);
+      out.set(row.match_id, bucket);
+    }
   }
   return out;
 }
