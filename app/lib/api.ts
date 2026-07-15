@@ -287,6 +287,8 @@ export type ChampionOddsPayload = {
   generatedAt: string;
   simulations: number;
   modelVersion?: string;
+  phase?: 'group' | 'knockout' | 'final' | 'final_live' | 'decided';
+  finalMatchId?: string;
   top: ChampionOddsEntry[];
   all: ChampionOddsEntry[];
 };

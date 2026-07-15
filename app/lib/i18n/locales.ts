@@ -257,6 +257,7 @@ export type LocaleKey =
   | 'home.played'
   | 'home.championOdds.title'
   | 'home.championOdds.subtitle'
+  | 'home.championOdds.subtitleFinal'
   | 'home.championOdds.simulations'
   | 'home.championOdds.disclaimer'
   | 'home.topScorers.title'
@@ -1035,6 +1036,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'home.championOdds.subtitle': {
     vi: 'Top 3 đội có khả năng vô địch cao nhất — cập nhật sau mỗi trận',
     en: 'Top 3 teams most likely to win — updated after each match',
+  },
+  'home.championOdds.subtitleFinal': {
+    vi: 'Chỉ còn trận chung kết — xác suất thắng trực tiếp, cập nhật mỗi 5 phút',
+    en: 'Final match set — head-to-head win chance, refreshed every 5 minutes',
   },
   'home.championOdds.simulations': {
     vi: 'Cập nhật sau mỗi trận',
