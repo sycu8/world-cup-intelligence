@@ -27,8 +27,11 @@ export function HomeSidebarInsights({
   const locale = mode === 'en' ? 'en-US' : 'vi-VN';
 
   const hosts = dashboard?.hostCountries?.join(mode === 'en' ? ', ' : ' · ') ?? '';
+  const decided = championOdds?.phase === 'decided';
   const champions = championOdds
-    ? (championOdds.all.length ? championOdds.all : championOdds.top).slice(0, 5)
+    ? decided
+      ? championOdds.top.slice(0, 1)
+      : (championOdds.all.length ? championOdds.all : championOdds.top).slice(0, 5)
     : [];
   const maxProb = champions[0]?.probability ?? 1;
   const scorers = topScorers?.scorers.slice(0, 3) ?? [];
@@ -49,7 +52,7 @@ export function HomeSidebarInsights({
       {champions.length > 0 && (
         <div>
           <p className="label-tactical text-cyan">
-            <Bilingual k="home.championOdds.title" />
+            <Bilingual k={decided ? 'home.championOdds.titleDecided' : 'home.championOdds.title'} />
           </p>
           <ol className="mt-2 space-y-2">
             {champions.map((entry) => (
@@ -62,14 +65,16 @@ export function HomeSidebarInsights({
                   className="min-w-0 flex-1 truncate text-sm"
                 />
                 <span className="shrink-0 font-heading text-sm tabular-nums">
-                  {formatPct(entry.probability, locale)}
+                  {decided ? <Bilingual k="home.championOdds.championBadge" /> : formatPct(entry.probability, locale)}
                 </span>
+                {!decided && (
                 <div className="hidden w-16 overflow-hidden rounded-full bg-background2 sm:block">
                   <div
                     className="h-1.5 rounded-full bg-cyan/80"
                     style={{ width: `${Math.max(12, (entry.probability / maxProb) * 100)}%` }}
                   />
                 </div>
+                )}
               </li>
             ))}
           </ol>

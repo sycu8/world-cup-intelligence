@@ -37,13 +37,17 @@ export function ChampionOddsPanel({ odds, loading = false, layout = 'featured' }
 
   if (!odds?.top.length) return null;
 
-  const subtitleKey =
-    odds.phase === 'final' || odds.phase === 'final_live'
+  const decided = odds.phase === 'decided';
+  const titleKey = decided ? 'home.championOdds.titleDecided' : 'home.championOdds.title';
+  const subtitleKey = decided
+    ? 'home.championOdds.subtitleDecided'
+    : odds.phase === 'final' || odds.phase === 'final_live'
       ? 'home.championOdds.subtitleFinal'
       : 'home.championOdds.subtitle';
 
-  const entries =
-    layout === 'compact'
+  const entries = decided
+    ? odds.top.slice(0, 1)
+    : layout === 'compact'
       ? (odds.all.length ? odds.all : odds.top).slice(0, 8)
       : odds.top;
   const maxProb = entries[0]?.probability ?? 1;
@@ -53,7 +57,7 @@ export function ChampionOddsPanel({ odds, loading = false, layout = 'featured' }
       <section className="panel-dense flex flex-col gap-3">
         <div>
           <p className="label-tactical text-cyan">
-            <Bilingual k="home.championOdds.title" />
+            <Bilingual k={titleKey} />
           </p>
           <p className="mt-1 text-sm text-muted">
             <Bilingual k={subtitleKey} />
@@ -77,15 +81,17 @@ export function ChampionOddsPanel({ odds, loading = false, layout = 'featured' }
                   className="min-w-0 flex-1 truncate text-xs font-medium sm:text-sm"
                 />
                 <span className="shrink-0 font-heading text-base tabular-nums text-foreground sm:text-lg">
-                  {formatPct(entry.probability, locale)}
+                  {decided ? <Bilingual k="home.championOdds.championBadge" /> : formatPct(entry.probability, locale)}
                 </span>
               </div>
+              {!decided && (
               <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-background2 ring-1 ring-border/50">
                 <div
                   className="progress-bar-fill h-full rounded-full bg-gradient-to-r from-cyan/90 to-cyan shadow-[0_0_10px_rgba(0,229,255,0.3)]"
                   style={{ width: `${Math.max(8, (entry.probability / maxProb) * 100)}%` }}
                 />
               </div>
+              )}
             </li>
           ))}
         </ol>
@@ -101,7 +107,7 @@ export function ChampionOddsPanel({ odds, loading = false, layout = 'featured' }
     <section className="panel-dense flex flex-col gap-3">
       <div>
         <p className="label-tactical text-cyan">
-          <Bilingual k="home.championOdds.title" />
+          <Bilingual k={titleKey} />
         </p>
         <p className="mt-1 text-sm text-muted">
           <Bilingual k={subtitleKey} />
@@ -127,15 +133,17 @@ export function ChampionOddsPanel({ odds, loading = false, layout = 'featured' }
                 />
               </div>
               <span className="shrink-0 font-heading text-xl tabular-nums text-foreground sm:text-2xl">
-                {formatPct(entry.probability, locale)}
+                {decided ? <Bilingual k="home.championOdds.championBadge" /> : formatPct(entry.probability, locale)}
               </span>
             </div>
+            {!decided && (
             <div className="mt-2.5 h-2.5 overflow-hidden rounded-full bg-background2 ring-1 ring-border/50 sm:h-3">
               <div
                 className="progress-bar-fill h-full rounded-full bg-gradient-to-r from-cyan/90 to-cyan shadow-[0_0_12px_rgba(0,229,255,0.35)]"
                 style={{ width: `${Math.max(10, (entry.probability / maxProb) * 100)}%` }}
               />
             </div>
+            )}
           </li>
         ))}
       </ol>

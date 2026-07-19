@@ -256,8 +256,11 @@ export type LocaleKey =
   | 'home.scheduled'
   | 'home.played'
   | 'home.championOdds.title'
+  | 'home.championOdds.titleDecided'
   | 'home.championOdds.subtitle'
   | 'home.championOdds.subtitleFinal'
+  | 'home.championOdds.subtitleDecided'
+  | 'home.championOdds.championBadge'
   | 'home.championOdds.simulations'
   | 'home.championOdds.disclaimer'
   | 'home.topScorers.title'
@@ -1033,6 +1036,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     vi: 'Khả năng vô địch',
     en: 'Championship chances',
   },
+  'home.championOdds.titleDecided': {
+    vi: 'Đội vô địch',
+    en: 'World Cup champion',
+  },
   'home.championOdds.subtitle': {
     vi: 'Top 3 đội có khả năng vô địch cao nhất — cập nhật sau mỗi trận',
     en: 'Top 3 teams most likely to win — updated after each match',
@@ -1040,6 +1047,14 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'home.championOdds.subtitleFinal': {
     vi: 'Chỉ còn trận chung kết — xác suất thắng trực tiếp, cập nhật mỗi 5 phút',
     en: 'Final match set — head-to-head win chance, refreshed every 5 minutes',
+  },
+  'home.championOdds.subtitleDecided': {
+    vi: 'Kết quả chung kết World Cup 2026',
+    en: 'FIFA World Cup 2026 final result',
+  },
+  'home.championOdds.championBadge': {
+    vi: 'Vô địch',
+    en: 'Champion',
   },
   'home.championOdds.simulations': {
     vi: 'Cập nhật sau mỗi trận',
