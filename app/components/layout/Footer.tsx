@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { brandTheme } from '../../lib/brand/brandTheme';
 import { useI18n } from '../../lib/i18n/I18nContext';
+import { BuyMeACoffeeButton } from './BuyMeACoffeeButton';
 
 const LINKEDIN_URL = 'https://www.linkedin.com/in/sycule/';
 const GITHUB_URL = 'https://github.com/sycu8/';
@@ -45,6 +46,8 @@ export function Footer() {
           >
             {t('footer.github')}
           </a>
+          <p className="mt-2 text-sm text-muted">{t('footer.sponsor')}</p>
+          <BuyMeACoffeeButton />
         </div>
       </div>
     </footer>

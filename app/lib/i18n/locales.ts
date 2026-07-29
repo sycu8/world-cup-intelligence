@@ -127,6 +127,7 @@ export type LocaleKey =
   | 'footer.analytics'
   | 'footer.builtBy'
   | 'footer.github'
+  | 'footer.sponsor'
   | 'footer.privacy'
   | 'privacy.title'
   | 'privacy.effective'
@@ -772,6 +773,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'footer.analytics': { vi: 'Phân tích', en: 'Analytics' },
   'footer.builtBy': { vi: 'Xây dựng bởi', en: 'Built by' },
   'footer.github': { vi: 'GitHub', en: 'GitHub' },
+  'footer.sponsor': {
+    vi: 'Ủng hộ để duy trì website',
+    en: 'Support to keep this site running',
+  },
   'footer.privacy': { vi: 'Chính sách quyền riêng tư', en: 'Privacy policy' },
   'privacy.title': { vi: 'Chính sách quyền riêng tư', en: 'Privacy policy' },
   'privacy.effective': { vi: 'Có hiệu lực', en: 'Effective' },
