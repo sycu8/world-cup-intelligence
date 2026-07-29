@@ -265,6 +265,12 @@ describe('coverage branch sweep — component single-branch batch', () => {
     expect(screen.getByText('Cuong Le Sy')).toBeTruthy();
   });
 
+  it('Footer shows Buy Me a Coffee sponsor host', () => {
+    renderWithI18n(React.createElement(Footer), 'en');
+    expect(screen.getByTestId('buy-me-a-coffee')).toBeTruthy();
+    expect(screen.getByText('Support to keep this site running')).toBeTruthy();
+  });
+
   it('BrandLogo compact mode uses smaller dimensions', () => {
     renderWithI18n(React.createElement(BrandLogo, { compact: true }));
     const img = document.querySelector('img');
