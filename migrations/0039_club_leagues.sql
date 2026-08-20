@@ -1,66 +1,37 @@
 -- Multi-competition support: La Liga, J1 League, V.League 1, CAF Champions League.
--- Drop UNIQUE(year) so several 2026-season competitions can coexist with WC 2026.
+--
+-- D1 keeps foreign keys enabled and does not honor PRAGMA foreign_keys=OFF, so we cannot
+-- DROP/rebuild `tournaments` while matches/squads/team_coaches reference it.
+-- Keep UNIQUE(year) and use synthetic years (26xxx) for club rows so they coexist with WC 2026.
+-- App catalog (`src/constants/leagues.ts`) remains the source of truth for display year/season.
 
-PRAGMA foreign_keys=off;
+ALTER TABLE tournaments ADD COLUMN slug TEXT;
+ALTER TABLE tournaments ADD COLUMN region TEXT;
+ALTER TABLE tournaments ADD COLUMN competition_type TEXT;
+ALTER TABLE tournaments ADD COLUMN season TEXT;
+ALTER TABLE tournaments ADD COLUMN espn_slug TEXT;
+ALTER TABLE tournaments ADD COLUMN country_code TEXT;
 
-CREATE TABLE IF NOT EXISTS tournaments_v2 (
-  id TEXT PRIMARY KEY,
-  year INTEGER NOT NULL,
-  name TEXT NOT NULL,
-  slug TEXT UNIQUE,
-  region TEXT,
-  competition_type TEXT,
-  season TEXT,
-  espn_slug TEXT,
-  country_code TEXT,
-  host_countries_json TEXT,
-  start_date TEXT,
-  end_date TEXT,
-  teams_count INTEGER,
-  status TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
-INSERT INTO tournaments_v2 (
-  id, year, name, slug, region, competition_type, season, espn_slug, country_code,
-  host_countries_json, start_date, end_date, teams_count, status, created_at, updated_at
-)
-SELECT
-  id,
-  year,
-  name,
-  CASE WHEN id = 't-2026' THEN 'world-cup-2026' ELSE NULL END,
-  CASE WHEN id = 't-2026' THEN 'world' ELSE NULL END,
-  CASE WHEN id = 't-2026' THEN 'world_cup' ELSE NULL END,
-  CASE WHEN id = 't-2026' THEN '2026' ELSE NULL END,
-  CASE WHEN id = 't-2026' THEN 'fifa.world' ELSE NULL END,
-  NULL,
-  host_countries_json,
-  start_date,
-  end_date,
-  teams_count,
-  status,
-  created_at,
-  updated_at
-FROM tournaments;
-
-DROP TABLE tournaments;
-ALTER TABLE tournaments_v2 RENAME TO tournaments;
-
-CREATE INDEX IF NOT EXISTS idx_tournaments_slug ON tournaments(slug);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tournaments_slug ON tournaments(slug);
 CREATE INDEX IF NOT EXISTS idx_tournaments_region ON tournaments(region);
 
-PRAGMA foreign_keys=on;
+UPDATE tournaments
+SET
+  slug = 'world-cup-2026',
+  region = 'world',
+  competition_type = 'world_cup',
+  season = '2026',
+  espn_slug = 'fifa.world'
+WHERE id = 't-2026';
 
 INSERT OR IGNORE INTO tournaments (
   id, year, name, slug, region, competition_type, season, espn_slug, country_code,
   teams_count, status, start_date, end_date
 ) VALUES
-  ('t-vleague', 2026, 'V.League 1', 'v-league-1', 'vietnam', 'domestic_league', '2026/27', 'vie.1', 'VN', 14, 'live', '2026-08-01', '2027-06-30'),
-  ('t-j1', 2026, 'J1 League', 'j1-league', 'japan', 'domestic_league', '2026', 'jpn.1', 'JP', 20, 'live', '2026-02-01', '2026-12-10'),
-  ('t-la-liga', 2026, 'La Liga', 'la-liga', 'europe', 'domestic_league', '2026/27', 'esp.1', 'ES', 20, 'live', '2026-08-15', '2027-05-31'),
-  ('t-caf-cl', 2026, 'CAF Champions League', 'caf-champions-league', 'africa', 'continental_cup', '2026/27', 'caf.champions', NULL, 16, 'live', '2026-08-01', '2027-05-31');
+  ('t-vleague', 26101, 'V.League 1', 'v-league-1', 'vietnam', 'domestic_league', '2026/27', 'vie.1', 'VN', 14, 'live', '2026-08-01', '2027-06-30'),
+  ('t-j1', 26102, 'J1 League', 'j1-league', 'japan', 'domestic_league', '2026', 'jpn.1', 'JP', 20, 'live', '2026-02-01', '2026-12-10'),
+  ('t-la-liga', 26103, 'La Liga', 'la-liga', 'europe', 'domestic_league', '2026/27', 'esp.1', 'ES', 20, 'live', '2026-08-15', '2027-05-31'),
+  ('t-caf-cl', 26104, 'CAF Champions League', 'caf-champions-league', 'africa', 'continental_cup', '2026/27', 'caf.champions', NULL, 16, 'live', '2026-08-01', '2027-05-31');
 
 ALTER TABLE matches ADD COLUMN source_event_id TEXT;
 ALTER TABLE matches ADD COLUMN matchweek INTEGER;
