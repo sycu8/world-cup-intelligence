@@ -14,6 +14,10 @@ vi.mock('../src/ingestion/matchDataRefresh', () => ({
   handleCompletedMatches: vi.fn(async () => undefined),
 }));
 
+vi.mock('../src/ingestion/newsCrawler', () => ({
+  crawlWorldCupNews: vi.fn(async () => 2),
+}));
+
 vi.mock('../src/ingestion/leagues/syncLeagues', () => ({
   syncAllClubLeagues: vi.fn(async () => [{ leagueId: 't-la-liga', matchesUpserted: 1 }]),
   syncLeague: vi.fn(async () => ({ leagueId: 't-la-liga', matchesUpserted: 1 })),

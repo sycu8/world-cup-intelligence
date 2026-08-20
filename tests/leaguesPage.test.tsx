@@ -43,10 +43,10 @@ describe('league picker and hub', () => {
     const user = userEvent.setup();
     renderAt('/leagues/la-liga');
     expect(await screen.findByRole('heading', { name: /la liga/i })).toBeTruthy();
-    expect(screen.getByText(/real madrid/i)).toBeTruthy();
+    expect(screen.getAllByText(/real madrid/i).length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: /bảng|table/i }));
     await waitFor(() => {
-      expect(screen.getByText(/22/)).toBeTruthy();
+      expect(screen.getByText('22')).toBeTruthy();
     });
   });
 });

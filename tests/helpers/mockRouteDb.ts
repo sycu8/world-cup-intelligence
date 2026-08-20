@@ -219,7 +219,7 @@ function handleAll(sql: string, binds: unknown[], fixtures: RouteDbFixtures): { 
     return { results: [fixtures.match] };
   }
 
-  if (sql.includes('FROM matches WHERE tournament_id = ?') && sql.includes('ORDER BY kickoff_utc')) {
+  if (sql.includes('FROM matches') && sql.includes('WHERE tournament_id = ?') && sql.includes('ORDER BY kickoff_utc')) {
     return { results: [fixtures.match] };
   }
 
