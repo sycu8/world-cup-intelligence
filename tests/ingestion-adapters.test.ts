@@ -5,6 +5,8 @@ import {
   parseRssItems,
   extractImageUrl,
   isWorldCupRelated,
+  isSoccerRelated,
+  shouldKeepSoccerNews,
 } from '../src/ingestion/adapters/TrustedNewsRssAdapter';
 import { fetchFifaWc2026NewsItems } from '../src/ingestion/adapters/FifaWc2026NewsAdapter';
 import { SOURCE_IDS, getIngestHandler } from '../src/ingestion/sourceRegistry';
@@ -69,12 +71,23 @@ describe('ingestion TrustedNewsRssAdapter', () => {
     expect(isWorldCupRelated('Local cricket', 'County championship')).toBe(false);
   });
 
+  it('isSoccerRelated keeps global club football and drops non-soccer noise', () => {
+    expect(isSoccerRelated('Premier League transfer window', 'Arsenal sign striker')).toBe(true);
+    expect(isSoccerRelated('La Liga round-up', 'Real Madrid win El Clasico')).toBe(true);
+    expect(isSoccerRelated('V.League 1 preview', 'Hà Nội FC vs CAHN')).toBe(true);
+    expect(shouldKeepSoccerNews('Champions League draw', 'UEFA group stage')).toBe(true);
+    expect(isSoccerRelated('NBA finals preview', 'Basketball playoffs')).toBe(false);
+    expect(isSoccerRelated('County cricket championship', 'Test match')).toBe(false);
+  });
+
   it('includes diverse regional news feeds', () => {
     const ids = WC_NEWS_FEEDS.map((f) => f.id);
     expect(ids).toContain('rss-uefa-news');
     expect(ids).toContain('rss-ussoccer');
     expect(ids).toContain('rss-marca-futbol');
     expect(ids).toContain('rss-ole-argentina');
+    expect(ids).toContain('rss-guardian-football');
+    expect(ids).toContain('rss-vnexpress-thethao');
     expect(WC_NEWS_FEEDS.length).toBeGreaterThanOrEqual(20);
   });
 });

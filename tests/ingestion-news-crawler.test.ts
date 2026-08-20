@@ -32,6 +32,10 @@ vi.mock('../src/ingestion/adapters/FifaWc2026NewsAdapter', () => ({
   ]),
 }));
 
+vi.mock('../src/ingestion/adapters/VnExpressWc2026NewsAdapter', () => ({
+  fetchVnExpressWc2026NewsItems: vi.fn(async () => []),
+}));
+
 describe('ingestion newsCrawler', () => {
   beforeEach(() => {
     vi.restoreAllMocks();

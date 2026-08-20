@@ -1,5 +1,12 @@
-/** Trusted RSS feeds — no HTML scraping of search results. */
+/** Trusted RSS feeds — global soccer + World Cup. */
 export const WC_NEWS_FEEDS = [
+  {
+    id: 'rss-guardian-football',
+    name: 'The Guardian Football',
+    publisher: 'The Guardian',
+    url: 'https://www.theguardian.com/football/rss',
+    reliability: 0.84,
+  },
   {
     id: 'rss-guardian-wc',
     name: 'The Guardian World Cup',
@@ -167,6 +174,21 @@ export const WC_NEWS_FEEDS = [
     publisher: 'Evening Standard',
     url: 'https://www.standard.co.uk/sport/football/rss',
     reliability: 0.76,
+  },
+  {
+    id: 'rss-vnexpress-thethao',
+    name: 'VnExpress Thể thao',
+    publisher: 'VnExpress',
+    url: 'https://vnexpress.net/rss/the-thao.rss',
+    reliability: 0.78,
+    contentLocale: 'vi' as const,
+  },
+  {
+    id: 'rss-afc-news',
+    name: 'Asian Football Confederation',
+    publisher: 'AFC',
+    url: 'https://www.the-afc.com/en/more/news.html?format=feed&type=rss',
+    reliability: 0.8,
   },
 ] as const;
 
@@ -413,4 +435,132 @@ const WC_NEWS_KEYWORDS = [
 export function isWorldCupRelated(title: string, description: string): boolean {
   const text = `${title} ${description}`.toLowerCase();
   return WC_NEWS_KEYWORDS.some((k) => text.includes(k));
+}
+
+/** Global club / league / football vocabulary — keeps worldwide soccer in the blog feed. */
+const SOCCER_NEWS_KEYWORDS = [
+  'football',
+  'soccer',
+  'futbol',
+  'fútbol',
+  'bóng đá',
+  'premier league',
+  'la liga',
+  'laliga',
+  'serie a',
+  'bundesliga',
+  'ligue 1',
+  'eredivisie',
+  'primeira liga',
+  'championship',
+  'champions league',
+  'europa league',
+  'conference league',
+  'mls',
+  'major league soccer',
+  'liga mx',
+  'brasileirão',
+  'brasileirao',
+  'copa libertadores',
+  'copa sudamericana',
+  'v.league',
+  'v-league',
+  'j1',
+  'j-league',
+  'j.league',
+  'jleague',
+  'asean championship',
+  'aff cup',
+  'aff championship',
+  'caf champions',
+  'african champions',
+  'afcon',
+  'africa cup',
+  'asian cup',
+  'afc champions',
+  'transfer',
+  'transfers',
+  'striker',
+  'midfielder',
+  'goalkeeper',
+  'manager',
+  'head coach',
+  'hat-trick',
+  'hattrick',
+  'clean sheet',
+  'penalty',
+  'free kick',
+  'matchday',
+  'fixture',
+  'relegation',
+  'promotion',
+  'derby',
+  'el clasico',
+  'el clásico',
+  'manchester',
+  'liverpool',
+  'chelsea',
+  'arsenal',
+  'tottenham',
+  'real madrid',
+  'barcelona',
+  'bayern',
+  'juventus',
+  'inter milan',
+  'ac milan',
+  'psg',
+  'paris saint',
+  'napoli',
+  'dortmund',
+  'atletico',
+  'atlético',
+  'giải vô địch',
+  'ngoại hạng anh',
+  'cúp c1',
+  'đội tuyển',
+] as const;
+
+const NON_SOCCER_NOISE = [
+  'cricket',
+  'rugby',
+  'tennis',
+  'nba',
+  'nfl',
+  'mlb',
+  'nhl',
+  'formula 1',
+  'f1 ',
+  'nascar',
+  'golf ',
+  'boxing',
+  'ufc',
+  'wrestling',
+  'olympics swimming',
+  'athletics',
+] as const;
+
+export function isSoccerRelated(title: string, description: string): boolean {
+  const text = `${title} ${description}`.toLowerCase();
+  const hasNoise = NON_SOCCER_NOISE.some((k) => text.includes(k));
+  const strongSoccer = [
+    'football',
+    'soccer',
+    'futbol',
+    'fútbol',
+    'bóng đá',
+    'premier league',
+    'la liga',
+    'serie a',
+    'bundesliga',
+    'champions league',
+    'world cup',
+  ].some((k) => text.includes(k));
+  if (hasNoise && !strongSoccer) return false;
+  if (isWorldCupRelated(title, description)) return true;
+  return SOCCER_NEWS_KEYWORDS.some((k) => text.includes(k));
+}
+
+/** Keep soccer-topic RSS items for the global blog (WC + club + worldwide football). */
+export function shouldKeepSoccerNews(title: string, description: string): boolean {
+  return isSoccerRelated(title, description);
 }

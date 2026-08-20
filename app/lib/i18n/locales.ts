@@ -713,10 +713,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: '12-group schedule, match forecasts, and standings remain on the Matches board.',
   },
   'home.landing.wcCta': { vi: 'Mở World Cup →', en: 'Open World Cup →' },
-  'home.landing.newsTitle': { vi: 'Tin nóng', en: 'Headlines' },
+  'home.landing.newsTitle': { vi: 'Tin bóng đá', en: 'Soccer news' },
   'home.landing.newsSubtitle': {
-    vi: 'Tin bóng đá đã lọc — ưu tiên tiếng Việt khi có.',
-    en: 'Filtered football news — Vietnamese when available.',
+    vi: 'Tin giải đấu và bóng đá thế giới — ưu tiên tiếng Việt khi có.',
+    en: 'League and worldwide football news — Vietnamese when available.',
   },
   'home.landing.metaTitle': {
     vi: 'PitchIntel — Tình báo giải đấu bóng đá',
@@ -726,10 +726,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     vi: 'Lịch, bảng, tỉ số live và dự đoán tỉ số cho V.League, ASEAN Championship, J1, La Liga và CAF Champions League.',
     en: 'Fixtures, tables, live scores, and predicted scorelines for V.League, ASEAN Championship, J1, La Liga, and CAF Champions League.',
   },
-  'news.pageTitle': { vi: 'Tin World Cup', en: 'World Cup News' },
+  'news.pageTitle': { vi: 'Tin bóng đá thế giới', en: 'Global soccer news' },
   'news.pageSubtitle': {
-    vi: 'Chạm vào bài để mở trang riêng — chuyển Tiếng Việt / English trên từng bài.',
-    en: 'Tap an article for its own page — switch Vietnamese / English per article.',
+    vi: 'Tin giải đấu và bóng đá khắp thế giới — chạm bài để đọc, chuyển Việt / English trên từng bài.',
+    en: 'Club leagues and football worldwide — tap a story to read, switch Vietnamese / English per article.',
   },
   'news.feedTitle': { vi: 'Tin tức & tình báo', en: 'News & intelligence' },
   'news.hot': { vi: 'Top 3 nổi bật', en: 'Top 3 hot' },
