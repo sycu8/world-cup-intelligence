@@ -3,6 +3,7 @@ import {
   WC_NEWS_FEEDS,
   parseRssItems,
   shouldKeepSoccerNews,
+  isWorldCupRelated,
   type NewsFeed,
 } from './adapters/TrustedNewsRssAdapter';
 import { fetchFifaWc2026NewsItems } from './adapters/FifaWc2026NewsAdapter';
@@ -14,7 +15,6 @@ import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import { NEWS_CRAWL_KV_KEY } from '../constants/pipeline';
 import { nowIso } from '../utils/time';
 import { logInfo, logError } from '../utils/logger';
-import { isWorldCupRelated } from './adapters/TrustedNewsRssAdapter';
 
 const RSS_PARSE_LIMIT = 30;
 const MAX_ITEMS_PER_FEED = 8;
