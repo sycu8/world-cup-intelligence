@@ -2,6 +2,7 @@ import type { AppEnv } from '../../env';
 import { parseEnv } from '../../env';
 import {
   CLUB_LEAGUES,
+  clubLeagueIds,
   clubMatchId,
   clubTeamId,
   type LeagueCatalogEntry,
@@ -9,6 +10,7 @@ import {
 import { nowIso } from '../../utils/time';
 import { logError, logInfo } from '../../utils/logger';
 import { publishNewsArticle } from '../../services/newsPublish';
+import { recomputeMatchProbability } from '../../services/recomputeMatch';
 import {
   buildMockLeagueMatches,
   buildMockLeagueNews,
@@ -286,6 +288,37 @@ export async function syncLeague(env: AppEnv, league: LeagueCatalogEntry): Promi
   };
 }
 
+/** Queue W/D/L + scoreline recompute for scheduled/live club-league matches (WC parity). */
+export async function queueClubLeagueProbabilities(env: AppEnv, limit = 32): Promise<number> {
+  const ids = clubLeagueIds();
+  if (!ids.length) return 0;
+  const placeholders = ids.map(() => '?').join(',');
+  const matchIds =
+    (
+      await env.DB.prepare(
+        `SELECT id FROM matches
+         WHERE tournament_id IN (${placeholders})
+           AND status IN ('scheduled', 'live')
+         ORDER BY kickoff_utc ASC
+         LIMIT ?`,
+      )
+        .bind(...ids, limit)
+        .all<{ id: string }>()
+    ).results?.map((r) => r.id) ?? [];
+
+  if (!matchIds.length) return 0;
+
+  if (env.MODEL_QUEUE) {
+    await env.MODEL_QUEUE.send({ type: 'recompute_all', matchIds });
+  } else {
+    for (const id of matchIds.slice(0, 12)) {
+      await recomputeMatchProbability(env, id).catch(() => undefined);
+    }
+  }
+  logInfo('club league probabilities queued', { count: matchIds.length });
+  return matchIds.length;
+}
+
 export async function syncAllClubLeagues(env: AppEnv): Promise<LeagueSyncResult[]> {
   const results: LeagueSyncResult[] = [];
   for (const league of CLUB_LEAGUES) {
@@ -304,5 +337,8 @@ export async function syncAllClubLeagues(env: AppEnv): Promise<LeagueSyncResult[
     }
   }
   await env.KV.put('meta:last_league_sync', nowIso(), { expirationTtl: 86400 }).catch(() => undefined);
+  await queueClubLeagueProbabilities(env).catch((error) => {
+    logError('club league probability queue failed', { error: String(error) });
+  });
   return results;
 }

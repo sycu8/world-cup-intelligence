@@ -37,6 +37,7 @@ describe('league picker and hub', () => {
     expect(await screen.findByRole('heading', { name: /chọn giải đấu|choose a league/i })).toBeTruthy();
     expect(await screen.findByRole('link', { name: /la liga/i })).toBeTruthy();
     expect(screen.getByRole('link', { name: /v\.league/i })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /asean|aff cup/i })).toBeTruthy();
   });
 
   it('opens a league hub with standings and live tabs', async () => {
@@ -44,6 +45,7 @@ describe('league picker and hub', () => {
     renderAt('/leagues/la-liga');
     expect(await screen.findByRole('heading', { name: /la liga/i })).toBeTruthy();
     expect(screen.getAllByText(/real madrid/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/2–1|2-1/)).toBeTruthy();
     await user.click(screen.getByRole('button', { name: /bảng|table/i }));
     await waitFor(() => {
       expect(screen.getByText('22')).toBeTruthy();

@@ -28,13 +28,21 @@ import { leagueRoutes } from '../src/routes/leagues';
 
 describe('league catalog', () => {
   it('covers one flagship competition per region', () => {
-    expect(CLUB_LEAGUES.map((l) => l.region).sort()).toEqual(['africa', 'europe', 'japan', 'vietnam']);
+    expect(CLUB_LEAGUES.map((l) => l.region).sort()).toEqual([
+      'africa',
+      'asean',
+      'europe',
+      'japan',
+      'vietnam',
+    ]);
     expect(getLeagueBySlug('la-liga')?.id).toBe(LA_LIGA_ID);
     expect(getLeagueById(V_LEAGUE_ID)?.slug).toBe('v-league-1');
+    expect(getLeagueBySlug('asean-championship')?.espnSlug).toBe('aff.championship');
     expect(isClubLeagueTournamentId(LA_LIGA_ID)).toBe(true);
     expect(isClubLeagueTournamentId('t-2026')).toBe(false);
     expect(clubTeamId(getLeagueBySlug('la-liga')!, '86')).toBe('team-liga-86');
     expect(clubMatchId(getLeagueBySlug('j1-league')!, '99')).toBe('m-j1-99');
+    expect(clubMatchId(getLeagueBySlug('asean-championship')!, '12')).toBe('m-aff-12');
   });
 
   it('prefixes club match slugs and keeps World Cup slugs unchanged', () => {
@@ -184,8 +192,11 @@ describe('league payload and routes', () => {
     );
     expect(res.status).toBe(200);
     expect(json.data.featured.slug).toBe('world-cup-2026');
-    expect(json.data.leagues).toHaveLength(4);
-    expect(json.data.regions).toHaveLength(4);
+    expect(json.data.leagues).toHaveLength(5);
+    expect(json.data.regions).toHaveLength(5);
+    expect(
+      (json.data.leagues as { slug: string }[]).some((l) => l.slug === 'asean-championship'),
+    ).toBe(true);
   });
 
   it('GET /api/leagues/:slug returns hub payload', async () => {

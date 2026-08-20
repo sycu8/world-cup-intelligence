@@ -3,6 +3,7 @@ import {
   ALL_LEAGUE_CATALOG,
   CLUB_LEAGUES,
   REGION_LABELS,
+  REGION_ORDER,
   WORLD_CUP_CATALOG,
   getLeagueBySlug,
   type LeagueCatalogEntry,
@@ -12,7 +13,7 @@ import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import { attachSlugToScheduleRow } from './matchRef';
 import { fetchHotNewsArticlesForTournament } from './newsListPayload';
 import { buildSchedulePayload } from './schedulePayload';
-import * as probabilityRepo from '../db/repositories/probabilityRepo';
+import { buildTournamentMatchProbabilitiesPayload } from './tournamentMatchProbabilities';
 
 export type LeagueCatalogCard = LeagueCatalogEntry & {
   regionLabel: { vi: string; en: string };
@@ -47,7 +48,17 @@ export type LeagueHubPayload = {
   live: unknown[];
   upcoming: unknown[];
   results: unknown[];
-  matchProbabilities: Record<string, { homeWin: number; draw: number; awayWin: number; mostLikelyScore?: string }>;
+  matchProbabilities: Record<
+    string,
+    {
+      homeWin: number;
+      draw: number;
+      awayWin: number;
+      mostLikelyScore?: string;
+      extraTimeProb?: number;
+      penaltyProb?: number;
+    }
+  >;
   news: Awaited<ReturnType<typeof fetchHotNewsArticlesForTournament>>;
   topScorers: {
     rank: number;
@@ -99,11 +110,11 @@ export async function buildLeagueCatalogPayload(env: AppEnv): Promise<{
     });
   }
 
-  const regions = (['vietnam', 'japan', 'europe', 'africa'] as LeagueRegion[]).map((region) => ({
+  const regions = REGION_ORDER.map((region) => ({
     region,
     label: REGION_LABELS[region],
     leagues: cards.filter((c) => c.region === region),
-  }));
+  })).filter((r) => r.leagues.length > 0);
 
   return {
     featured: cards.find((c) => c.id === WORLD_CUP_CATALOG.id) ?? cards[0]!,
@@ -116,7 +127,7 @@ export async function buildLeagueHubPayload(env: AppEnv, slug: string): Promise<
   const league = getLeagueBySlug(slug);
   if (!league || league.format === 'world_cup') return null;
 
-  const [standingsResult, schedule, news, scorersResult, teamsResult, snapshots, lastSync] = await Promise.all([
+  const [standingsResult, schedule, news, scorersResult, teamsResult, probsPayload, lastSync] = await Promise.all([
     env.DB.prepare(
       `SELECT r.*, t.name AS team_name, t.short_name, t.country_code, t.crest_url
        FROM league_table_rows r
@@ -170,7 +181,10 @@ export async function buildLeagueHubPayload(env: AppEnv, slug: string): Promise<
     )
       .bind(league.id)
       .all<{ id: string; name: string; short_name: string | null; country_code: string | null }>(),
-    probabilityRepo.listLatestSnapshotsForTournament(env.DB, league.id),
+    buildTournamentMatchProbabilitiesPayload(env, league.id, {
+      skipInlineFill: false,
+      scheduleBackgroundFill: true,
+    }),
     env.KV.get('meta:last_league_sync'),
   ]);
 
@@ -209,15 +223,6 @@ export async function buildLeagueHubPayload(env: AppEnv, slug: string): Promise<
     .reverse()
     .map((m) => attachSlugToScheduleRow(m));
 
-  const matchProbabilities: LeagueHubPayload['matchProbabilities'] = {};
-  for (const snap of snapshots) {
-    matchProbabilities[snap.matchId] = {
-      homeWin: snap.homeWinProb,
-      draw: snap.drawProb,
-      awayWin: snap.awayWinProb,
-    };
-  }
-
   return {
     league,
     regionLabel: REGION_LABELS[league.region],
@@ -225,7 +230,7 @@ export async function buildLeagueHubPayload(env: AppEnv, slug: string): Promise<
     live,
     upcoming,
     results,
-    matchProbabilities,
+    matchProbabilities: probsPayload.data,
     news,
     topScorers: (scorersResult.results ?? []).map((row, index) => ({
       rank: row.rank ?? index + 1,

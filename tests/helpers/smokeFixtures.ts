@@ -536,6 +536,7 @@ export const sampleLeagueCatalog: LeagueCatalogPayload = {
   },
   regions: [
     { region: 'vietnam', label: { vi: 'Việt Nam', en: 'Vietnam' }, leagues: [{ ...sampleLeagueCard, id: 't-vleague', slug: 'v-league-1', name: 'V.League 1', nameVi: 'V.League 1', shortName: 'V.League', shortNameVi: 'V.League', region: 'vietnam', countryCode: 'VN', accent: 'danger', regionLabel: { vi: 'Việt Nam', en: 'Vietnam' }, href: '/leagues/v-league-1' }] },
+    { region: 'asean', label: { vi: 'Đông Nam Á', en: 'ASEAN' }, leagues: [{ ...sampleLeagueCard, id: 't-asean-champ', slug: 'asean-championship', name: 'ASEAN Championship', nameVi: 'AFF Cup / ASEAN Championship', shortName: 'ASEAN', shortNameVi: 'AFF Cup', region: 'asean', countryCode: null, format: 'groups_knockout', season: '2025-2026', accent: 'yellow', regionLabel: { vi: 'Đông Nam Á', en: 'ASEAN' }, href: '/leagues/asean-championship' }] },
     { region: 'japan', label: { vi: 'Nhật Bản', en: 'Japan' }, leagues: [{ ...sampleLeagueCard, id: 't-j1', slug: 'j1-league', name: 'J1 League', nameVi: 'J1 League', region: 'japan', countryCode: 'JP', accent: 'magenta', regionLabel: { vi: 'Nhật Bản', en: 'Japan' }, href: '/leagues/j1-league' }] },
     { region: 'europe', label: { vi: 'Châu Âu', en: 'Europe' }, leagues: [sampleLeagueCard] },
     { region: 'africa', label: { vi: 'Châu Phi', en: 'Africa' }, leagues: [{ ...sampleLeagueCard, id: 't-caf-cl', slug: 'caf-champions-league', name: 'CAF Champions League', nameVi: 'Cúp C1 châu Phi', region: 'africa', countryCode: null, accent: 'green', regionLabel: { vi: 'Châu Phi', en: 'Africa' }, href: '/leagues/caf-champions-league' }] },
@@ -570,7 +571,7 @@ export const sampleLeagueHub: LeagueHubPayload = {
   live: [{ ...sampleScheduleMatch, status: 'live', home_score: 1, away_score: 0 }],
   upcoming: [sampleScheduleMatch],
   results: [{ ...sampleScheduleMatch, id: 'm-liga-done', status: 'completed', home_score: 2, away_score: 1 }],
-  matchProbabilities: { [SMOKE_MATCH_ID]: { homeWin: 0.48, draw: 0.26, awayWin: 0.26 } },
+  matchProbabilities: { [SMOKE_MATCH_ID]: { homeWin: 0.48, draw: 0.26, awayWin: 0.26, mostLikelyScore: '2-1' } },
   news: [],
   topScorers: [{ rank: 1, playerId: 'p-1', playerName: 'Mbappé', teamId: 'team-liga-86', teamName: 'Real Madrid', goals: 8 }],
   teams: [{ id: 'team-liga-86', name: 'Real Madrid', shortName: 'RMA', countryCode: 'ES' }],

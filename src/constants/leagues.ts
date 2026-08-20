@@ -1,6 +1,6 @@
 /** Club + continental competitions surfaced alongside FIFA World Cup 2026. */
 
-export type LeagueRegion = 'vietnam' | 'japan' | 'europe' | 'africa' | 'world';
+export type LeagueRegion = 'vietnam' | 'asean' | 'japan' | 'europe' | 'africa' | 'world';
 export type LeagueFormat = 'league_table' | 'groups_knockout' | 'world_cup';
 export type LeagueNewsKeywordSet = readonly string[];
 
@@ -18,7 +18,7 @@ export type LeagueCatalogEntry = {
   year: number;
   /** ESPN soccer slug (`esp.1`). Null when ESPN coverage is unreliable. */
   espnSlug: string | null;
-  /** TheSportsDB numeric league id — V.League fallback. */
+  /** TheSportsDB numeric league id — V.League / ASEAN fallback. */
   theSportsDbId: string | null;
   newsKeywords: LeagueNewsKeywordSet;
   accent: 'cyan' | 'magenta' | 'green' | 'yellow' | 'danger';
@@ -30,6 +30,7 @@ export const LA_LIGA_ID = 't-la-liga';
 export const J1_LEAGUE_ID = 't-j1';
 export const V_LEAGUE_ID = 't-vleague';
 export const CAF_CL_ID = 't-caf-cl';
+export const ASEAN_CHAMP_ID = 't-asean-champ';
 
 export const CLUB_LEAGUES: readonly LeagueCatalogEntry[] = [
   {
@@ -48,6 +49,31 @@ export const CLUB_LEAGUES: readonly LeagueCatalogEntry[] = [
     theSportsDbId: '4689',
     newsKeywords: ['v.league', 'v-league', 'vleague', 'giải vô địch quốc gia', 'bóng đá việt nam'],
     accent: 'danger',
+  },
+  {
+    id: ASEAN_CHAMP_ID,
+    slug: 'asean-championship',
+    name: 'ASEAN Championship',
+    nameVi: 'AFF Cup / ASEAN Championship',
+    shortName: 'ASEAN',
+    shortNameVi: 'AFF Cup',
+    region: 'asean',
+    countryCode: null,
+    format: 'groups_knockout',
+    /** TheSportsDB season string; ESPN uses aff.championship. */
+    season: '2025-2026',
+    year: 2026,
+    espnSlug: 'aff.championship',
+    theSportsDbId: '5889',
+    newsKeywords: [
+      'asean championship',
+      'aff championship',
+      'aff cup',
+      'suzuki cup',
+      'asean mitsubishi',
+      'đội tuyển việt nam',
+    ],
+    accent: 'yellow',
   },
   {
     id: J1_LEAGUE_ID,
@@ -131,10 +157,11 @@ export const ALL_LEAGUE_CATALOG: readonly LeagueCatalogEntry[] = [
   ...CLUB_LEAGUES,
 ];
 
-export const REGION_ORDER: readonly LeagueRegion[] = ['vietnam', 'japan', 'europe', 'africa'];
+export const REGION_ORDER: readonly LeagueRegion[] = ['vietnam', 'asean', 'japan', 'europe', 'africa'];
 
 export const REGION_LABELS: Record<LeagueRegion, { vi: string; en: string }> = {
   vietnam: { vi: 'Việt Nam', en: 'Vietnam' },
+  asean: { vi: 'Đông Nam Á', en: 'ASEAN' },
   japan: { vi: 'Nhật Bản', en: 'Japan' },
   europe: { vi: 'Châu Âu', en: 'Europe' },
   africa: { vi: 'Châu Phi', en: 'Africa' },
@@ -168,6 +195,7 @@ export function teamIdPrefix(league: LeagueCatalogEntry): string {
   if (league.id === J1_LEAGUE_ID) return 'team-j1';
   if (league.id === V_LEAGUE_ID) return 'team-vl';
   if (league.id === CAF_CL_ID) return 'team-caf';
+  if (league.id === ASEAN_CHAMP_ID) return 'team-aff';
   return 'team-lg';
 }
 
@@ -176,6 +204,7 @@ export function matchIdPrefix(league: LeagueCatalogEntry): string {
   if (league.id === J1_LEAGUE_ID) return 'm-j1';
   if (league.id === V_LEAGUE_ID) return 'm-vl';
   if (league.id === CAF_CL_ID) return 'm-caf';
+  if (league.id === ASEAN_CHAMP_ID) return 'm-aff';
   return 'm-lg';
 }
 

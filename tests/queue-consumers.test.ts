@@ -21,6 +21,7 @@ vi.mock('../src/ingestion/newsCrawler', () => ({
 vi.mock('../src/ingestion/leagues/syncLeagues', () => ({
   syncAllClubLeagues: vi.fn(async () => [{ leagueId: 't-la-liga', matchesUpserted: 1 }]),
   syncLeague: vi.fn(async () => ({ leagueId: 't-la-liga', matchesUpserted: 1 })),
+  queueClubLeagueProbabilities: vi.fn(async () => 4),
 }));
 
 vi.mock('../src/ingestion/statsbombIngest', () => ({

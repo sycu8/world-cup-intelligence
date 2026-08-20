@@ -3,13 +3,17 @@ import type { ScheduleMatch } from '../../lib/api';
 import { resolveMatchHref } from '../../lib/matchPaths';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { CompactMatchProb } from '../tournament/CompactMatchProb';
+import { MatchForecastScore } from '../match/MatchForecastScore';
 import { MatchKickoffDisplay } from '../match/MatchKickoffDisplay';
 import { MatchResultScore, hasMatchResult } from '../match/MatchResultScore';
 import { TeamNameWithFlag } from '../team/TeamNameWithFlag';
 
 type Props = {
   matches: ScheduleMatch[];
-  probs?: Record<string, { homeWin: number; draw: number; awayWin: number }>;
+  probs?: Record<
+    string,
+    { homeWin: number; draw: number; awayWin: number; mostLikelyScore?: string }
+  >;
   emptyKey?: 'leagues.emptyMatches';
 };
 
@@ -24,6 +28,8 @@ export function LeagueMatchList({ matches, probs = {}, emptyKey = 'leagues.empty
       {matches.map((match) => {
         const prob = probs[match.id];
         const live = match.status === 'live';
+        const forecast =
+          !hasMatchResult(match.status) && !live ? prob?.mostLikelyScore : undefined;
         return (
           <li key={match.id}>
             <Link
@@ -41,12 +47,19 @@ export function LeagueMatchList({ matches, probs = {}, emptyKey = 'leagues.empty
                   {match.stage ? ` · ${match.stage}` : ''}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
                 {live ? <span className="text-xs font-semibold text-cyan">{t('common.live')}</span> : null}
                 {hasMatchResult(match.status) || live ? (
-                  <MatchResultScore homeScore={match.home_score} awayScore={match.away_score} status={match.status} />
+                  <MatchResultScore
+                    homeScore={match.home_score}
+                    awayScore={match.away_score}
+                    status={match.status}
+                  />
                 ) : (
-                  <CompactMatchProb homeWin={prob?.homeWin} draw={prob?.draw} awayWin={prob?.awayWin} />
+                  <>
+                    {forecast ? <MatchForecastScore score={forecast} /> : null}
+                    <CompactMatchProb homeWin={prob?.homeWin} draw={prob?.draw} awayWin={prob?.awayWin} />
+                  </>
                 )}
               </div>
             </Link>

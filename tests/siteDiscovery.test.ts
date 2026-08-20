@@ -127,6 +127,7 @@ describe('siteDiscovery', () => {
     expect(xml).toContain(`<loc>${ORIGIN}/leagues</loc>`);
     expect(xml).toContain(`<loc>${ORIGIN}/leagues/la-liga</loc>`);
     expect(xml).toContain(`<loc>${ORIGIN}/leagues/v-league-1</loc>`);
+    expect(xml).toContain(`<loc>${ORIGIN}/leagues/asean-championship</loc>`);
     expect(xml).not.toContain('/tournaments');
     expect(xml).toContain(
       `<loc>${ORIGIN}/matches/vong-bang-a-united-states-vs-mexico</loc>`,

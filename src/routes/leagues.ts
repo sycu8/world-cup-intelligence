@@ -3,8 +3,11 @@ import type { AppEnv } from '../env';
 import { parseEnv } from '../env';
 import { buildLeagueCatalogPayload, buildLeagueHubPayload } from '../services/leaguePayload';
 import { getLeagueBySlug } from '../constants/leagues';
-import { syncAllClubLeagues, syncLeague } from '../ingestion/leagues/syncLeagues';
-import { recomputeMatchProbability } from '../services/recomputeMatch';
+import {
+  queueClubLeagueProbabilities,
+  syncAllClubLeagues,
+  syncLeague,
+} from '../ingestion/leagues/syncLeagues';
 
 export const leagueRoutes = new Hono<{ Bindings: AppEnv }>();
 
@@ -37,26 +40,16 @@ leagueRoutes.post('/sync', async (c) => {
 
   const slug = c.req.query('slug');
   const league = slug ? getLeagueBySlug(slug) : undefined;
-  const results = league && league.format !== 'world_cup'
-    ? [await syncLeague(c.env, league)]
-    : await syncAllClubLeagues(c.env);
+  const results =
+    league && league.format !== 'world_cup'
+      ? [await syncLeague(c.env, league)]
+      : await syncAllClubLeagues(c.env);
 
-  const matchIds = (
-    await c.env.DB.prepare(
-      `SELECT id FROM matches
-       WHERE tournament_id IN ('t-la-liga','t-j1','t-vleague','t-caf-cl')
-         AND status IN ('scheduled','live')
-       ORDER BY kickoff_utc ASC LIMIT 16`,
-    ).all<{ id: string }>()
-  ).results?.map((r) => r.id) ?? [];
+  // syncAllClubLeagues already queues probs; single-league sync still needs a pass.
+  const queued =
+    league && league.format !== 'world_cup'
+      ? await queueClubLeagueProbabilities(c.env)
+      : 0;
 
-  if (matchIds.length && c.env.MODEL_QUEUE) {
-    await c.env.MODEL_QUEUE.send({ type: 'recompute_all', matchIds });
-  } else {
-    for (const id of matchIds.slice(0, 8)) {
-      await recomputeMatchProbability(c.env, id).catch(() => undefined);
-    }
-  }
-
-  return c.json({ data: { results, queued: matchIds.length } });
+  return c.json({ data: { results, queued } });
 });

@@ -1,8 +1,14 @@
 import type { LeagueCatalogEntry } from '../../constants/leagues';
-import { CAF_CL_ID, J1_LEAGUE_ID, LA_LIGA_ID, V_LEAGUE_ID } from '../../constants/leagues';
+import {
+  ASEAN_CHAMP_ID,
+  CAF_CL_ID,
+  J1_LEAGUE_ID,
+  LA_LIGA_ID,
+  V_LEAGUE_ID,
+} from '../../constants/leagues';
 import type { ParsedLeagueMatch, ParsedLeagueNews, ParsedLeagueScorer, ParsedLeagueStanding } from './parseLeagueSources';
 
-type Club = { id: string; name: string; short: string; abbr: string };
+type Club = { id: string; name: string; short: string; abbr: string; country?: string };
 
 const LA_LIGA_CLUBS: Club[] = [
   { id: '86', name: 'Real Madrid', short: 'Real Madrid', abbr: 'RMA' },
@@ -31,27 +37,39 @@ const J1_CLUBS: Club[] = [
 ];
 
 const V_LEAGUE_CLUBS: Club[] = [
-  { id: 'hanoi', name: 'Hà Nội FC', short: 'Hà Nội', abbr: 'HN' },
-  { id: 'cah', name: 'Công an Hà Nội', short: 'CAHN', abbr: 'CAH' },
-  { id: 'namdinh', name: 'Thép Xanh Nam Định', short: 'Nam Định', abbr: 'NĐ' },
-  { id: 'hagl', name: 'Hoàng Anh Gia Lai', short: 'HAGL', abbr: 'GL' },
-  { id: 'haiphong', name: 'Hải Phòng', short: 'Hải Phòng', abbr: 'HP' },
-  { id: 'viettel', name: 'Thể Công-Viettel', short: 'Viettel', abbr: 'VT' },
-  { id: 'binhduong', name: 'Becamex Bình Dương', short: 'Bình Dương', abbr: 'BD' },
-  { id: 'slna', name: 'Sông Lam Nghệ An', short: 'SLNA', abbr: 'NA' },
-  { id: 'thanhhoa', name: 'Đông Á Thanh Hóa', short: 'Thanh Hóa', abbr: 'TH' },
-  { id: 'hcm', name: 'Hồ Chí Minh City', short: 'TP.HCM', abbr: 'HCM' },
+  { id: 'hanoi', name: 'Hà Nội FC', short: 'Hà Nội', abbr: 'HN', country: 'VN' },
+  { id: 'cah', name: 'Công an Hà Nội', short: 'CAHN', abbr: 'CAH', country: 'VN' },
+  { id: 'namdinh', name: 'Thép Xanh Nam Định', short: 'Nam Định', abbr: 'NĐ', country: 'VN' },
+  { id: 'hagl', name: 'Hoàng Anh Gia Lai', short: 'HAGL', abbr: 'GL', country: 'VN' },
+  { id: 'haiphong', name: 'Hải Phòng', short: 'Hải Phòng', abbr: 'HP', country: 'VN' },
+  { id: 'viettel', name: 'Thể Công-Viettel', short: 'Viettel', abbr: 'VT', country: 'VN' },
+  { id: 'binhduong', name: 'Becamex Bình Dương', short: 'Bình Dương', abbr: 'BD', country: 'VN' },
+  { id: 'slna', name: 'Sông Lam Nghệ An', short: 'SLNA', abbr: 'NA', country: 'VN' },
+  { id: 'thanhhoa', name: 'Đông Á Thanh Hóa', short: 'Thanh Hóa', abbr: 'TH', country: 'VN' },
+  { id: 'hcm', name: 'Hồ Chí Minh City', short: 'TP.HCM', abbr: 'HCM', country: 'VN' },
 ];
 
 const CAF_CLUBS: Club[] = [
-  { id: 'ahly', name: 'Al Ahly', short: 'Al Ahly', abbr: 'AHL' },
-  { id: 'pyramids', name: 'Pyramids', short: 'Pyramids', abbr: 'PYR' },
-  { id: 'sundowns', name: 'Mamelodi Sundowns', short: 'Sundowns', abbr: 'SUN' },
-  { id: 'esperance', name: 'Espérance de Tunis', short: 'Espérance', abbr: 'EST' },
-  { id: 'wydad', name: 'Wydad AC', short: 'Wydad', abbr: 'WAC' },
-  { id: 'raja', name: 'Raja Casablanca', short: 'Raja', abbr: 'RCA' },
-  { id: 'mazembe', name: 'TP Mazembe', short: 'Mazembe', abbr: 'TPM' },
-  { id: 'simba', name: 'Simba SC', short: 'Simba', abbr: 'SIM' },
+  { id: 'ahly', name: 'Al Ahly', short: 'Al Ahly', abbr: 'AHL', country: 'EG' },
+  { id: 'pyramids', name: 'Pyramids', short: 'Pyramids', abbr: 'PYR', country: 'EG' },
+  { id: 'sundowns', name: 'Mamelodi Sundowns', short: 'Sundowns', abbr: 'SUN', country: 'ZA' },
+  { id: 'esperance', name: 'Espérance de Tunis', short: 'Espérance', abbr: 'EST', country: 'TN' },
+  { id: 'wydad', name: 'Wydad AC', short: 'Wydad', abbr: 'WAC', country: 'MA' },
+  { id: 'raja', name: 'Raja Casablanca', short: 'Raja', abbr: 'RCA', country: 'MA' },
+  { id: 'mazembe', name: 'TP Mazembe', short: 'Mazembe', abbr: 'TPM', country: 'CD' },
+  { id: 'simba', name: 'Simba SC', short: 'Simba', abbr: 'SIM', country: 'TZ' },
+];
+
+/** ASEAN Championship national teams (AFF Cup). */
+const ASEAN_TEAMS: Club[] = [
+  { id: 'vietnam', name: 'Vietnam', short: 'Vietnam', abbr: 'VIE', country: 'VN' },
+  { id: 'thailand', name: 'Thailand', short: 'Thailand', abbr: 'THA', country: 'TH' },
+  { id: 'indonesia', name: 'Indonesia', short: 'Indonesia', abbr: 'IDN', country: 'ID' },
+  { id: 'malaysia', name: 'Malaysia', short: 'Malaysia', abbr: 'MAS', country: 'MY' },
+  { id: 'singapore', name: 'Singapore', short: 'Singapore', abbr: 'SIN', country: 'SG' },
+  { id: 'philippines', name: 'Philippines', short: 'Philippines', abbr: 'PHI', country: 'PH' },
+  { id: 'myanmar', name: 'Myanmar', short: 'Myanmar', abbr: 'MYA', country: 'MM' },
+  { id: 'cambodia', name: 'Cambodia', short: 'Cambodia', abbr: 'CAM', country: 'KH' },
 ];
 
 function clubsFor(league: LeagueCatalogEntry): Club[] {
@@ -59,17 +77,18 @@ function clubsFor(league: LeagueCatalogEntry): Club[] {
   if (league.id === J1_LEAGUE_ID) return J1_CLUBS;
   if (league.id === V_LEAGUE_ID) return V_LEAGUE_CLUBS;
   if (league.id === CAF_CL_ID) return CAF_CLUBS;
+  if (league.id === ASEAN_CHAMP_ID) return ASEAN_TEAMS;
   return LA_LIGA_CLUBS;
 }
 
-function asTeam(club: Club, countryCode: string | null) {
+function asTeam(club: Club, leagueCountry: string | null) {
   return {
     sourceId: club.id,
     name: club.name,
     shortName: club.short,
     abbreviation: club.abbr,
     crestUrl: null,
-    countryCode,
+    countryCode: club.country ?? leagueCountry,
   };
 }
 
@@ -141,7 +160,10 @@ export function buildMockLeagueStandings(league: LeagueCatalogEntry): ParsedLeag
 
 export function buildMockLeagueScorers(league: LeagueCatalogEntry): ParsedLeagueScorer[] {
   const clubs = clubsFor(league);
-  const names = ['Nguyễn Văn A', 'Sato Ken', 'Kylian Mbappé', 'Percy Tau', 'Vinícius Jr', 'Osako Yuya'];
+  const names =
+    league.id === ASEAN_CHAMP_ID
+      ? ['Nguyễn Tiến Linh', 'Teerasil Dangda', 'Fajar Fathur', 'Safawi Rasid', 'Ikhsan Fandi']
+      : ['Nguyễn Văn A', 'Sato Ken', 'Kylian Mbappé', 'Percy Tau', 'Vinícius Jr', 'Osako Yuya'];
   return names.slice(0, 5).map((playerName, index) => ({
     sourcePlayerId: `mock-p-${league.slug}-${index + 1}`,
     playerName,
