@@ -215,6 +215,8 @@ async function loadRemoteLeague(league: LeagueCatalogEntry): Promise<{
   news: ParsedLeagueNews[];
   source: LeagueSyncResult['source'];
 }> {
+  let tsdbMatches: ParsedLeagueMatch[] = [];
+  let tsdbStandings: ParsedLeagueStanding[] = [];
   // Prefer TheSportsDB first: ESPN often times out from Cloudflare Workers.
   if (league.theSportsDbId) {
     const remote = await fetchTheSportsDbSeason(
@@ -222,24 +224,46 @@ async function loadRemoteLeague(league: LeagueCatalogEntry): Promise<{
       league.season,
       league.year,
     );
-    if (remote.matches.length || remote.standings.length) {
-      return { ...remote, scorers: [], news: [], source: 'thesportsdb' };
-    }
+    tsdbMatches = remote.matches;
+    tsdbStandings = remote.standings;
   }
 
-  if (league.espnSlug) {
+  let espnMatches: ParsedLeagueMatch[] = [];
+  let espnStandings: ParsedLeagueStanding[] = [];
+  let espnScorers: ParsedLeagueScorer[] = [];
+  let espnNews: ParsedLeagueNews[] = [];
+  // If SportsDB only returned a table (no fixtures in window), still try ESPN boards.
+  if (league.espnSlug && tsdbMatches.length === 0) {
     const [matches, standings, scorers, news] = await Promise.all([
       fetchEspnLeagueScoreboard(league.espnSlug),
       fetchEspnLeagueStandings(league.espnSlug),
       fetchEspnLeagueLeaders(league.espnSlug),
       fetchEspnLeagueNews(league.espnSlug),
     ]);
-    if (matches.length || standings.length) {
-      return { matches, standings, scorers, news, source: 'espn' };
-    }
+    espnMatches = matches;
+    espnStandings = standings;
+    espnScorers = scorers;
+    espnNews = news;
   }
 
-  return { matches: [], standings: [], scorers: [], news: [], source: 'empty' };
+  const matches = tsdbMatches.length ? tsdbMatches : espnMatches;
+  const standings = tsdbStandings.length ? tsdbStandings : espnStandings;
+  if (!matches.length && !standings.length) {
+    return { matches: [], standings: [], scorers: [], news: [], source: 'empty' };
+  }
+  if (tsdbMatches.length) {
+    return { matches, standings, scorers: [], news: [], source: 'thesportsdb' };
+  }
+  if (espnMatches.length || (espnStandings.length && !tsdbStandings.length)) {
+    return {
+      matches,
+      standings,
+      scorers: espnScorers,
+      news: espnNews,
+      source: 'espn',
+    };
+  }
+  return { matches, standings, scorers: [], news: [], source: 'thesportsdb' };
 }
 
 async function countLeagueMatches(env: AppEnv, leagueId: string): Promise<{ total: number; real: number }> {
@@ -255,13 +279,49 @@ async function countLeagueMatches(env: AppEnv, leagueId: string): Promise<{ tota
 }
 
 async function purgeMockLeagueMatches(env: AppEnv, leagueId: string): Promise<void> {
+  const mockIds =
+    (
+      await env.DB.prepare(
+        `SELECT id FROM matches
+         WHERE tournament_id = ?
+           AND (id LIKE '%-mock-%' OR IFNULL(source_event_id, '') LIKE 'mock-%')`,
+      )
+        .bind(leagueId)
+        .all<{ id: string }>()
+    ).results?.map((r) => r.id) ?? [];
+  if (!mockIds.length) return;
+
+  const placeholders = mockIds.map(() => '?').join(',');
+  const childTables: { table: string; column: string }[] = [
+    { table: 'scenario_probability_snapshots', column: 'match_id' },
+    { table: 'scenario_comparisons', column: 'match_id' },
+    { table: 'match_prediction_scenarios', column: 'match_id' },
+    { table: 'scenario_probabilities', column: 'match_id' },
+    { table: 'probability_snapshots', column: 'match_id' },
+    { table: 'market_signal_analysis', column: 'match_id' },
+    { table: 'market_odds_snapshots', column: 'match_id' },
+    { table: 'match_events', column: 'match_id' },
+    { table: 'lineups', column: 'match_id' },
+    { table: 'match_recaps', column: 'match_id' },
+    { table: 'match_commentary', column: 'match_id' },
+    { table: 'match_officials', column: 'match_id' },
+    { table: 'match_bracket_links', column: 'target_match_id' },
+    { table: 'api_feed_events', column: 'match_id' },
+  ];
+
+  for (const { table, column } of childTables) {
+    await env.DB.prepare(`DELETE FROM ${table} WHERE ${column} IN (${placeholders})`)
+      .bind(...mockIds)
+      .run()
+      .catch(() => undefined);
+  }
   await env.DB.prepare(
-    `DELETE FROM matches
-     WHERE tournament_id = ?
-       AND (id LIKE '%-mock-%' OR IFNULL(source_event_id, '') LIKE 'mock-%')`,
+    `DELETE FROM match_bracket_links WHERE source_match_id IN (${placeholders})`,
   )
-    .bind(leagueId)
-    .run();
+    .bind(...mockIds)
+    .run()
+    .catch(() => undefined);
+  await env.DB.prepare(`DELETE FROM matches WHERE id IN (${placeholders})`).bind(...mockIds).run();
 }
 
 export async function syncLeague(env: AppEnv, league: LeagueCatalogEntry): Promise<LeagueSyncResult> {
@@ -304,7 +364,7 @@ export async function syncLeague(env: AppEnv, league: LeagueCatalogEntry): Promi
     };
   }
 
-  if (payload.source !== 'mock') {
+  if (payload.source !== 'mock' && payload.matches.length > 0) {
     await purgeMockLeagueMatches(env, league.id).catch(() => undefined);
   }
 

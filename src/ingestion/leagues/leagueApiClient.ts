@@ -123,8 +123,8 @@ export async function fetchTheSportsDbSeason(
   year = Number(season.slice(0, 4)) || new Date().getUTCFullYear(),
 ): Promise<{ matches: ParsedLeagueMatch[]; standings: ParsedLeagueStanding[] }> {
   const seasons = theSportsDbSeasonCandidates(season, year);
-  let matches: ParsedLeagueMatch[] = [];
-  let standings: ParsedLeagueStanding[] = [];
+  let bestMatches: ParsedLeagueMatch[] = [];
+  let bestStandings: ParsedLeagueStanding[] = [];
 
   for (const candidate of seasons) {
     const [eventsPayload, tablePayload] = await Promise.all([
@@ -141,12 +141,15 @@ export async function fetchTheSportsDbSeason(
       withinKickoffWindow(match.kickoffUtc),
     );
     const parsedStandings = parseTheSportsDbTable(tablePayload);
-    if (parsedMatches.length || parsedStandings.length) {
-      matches = parsedMatches;
-      standings = parsedStandings;
-      break;
+    if (parsedMatches.length > bestMatches.length) {
+      bestMatches = parsedMatches;
+      if (parsedStandings.length) bestStandings = parsedStandings;
+    } else if (!bestStandings.length && parsedStandings.length) {
+      bestStandings = parsedStandings;
     }
+    // Stop early once we have in-window fixtures.
+    if (bestMatches.length >= 8) break;
   }
 
-  return { matches, standings };
+  return { matches: bestMatches, standings: bestStandings };
 }
