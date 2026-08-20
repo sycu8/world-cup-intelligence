@@ -671,7 +671,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     en: 'Fixtures, tables, live scores, and predicted scorelines for V.League, ASEAN, J1, La Liga, and CAF Champions League.',
   },
   'home.landing.ctaLeagues': { vi: 'Chọn giải đấu', en: 'Browse leagues' },
-  'home.landing.ctaLive': { vi: 'Xem đang diễn ra', en: 'See what’s live' },
+  'home.landing.ctaLive': { vi: 'Xem đang diễn ra', en: 'See what is live' },
   'home.landing.leaguesTitle': { vi: 'Giải đang theo dõi', en: 'Leagues we cover' },
   'home.landing.leaguesSubtitle': {
     vi: 'Mở một giải để xem bảng, lịch, kết quả và xác suất PitchIntel.',
