@@ -281,6 +281,9 @@ export type TheSportsDbEvent = {
   intAwayScore?: string | null;
   dateEvent?: string;
   strTime?: string;
+  /** UTC-ish kickoff without offset; pair with strTimeLocal when present. */
+  strTimestamp?: string;
+  strTimeLocal?: string;
   strStatus?: string;
   intRound?: string;
   strVenue?: string;
@@ -290,13 +293,28 @@ export type TheSportsDbEvent = {
   strAwayTeamBadge?: string;
 };
 
+/** TheSportsDB `strTime` / `strTimestamp` are UTC; `strTimeLocal` is venue local. */
+export function kickoffUtcFromTheSportsDbEvent(event: TheSportsDbEvent): string {
+  const stamp = (event.strTimestamp ?? '').trim();
+  if (stamp) {
+    const normalized = /Z|[+-]\d{2}:?\d{2}$/.test(stamp) ? stamp : `${stamp}Z`;
+    const parsed = Date.parse(normalized);
+    if (Number.isFinite(parsed)) return new Date(parsed).toISOString();
+  }
+  const time = (event.strTime && event.strTime !== '00:00:00' ? event.strTime : '12:00:00').slice(0, 8);
+  if (event.dateEvent) {
+    const parsed = Date.parse(`${event.dateEvent}T${time}Z`);
+    if (Number.isFinite(parsed)) return new Date(parsed).toISOString();
+  }
+  return new Date().toISOString();
+}
+
 export function parseTheSportsDbEvents(payload: unknown): ParsedLeagueMatch[] {
   const events = (payload as { events?: TheSportsDbEvent[] } | null)?.events ?? [];
   return events
     .map((event): ParsedLeagueMatch | null => {
       if (!event.idEvent || !event.strHomeTeam || !event.strAwayTeam) return null;
-      const time = (event.strTime && event.strTime !== '00:00:00' ? event.strTime : '12:00:00').slice(0, 8);
-      const kickoff = event.dateEvent ? new Date(`${event.dateEvent}T${time}Z`).toISOString() : new Date().toISOString();
+      const kickoff = kickoffUtcFromTheSportsDbEvent(event);
       const statusRaw = (event.strStatus ?? '').toLowerCase();
       const status: ParsedLeagueMatch['status'] =
         statusRaw.includes('not') || statusRaw === '' || statusRaw === 'ns'

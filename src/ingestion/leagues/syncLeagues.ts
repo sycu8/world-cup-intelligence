@@ -215,6 +215,18 @@ async function loadRemoteLeague(league: LeagueCatalogEntry): Promise<{
   news: ParsedLeagueNews[];
   source: LeagueSyncResult['source'];
 }> {
+  // Prefer TheSportsDB first: ESPN often times out from Cloudflare Workers.
+  if (league.theSportsDbId) {
+    const remote = await fetchTheSportsDbSeason(
+      league.theSportsDbId,
+      league.season,
+      league.year,
+    );
+    if (remote.matches.length || remote.standings.length) {
+      return { ...remote, scorers: [], news: [], source: 'thesportsdb' };
+    }
+  }
+
   if (league.espnSlug) {
     const [matches, standings, scorers, news] = await Promise.all([
       fetchEspnLeagueScoreboard(league.espnSlug),
@@ -227,14 +239,29 @@ async function loadRemoteLeague(league: LeagueCatalogEntry): Promise<{
     }
   }
 
-  if (league.theSportsDbId) {
-    const remote = await fetchTheSportsDbSeason(league.theSportsDbId, league.season);
-    if (remote.matches.length || remote.standings.length) {
-      return { ...remote, scorers: [], news: [], source: 'thesportsdb' };
-    }
-  }
-
   return { matches: [], standings: [], scorers: [], news: [], source: 'empty' };
+}
+
+async function countLeagueMatches(env: AppEnv, leagueId: string): Promise<{ total: number; real: number }> {
+  const row = await env.DB.prepare(
+    `SELECT
+       COUNT(*) AS total,
+       SUM(CASE WHEN id LIKE '%-mock-%' OR IFNULL(source_event_id, '') LIKE 'mock-%' THEN 0 ELSE 1 END) AS real
+     FROM matches WHERE tournament_id = ?`,
+  )
+    .bind(leagueId)
+    .first<{ total: number; real: number }>();
+  return { total: Number(row?.total ?? 0), real: Number(row?.real ?? 0) };
+}
+
+async function purgeMockLeagueMatches(env: AppEnv, leagueId: string): Promise<void> {
+  await env.DB.prepare(
+    `DELETE FROM matches
+     WHERE tournament_id = ?
+       AND (id LIKE '%-mock-%' OR IFNULL(source_event_id, '') LIKE 'mock-%')`,
+  )
+    .bind(leagueId)
+    .run();
 }
 
 export async function syncLeague(env: AppEnv, league: LeagueCatalogEntry): Promise<LeagueSyncResult> {
@@ -249,16 +276,37 @@ export async function syncLeague(env: AppEnv, league: LeagueCatalogEntry): Promi
       }
     : await loadRemoteLeague(league);
 
-  const useMockFallback = !mockSources && data.source === 'empty';
-  const payload = useMockFallback
-    ? {
-        matches: buildMockLeagueMatches(league),
-        standings: buildMockLeagueStandings(league),
-        scorers: buildMockLeagueScorers(league),
-        news: buildMockLeagueNews(league),
-        source: 'mock' as const,
-      }
-    : data;
+  let payload = data;
+  if (!mockSources && data.source === 'empty') {
+    const counts = await countLeagueMatches(env, league.id).catch(() => ({ total: 0, real: 0 }));
+    if (counts.real > 0) {
+      // Keep last known live fixtures — do not overwrite with mock kickoffs.
+      logInfo('league sync skipped mock fallback', {
+        league: league.slug,
+        existingTotal: counts.total,
+        existingReal: counts.real,
+      });
+      return {
+        leagueId: league.id,
+        matchesUpserted: 0,
+        standingsUpserted: 0,
+        scorersUpserted: 0,
+        newsInserted: 0,
+        source: 'empty',
+      };
+    }
+    payload = {
+      matches: buildMockLeagueMatches(league),
+      standings: buildMockLeagueStandings(league),
+      scorers: buildMockLeagueScorers(league),
+      news: buildMockLeagueNews(league),
+      source: 'mock' as const,
+    };
+  }
+
+  if (payload.source !== 'mock') {
+    await purgeMockLeagueMatches(env, league.id).catch(() => undefined);
+  }
 
   let matchesUpserted = 0;
   for (const match of payload.matches) {
