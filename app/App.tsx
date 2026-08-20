@@ -23,6 +23,8 @@ const MatchAnalysisPage = lazy(() =>
   import('./pages/MatchAnalysisPage').then((m) => ({ default: m.MatchAnalysisPage })),
 );
 const MatchesPage = lazy(() => import('./pages/MatchesPage').then((m) => ({ default: m.MatchesPage })));
+const LeaguesPage = lazy(() => import('./pages/LeaguesPage').then((m) => ({ default: m.LeaguesPage })));
+const LeagueHubPage = lazy(() => import('./pages/LeagueHubPage').then((m) => ({ default: m.LeagueHubPage })));
 const SeoLandingPage = lazy(() =>
   import('./pages/SeoLandingPage').then((m) => ({ default: m.SeoLandingPage })),
 );
@@ -49,7 +51,9 @@ export default function App() {
             <Route element={<AppShell />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/matches" element={<MatchesPage />} />
-              <Route path="/tournaments" element={<Navigate to="/matches?tab=standings" replace />} />
+              <Route path="/leagues" element={<LeaguesPage />} />
+              <Route path="/leagues/:slug" element={<LeagueHubPage />} />
+              <Route path="/tournaments" element={<Navigate to="/leagues" replace />} />
               <Route path="/matches/:matchId/analysis" element={<MatchAnalysisPage />} />
               <Route path="/matches/:matchId" element={<MatchPage />} />
               <Route path="/teams/:teamId" element={<TeamPage />} />

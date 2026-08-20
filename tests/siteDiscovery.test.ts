@@ -124,7 +124,9 @@ describe('siteDiscovery', () => {
     expect(xml).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
     expect(xml).toContain(`<loc>${ORIGIN}/matches</loc>`);
     expect(xml).toContain(`<loc>${ORIGIN}/guide</loc>`);
-    expect(xml).toContain(`<loc>${ORIGIN}/news-intelligence</loc>`);
+    expect(xml).toContain(`<loc>${ORIGIN}/leagues</loc>`);
+    expect(xml).toContain(`<loc>${ORIGIN}/leagues/la-liga</loc>`);
+    expect(xml).toContain(`<loc>${ORIGIN}/leagues/v-league-1</loc>`);
     expect(xml).not.toContain('/tournaments');
     expect(xml).toContain(
       `<loc>${ORIGIN}/matches/vong-bang-a-united-states-vs-mexico</loc>`,

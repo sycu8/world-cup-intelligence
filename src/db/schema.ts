@@ -2,11 +2,43 @@ export type TournamentRow = {
   id: string;
   year: number;
   name: string;
+  slug?: string | null;
+  region?: string | null;
+  competition_type?: string | null;
+  season?: string | null;
+  espn_slug?: string | null;
+  country_code?: string | null;
   host_countries_json: string | null;
   start_date: string | null;
   end_date: string | null;
   teams_count: number | null;
   status: string | null;
+};
+
+export type LeagueTableRow = {
+  tournament_id: string;
+  team_id: string;
+  group_code: string;
+  rank: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  gf: number;
+  ga: number;
+  gd: number;
+  points: number;
+  form: string | null;
+};
+
+export type LeagueScorerRow = {
+  tournament_id: string;
+  player_id: string;
+  team_id: string | null;
+  player_name: string;
+  team_name: string | null;
+  goals: number;
+  rank: number | null;
 };
 
 export type TeamRow = {

@@ -65,8 +65,9 @@ export async function publishNewsArticle(
   await env.DB.prepare(
     `INSERT INTO source_documents (
       id, source_id, source_url, title, title_vi, published_at, retrieved_at,
-      summary, summary_vi, reliability_score, content_r2_key, thumbnail_url, thumbnail_r2_key, hot_score
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      summary, summary_vi, reliability_score, content_r2_key, thumbnail_url, thumbnail_r2_key, hot_score,
+      tournament_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       docId,
@@ -83,6 +84,7 @@ export async function publishNewsArticle(
       thumbnailUrl,
       thumbnailR2Key,
       hotScore,
+      'tournamentId' in feed ? (feed.tournamentId ?? null) : null,
     )
     .run();
 

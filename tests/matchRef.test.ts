@@ -38,8 +38,8 @@ function dbForMatchRef(opts: {
 }) {
   return createMockDb({
     first: (sql, binds) => {
-      if (sql.includes('AND m.id = ?')) {
-        const id = binds[1] as string;
+      if (sql.includes('m.id = ?')) {
+        const id = String(binds[binds.length - 1] ?? '');
         return opts.byId?.[id] ?? null;
       }
       return null;

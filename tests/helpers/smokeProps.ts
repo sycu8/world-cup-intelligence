@@ -4,6 +4,7 @@ import { API_DOC_SECTIONS } from '../../app/lib/apiDocsContent';
 import {
   sampleHistoryMatch,
   sampleH2HSummary,
+  sampleLeagueCard,
   sampleMatchProbs,
   samplePitchMap,
   sampleProbability,
@@ -124,6 +125,30 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
     },
   },
   HomeUpcomingStrip: { matches: sampleScheduleMatches, probs: sampleMatchProbs },
+  LeagueCard: { league: sampleLeagueCard },
+  LeagueTable: {
+    rows: [
+      {
+        groupCode: '',
+        rank: 1,
+        teamId: 'team-liga-86',
+        teamName: 'Real Madrid',
+        shortName: 'RMA',
+        countryCode: 'ES',
+        crestUrl: null,
+        played: 8,
+        won: 6,
+        drawn: 1,
+        lost: 1,
+        gf: 18,
+        ga: 7,
+        gd: 11,
+        points: 19,
+      },
+    ],
+  },
+  LeagueMatchList: { matches: sampleScheduleMatches, probs: sampleMatchProbs },
+  LeaguePickerStrip: {},
   HomeSidebarInsights: {
     dashboard: {
       featuredMatch: null,

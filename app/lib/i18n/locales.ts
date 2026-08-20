@@ -37,6 +37,32 @@ export type LocaleKey =
   | 'bracket.empty'
   | 'nav.articles'
   | 'nav.more'
+  | 'leagues.pageTitle'
+  | 'leagues.pageSubtitle'
+  | 'leagues.choose'
+  | 'leagues.featured'
+  | 'leagues.live'
+  | 'leagues.upcoming'
+  | 'leagues.results'
+  | 'leagues.standings'
+  | 'leagues.news'
+  | 'leagues.scorers'
+  | 'leagues.teams'
+  | 'leagues.season'
+  | 'leagues.openHub'
+  | 'leagues.viewWc'
+  | 'leagues.emptyStandings'
+  | 'leagues.emptyMatches'
+  | 'leagues.emptyNews'
+  | 'leagues.emptyScorers'
+  | 'leagues.notFound'
+  | 'leagues.back'
+  | 'leagues.tabOverview'
+  | 'leagues.tabStandings'
+  | 'leagues.tabFixtures'
+  | 'leagues.tabResults'
+  | 'leagues.tabNews'
+  | 'home.chooseLeague'
   | 'news.pageTitle'
   | 'news.pageSubtitle'
   | 'news.feedTitle'
@@ -582,6 +608,35 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'bracket.empty': { vi: 'Chưa có trận vòng loại trực tiếp.', en: 'No knockout matches yet.' },
   'nav.articles': { vi: 'Bài viết', en: 'Articles' },
   'nav.more': { vi: 'Thêm', en: 'More' },
+  'leagues.pageTitle': { vi: 'Chọn giải đấu', en: 'Choose a league' },
+  'leagues.pageSubtitle': {
+    vi: 'V.League 1, J1 League, La Liga và Cúp C1 châu Phi — lịch, bảng, tỉ số live và xác suất PitchIntel.',
+    en: 'V.League 1, J1 League, La Liga, and CAF Champions League — fixtures, tables, live scores, and PitchIntel probabilities.',
+  },
+  'leagues.choose': { vi: 'Chọn giải', en: 'Pick a league' },
+  'leagues.featured': { vi: 'Giải nổi bật', en: 'Featured' },
+  'leagues.live': { vi: 'Đang diễn ra', en: 'Live' },
+  'leagues.upcoming': { vi: 'Sắp đá', en: 'Upcoming' },
+  'leagues.results': { vi: 'Kết quả', en: 'Results' },
+  'leagues.standings': { vi: 'Bảng xếp hạng', en: 'Standings' },
+  'leagues.news': { vi: 'Tin giải', en: 'League news' },
+  'leagues.scorers': { vi: 'Vua phá lưới', en: 'Top scorers' },
+  'leagues.teams': { vi: 'Đội bóng', en: 'Teams' },
+  'leagues.season': { vi: 'Mùa', en: 'Season' },
+  'leagues.openHub': { vi: 'Vào giải →', en: 'Open league →' },
+  'leagues.viewWc': { vi: 'Mở World Cup 2026 →', en: 'Open World Cup 2026 →' },
+  'leagues.emptyStandings': { vi: 'Bảng xếp hạng sẽ cập nhật sau khi đồng bộ.', en: 'Standings appear after the next sync.' },
+  'leagues.emptyMatches': { vi: 'Chưa có trận trong cửa sổ hiện tại.', en: 'No matches in the current window.' },
+  'leagues.emptyNews': { vi: 'Chưa có tin cho giải này.', en: 'No news for this league yet.' },
+  'leagues.emptyScorers': { vi: 'Chưa có dữ liệu vua phá lưới.', en: 'Top scorers will appear after sync.' },
+  'leagues.notFound': { vi: 'Không tìm thấy giải này.', en: 'League not found.' },
+  'leagues.back': { vi: 'Tất cả giải đấu', en: 'All leagues' },
+  'leagues.tabOverview': { vi: 'Tổng quan', en: 'Overview' },
+  'leagues.tabStandings': { vi: 'Bảng', en: 'Table' },
+  'leagues.tabFixtures': { vi: 'Lịch', en: 'Fixtures' },
+  'leagues.tabResults': { vi: 'Kết quả', en: 'Results' },
+  'leagues.tabNews': { vi: 'Tin', en: 'News' },
+  'home.chooseLeague': { vi: 'Chọn giải đấu', en: 'Choose a league' },
   'news.pageTitle': { vi: 'Tin World Cup', en: 'World Cup News' },
   'news.pageSubtitle': {
     vi: 'Chạm vào bài để mở trang riêng — chuyển Tiếng Việt / English trên từng bài.',

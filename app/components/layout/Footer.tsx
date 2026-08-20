@@ -24,7 +24,7 @@ export function Footer() {
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <p className="text-sm text-muted-dim">
-            FIFA World Cup 2026 · {t('footer.analytics')}
+            FIFA World Cup 2026 · La Liga · V.League · {t('footer.analytics')}
           </p>
           <p className="text-sm text-muted">
             {t('footer.builtBy')}{' '}

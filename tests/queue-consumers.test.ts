@@ -14,8 +14,9 @@ vi.mock('../src/ingestion/matchDataRefresh', () => ({
   handleCompletedMatches: vi.fn(async () => undefined),
 }));
 
-vi.mock('../src/ingestion/newsCrawler', () => ({
-  crawlWorldCupNews: vi.fn(async () => 2),
+vi.mock('../src/ingestion/leagues/syncLeagues', () => ({
+  syncAllClubLeagues: vi.fn(async () => [{ leagueId: 't-la-liga', matchesUpserted: 1 }]),
+  syncLeague: vi.fn(async () => ({ leagueId: 't-la-liga', matchesUpserted: 1 })),
 }));
 
 vi.mock('../src/ingestion/statsbombIngest', () => ({
@@ -138,6 +139,15 @@ describe('handleIngestBatch', () => {
     );
     expect(crawlWorldCupNews).toHaveBeenCalled();
     expect(syncOfficialLineupsToMatches).toHaveBeenCalled();
+  });
+
+  it('sync_leagues pulls club competitions', async () => {
+    const { syncAllClubLeagues } = await import('../src/ingestion/leagues/syncLeagues');
+    await handleIngestBatch(
+      createMockMessageBatch([{ body: { type: 'sync_leagues', idempotencyKey: 'k-lg' } }]),
+      createMockEnv(),
+    );
+    expect(syncAllClubLeagues).toHaveBeenCalled();
   });
 
   it('source_ingest schedules recompute for statsbomb changes', async () => {

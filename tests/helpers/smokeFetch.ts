@@ -4,6 +4,8 @@ import {
   sampleBracket,
   sampleHistoryMatch,
   sampleH2HSummary,
+  sampleLeagueCatalog,
+  sampleLeagueHub,
   sampleMatchProbs,
   sampleMatchStats,
   samplePitchMap,
@@ -380,6 +382,12 @@ export function mockApiBody(url: string): unknown {
       },
       meta: { expectedMatches: 104, year: 2026 },
     };
+  }
+  if (url.match(/\/api\/leagues\/[^/?]+/)) {
+    return { data: sampleLeagueHub };
+  }
+  if (url.includes('/api/leagues')) {
+    return { data: sampleLeagueCatalog };
   }
   if (url.includes('/api/tournaments/') && url.includes('/standings')) {
     return { data: sampleStandings };

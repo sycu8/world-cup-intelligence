@@ -84,6 +84,8 @@ export const api = {
   matchRecap: (id: string) => get<{ data: MatchRecapPayload }>(`/matches/${id}/recap`),
   matchStaff: (id: string) => get<{ data: MatchStaffPayload }>(`/matches/${id}/staff`),
   historicalTournaments: () => get<{ data: HistoricalTournament[] }>('/tournaments'),
+  leagues: () => get<{ data: LeagueCatalogPayload }>('/leagues'),
+  league: (slug: string) => get<{ data: LeagueHubPayload }>('/leagues/' + slug),
   teams: () => get<{ data: TeamSummary[] }>('/teams'),
   team: (id: string) => get<{ data: TeamSummary }>(`/teams/${id}`),
   teamWcH2h: (id: string) =>
@@ -849,4 +851,69 @@ export type HistoricalTournament = {
   host_countries_json?: string | null;
   teams_count?: number | null;
   status?: string | null;
+};
+
+export type LeagueCatalogCard = {
+  id: string;
+  slug: string;
+  name: string;
+  nameVi: string;
+  shortName: string;
+  shortNameVi: string;
+  region: 'vietnam' | 'japan' | 'europe' | 'africa' | 'world';
+  countryCode: string | null;
+  format: string;
+  season: string;
+  year: number;
+  accent: 'cyan' | 'magenta' | 'green' | 'yellow' | 'danger';
+  regionLabel: { vi: string; en: string };
+  liveCount: number;
+  upcomingCount: number;
+  completedCount: number;
+  href: string;
+};
+
+export type LeagueCatalogPayload = {
+  featured: LeagueCatalogCard;
+  regions: { region: LeagueCatalogCard['region']; label: { vi: string; en: string }; leagues: LeagueCatalogCard[] }[];
+  leagues: LeagueCatalogCard[];
+};
+
+export type LeagueStandingView = {
+  groupCode: string;
+  rank: number;
+  teamId: string;
+  teamName: string;
+  shortName: string | null;
+  countryCode: string | null;
+  crestUrl: string | null;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  gf: number;
+  ga: number;
+  gd: number;
+  points: number;
+};
+
+export type LeagueHubPayload = {
+  league: LeagueCatalogCard;
+  regionLabel: { vi: string; en: string };
+  standings: Record<string, LeagueStandingView[]>;
+  live: ScheduleMatch[];
+  upcoming: ScheduleMatch[];
+  results: ScheduleMatch[];
+  matchProbabilities: Record<string, { homeWin: number; draw: number; awayWin: number; mostLikelyScore?: string }>;
+  news: NewsArticle[];
+  topScorers: {
+    rank: number;
+    playerId: string;
+    playerName: string;
+    teamId: string | null;
+    teamName: string | null;
+    goals: number;
+  }[];
+  teams: { id: string; name: string; shortName: string | null; countryCode: string | null }[];
+  lastSync: string | null;
 };

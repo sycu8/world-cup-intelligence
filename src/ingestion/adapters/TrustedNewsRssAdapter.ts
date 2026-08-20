@@ -186,6 +186,15 @@ export type NewsFeed =
       readonly url: string;
       readonly reliability: number;
       readonly contentLocale: 'vi';
+    }
+  | {
+      readonly id: string;
+      readonly name: string;
+      readonly publisher: string;
+      readonly url: string;
+      readonly reliability: number;
+      readonly tournamentId?: string;
+      readonly contentLocale?: 'vi';
     };
 
 export function newsFeedSourceId(feedId: string): string {

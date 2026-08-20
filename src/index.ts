@@ -4,6 +4,7 @@ import type { AppEnv } from './env';
 import { parseEnv } from './env';
 import { healthRoutes } from './routes/health';
 import { tournamentRoutes } from './routes/tournaments';
+import { leagueRoutes } from './routes/leagues';
 import { teamRoutes } from './routes/teams';
 import { playerRoutes } from './routes/players';
 import { matchRoutes } from './routes/matches';
@@ -52,6 +53,7 @@ app.use('/api/*', async (c, next) => {
 
 app.route('/api/health', healthRoutes);
 app.route('/api/tournaments', tournamentRoutes);
+app.route('/api/leagues', leagueRoutes);
 app.route('/api/teams', teamRoutes);
 app.route('/api/players', playerRoutes);
 app.route('/api/matches', matchIntelligenceRoutes);

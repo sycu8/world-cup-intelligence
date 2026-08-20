@@ -1,5 +1,6 @@
 import type { AppEnv } from '../env';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
+import { CLUB_LEAGUES } from '../constants/leagues';
 import { buildMatchSlug } from '../utils/matchSlug';
 import { SEO_PAGES, SEO_PAGE_PATHS } from './seoPages';
 
@@ -57,7 +58,7 @@ type SitemapEntry = {
   priority: string;
 };
 
-const SITEMAP_STATIC_PATHS = ['/', '/matches', '/guide', '/news-intelligence'] as const;
+const SITEMAP_STATIC_PATHS = ['/', '/matches', '/leagues', '/guide', '/news-intelligence'] as const;
 
 /** Vietnamese SEO landing pages (mirror src/services/seoPages.ts) */
 const SITEMAP_SEO_PATHS = SEO_PAGE_PATHS;
@@ -113,6 +114,12 @@ export async function buildSitemapXml(env: AppEnv, origin: string): Promise<stri
       lastmod: now,
       changefreq: 'weekly' as const,
       priority: '0.75',
+    })),
+    ...CLUB_LEAGUES.map((league) => ({
+      loc: `${origin}/leagues/${league.slug}`,
+      lastmod: now,
+      changefreq: 'hourly' as const,
+      priority: '0.85',
     })),
   ];
 

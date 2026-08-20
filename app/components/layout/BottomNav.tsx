@@ -12,9 +12,9 @@ const items: { to: string; k: LocaleKey; match?: (path: string, search: string) 
       (p.startsWith('/matches/') && !p.endsWith('/analysis')),
   },
   {
-    to: '/matches?tab=standings',
+    to: '/leagues',
     k: 'nav.tournaments',
-    match: (p, search) => p === '/matches' && new URLSearchParams(search).get('tab') === 'standings',
+    match: (p, search) => p.startsWith('/leagues') || (p === '/matches' && new URLSearchParams(search).get('tab') === 'standings'),
   },
   { to: '/news-intelligence', k: 'nav.articles', match: (p) => p.startsWith('/news-intelligence') },
   { to: '/guide', k: 'nav.guide', match: (p) => p === '/guide' },

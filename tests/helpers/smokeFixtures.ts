@@ -3,6 +3,9 @@ import type {
   GroupStandingsPayload,
   HistoryMatch,
   H2HSummary,
+  LeagueCatalogCard,
+  LeagueCatalogPayload,
+  LeagueHubPayload,
   MatchScenarioSet,
   MatchStatsPayload,
   PitchMapPayload,
@@ -493,3 +496,83 @@ export function buildScheduleByDate(matches = sampleScheduleMatches): Record<str
   }
   return byDate;
 }
+
+export const sampleLeagueCard: LeagueCatalogCard = {
+  id: 't-la-liga',
+  slug: 'la-liga',
+  name: 'La Liga',
+  nameVi: 'La Liga',
+  shortName: 'La Liga',
+  shortNameVi: 'La Liga',
+  region: 'europe',
+  countryCode: 'ES',
+  format: 'league_table',
+  season: '2026/27',
+  year: 2026,
+  accent: 'cyan',
+  regionLabel: { vi: 'Châu Âu', en: 'Europe' },
+  liveCount: 1,
+  upcomingCount: 2,
+  completedCount: 4,
+  href: '/leagues/la-liga',
+};
+
+export const sampleLeagueCatalog: LeagueCatalogPayload = {
+  featured: {
+    ...sampleLeagueCard,
+    id: 't-2026',
+    slug: 'world-cup-2026',
+    name: 'FIFA World Cup 2026',
+    nameVi: 'FIFA World Cup 2026',
+    shortName: 'WC 2026',
+    shortNameVi: 'WC 2026',
+    region: 'world',
+    countryCode: null,
+    format: 'world_cup',
+    season: '2026',
+    accent: 'yellow',
+    regionLabel: { vi: 'Thế giới', en: 'World' },
+    href: '/',
+  },
+  regions: [
+    { region: 'vietnam', label: { vi: 'Việt Nam', en: 'Vietnam' }, leagues: [{ ...sampleLeagueCard, id: 't-vleague', slug: 'v-league-1', name: 'V.League 1', nameVi: 'V.League 1', shortName: 'V.League', shortNameVi: 'V.League', region: 'vietnam', countryCode: 'VN', accent: 'danger', regionLabel: { vi: 'Việt Nam', en: 'Vietnam' }, href: '/leagues/v-league-1' }] },
+    { region: 'japan', label: { vi: 'Nhật Bản', en: 'Japan' }, leagues: [{ ...sampleLeagueCard, id: 't-j1', slug: 'j1-league', name: 'J1 League', nameVi: 'J1 League', region: 'japan', countryCode: 'JP', accent: 'magenta', regionLabel: { vi: 'Nhật Bản', en: 'Japan' }, href: '/leagues/j1-league' }] },
+    { region: 'europe', label: { vi: 'Châu Âu', en: 'Europe' }, leagues: [sampleLeagueCard] },
+    { region: 'africa', label: { vi: 'Châu Phi', en: 'Africa' }, leagues: [{ ...sampleLeagueCard, id: 't-caf-cl', slug: 'caf-champions-league', name: 'CAF Champions League', nameVi: 'Cúp C1 châu Phi', region: 'africa', countryCode: null, accent: 'green', regionLabel: { vi: 'Châu Phi', en: 'Africa' }, href: '/leagues/caf-champions-league' }] },
+  ],
+  leagues: [sampleLeagueCard],
+};
+
+export const sampleLeagueHub: LeagueHubPayload = {
+  league: sampleLeagueCard,
+  regionLabel: sampleLeagueCard.regionLabel,
+  standings: {
+    table: [
+      {
+        groupCode: '',
+        rank: 1,
+        teamId: 'team-liga-86',
+        teamName: 'Real Madrid',
+        shortName: 'Real Madrid',
+        countryCode: 'ES',
+        crestUrl: null,
+        played: 8,
+        won: 7,
+        drawn: 1,
+        lost: 0,
+        gf: 18,
+        ga: 6,
+        gd: 12,
+        points: 22,
+      },
+    ],
+  },
+  live: [{ ...sampleScheduleMatch, status: 'live', home_score: 1, away_score: 0 }],
+  upcoming: [sampleScheduleMatch],
+  results: [{ ...sampleScheduleMatch, id: 'm-liga-done', status: 'completed', home_score: 2, away_score: 1 }],
+  matchProbabilities: { [SMOKE_MATCH_ID]: { homeWin: 0.48, draw: 0.26, awayWin: 0.26 } },
+  news: [],
+  topScorers: [{ rank: 1, playerId: 'p-1', playerName: 'Mbappé', teamId: 'team-liga-86', teamName: 'Real Madrid', goals: 8 }],
+  teams: [{ id: 'team-liga-86', name: 'Real Madrid', shortName: 'RMA', countryCode: 'ES' }],
+  lastSync: '2026-08-20T00:00:00Z',
+};

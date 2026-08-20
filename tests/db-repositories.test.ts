@@ -136,14 +136,14 @@ describe('matchesRepo', () => {
     expect(rows[0]?.id).toBe(FIXTURE_MATCH.id);
   });
 
-  it('getMatch scopes to WC2026 tournament', async () => {
+  it('getMatch looks up by match id', async () => {
     const db = createMockDb({
       first: () => FIXTURE_MATCH,
     });
     expect(await matchesRepo.getMatch(db, FIXTURE_MATCH.id)).toEqual(FIXTURE_MATCH);
   });
 
-  it('getMatchesByTournament always uses WC2026 id', async () => {
+  it('getMatchesByTournament uses the requested tournament id', async () => {
     const binds: unknown[][] = [];
     const db = createMockDb({
       all: (sql, b) => {
@@ -151,8 +151,8 @@ describe('matchesRepo', () => {
         return { results: [FIXTURE_MATCH] };
       },
     });
-    await matchesRepo.getMatchesByTournament(db, 'other-tournament');
-    expect(binds[0]?.[0]).toBe(WC2026_TOURNAMENT_ID);
+    await matchesRepo.getMatchesByTournament(db, 't-la-liga');
+    expect(binds[0]?.[0]).toBe('t-la-liga');
   });
 });
 

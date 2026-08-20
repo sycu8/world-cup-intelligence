@@ -27,20 +27,24 @@ export async function handleScheduledCron(
         idempotencyKey: crypto.randomUUID(),
       });
       await env.INGEST_QUEUE.send({ type: 'crawl_news', idempotencyKey: crypto.randomUUID() });
-      logInfo('scheduled live prob refresh + news crawl enqueued');
+      await env.INGEST_QUEUE.send({ type: 'sync_leagues', idempotencyKey: crypto.randomUUID() });
+      logInfo('scheduled live prob refresh + news crawl + league sync enqueued');
       return;
     }
 
     const { refreshLiveProbabilitiesFromStats } = await import('../services/liveProbabilityRefresh');
+    const { syncAllClubLeagues } = await import('../ingestion/leagues/syncLeagues');
     const liveProb = refreshLiveProbabilitiesFromStats(env);
     const news = crawlWorldCupNews(env);
+    const leagues = syncAllClubLeagues(env);
     if (ctx) {
-      ctx.waitUntil(Promise.all([liveProb, news]).catch(() => undefined));
+      ctx.waitUntil(Promise.all([liveProb, news, leagues]).catch(() => undefined));
     } else {
       await liveProb;
       await news;
+      await leagues;
     }
-    logInfo('scheduled live prob refresh + news crawl inline');
+    logInfo('scheduled live prob refresh + news crawl + league sync inline');
     return;
   }
 

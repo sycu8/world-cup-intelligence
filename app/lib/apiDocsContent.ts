@@ -247,6 +247,8 @@ function verify(secret, rawBody, signatureHeader) {
         description: 'Lists upcoming fixtures missing probability snapshots. `?refresh=1` triggers gap-fill.',
         auth: 'none',
       },
+      { method: 'GET', path: '/api/leagues', title: 'League catalog', description: 'World Cup 2026 plus V.League 1, J1 League, La Liga, and CAF Champions League, grouped by region.', auth: 'none' },
+      { method: 'GET', path: '/api/leagues/:slug', title: 'League hub', description: 'Standings, live scores, fixtures, results, W/D/L probabilities, news, and top scorers for one league.', auth: 'none' },
     ],
   },
   {

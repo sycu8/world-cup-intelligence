@@ -22,6 +22,8 @@ import { LineupPage } from '../../app/pages/LineupPage';
 import { MatchAnalysisPage } from '../../app/pages/MatchAnalysisPage';
 import { MatchPage } from '../../app/pages/MatchPage';
 import { MatchesPage } from '../../app/pages/MatchesPage';
+import { LeaguesPage } from '../../app/pages/LeaguesPage';
+import { LeagueHubPage } from '../../app/pages/LeagueHubPage';
 import { NewsArticlePage } from '../../app/pages/NewsArticlePage';
 import { NewsIntelligencePage } from '../../app/pages/NewsIntelligencePage';
 import { PlayerPage } from '../../app/pages/PlayerPage';
@@ -73,6 +75,8 @@ type PageCase = {
 const PAGE_CASES: PageCase[] = [
   { name: 'HomePage', path: '/', entry: '/', Component: HomePage },
   { name: 'MatchesPage', path: '/matches', entry: '/matches', Component: MatchesPage },
+  { name: 'LeaguesPage', path: '/leagues', entry: '/leagues', Component: LeaguesPage },
+  { name: 'LeagueHubPage', path: '/leagues/:slug', entry: '/leagues/la-liga', Component: LeagueHubPage },
   { name: 'MatchPage', path: '/matches/:matchId', entry: '/matches/m-test', Component: MatchPage },
   {
     name: 'MatchAnalysisPage',

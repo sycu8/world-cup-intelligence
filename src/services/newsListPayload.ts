@@ -60,6 +60,25 @@ export function mapNewsArticle(row: NewsRow) {
   };
 }
 
+export async function fetchHotNewsArticlesForTournament(
+  env: AppEnv,
+  tournamentId: string,
+  limit = 6,
+) {
+  const { results } = await env.DB.prepare(
+    `SELECT ${SELECT_COLS}
+     FROM source_documents sd
+     LEFT JOIN source_registry sr ON sr.id = sd.source_id
+     WHERE sd.tournament_id = ?
+     ORDER BY COALESCE(sd.hot_score, sd.reliability_score) DESC, sd.published_at DESC
+     LIMIT ?`,
+  )
+    .bind(tournamentId, limit)
+    .all<NewsRow>();
+
+  return (results ?? []).map(mapNewsArticle);
+}
+
 export async function fetchHotNewsArticles(env: AppEnv, limit = 3) {
   const { results } = await env.DB.prepare(
     `SELECT ${SELECT_COLS}

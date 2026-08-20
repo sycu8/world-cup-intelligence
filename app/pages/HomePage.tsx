@@ -25,6 +25,9 @@ import { useI18n } from '../lib/i18n/I18nContext';
 const HomeNewsPreview = lazy(() =>
   import('../components/home/HomeNewsPreview').then((m) => ({ default: m.HomeNewsPreview })),
 );
+const LeaguePickerStrip = lazy(() =>
+  import('../components/home/LeaguePickerStrip').then((m) => ({ default: m.LeaguePickerStrip })),
+);
 const GroupStageBoard = lazy(() =>
   import('../components/tournament/GroupStageBoard').then((m) => ({ default: m.GroupStageBoard })),
 );
@@ -191,6 +194,12 @@ export function HomePage() {
       )}
 
       {ready && <HomeUpcomingStrip matches={matches} probs={probs} />}
+
+      {ready && (
+        <Suspense fallback={<SectionFallback className="min-h-[10rem]" />}>
+          <LeaguePickerStrip />
+        </Suspense>
+      )}
 
       <section className="home-section layout-contained">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

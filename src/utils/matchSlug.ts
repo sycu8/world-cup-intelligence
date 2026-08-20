@@ -3,6 +3,7 @@ export type MatchSlugInput = {
   groupCode: string | null | undefined;
   homeName: string;
   awayName: string;
+  tournamentSlug?: string | null;
 };
 
 /** Internal match ids (m-w26-ga-1v2, m-final-2022, …). */
@@ -39,12 +40,15 @@ export function stageSlug(stage: string | null | undefined, groupCode: string | 
   return 'vong-dau';
 }
 
-/** URL slug: vong-bang-a-united-states-vs-mexico */
+/** URL slug: vong-bang-a-united-states-vs-mexico (WC) or la-liga-round-12-real-madrid-vs-barcelona */
 export function buildMatchSlug(input: MatchSlugInput): string {
   const round = stageSlug(input.stage, input.groupCode);
   const home = slugifyTeamName(input.homeName);
   const away = slugifyTeamName(input.awayName);
-  return `${round}-${home}-vs-${away}`;
+  const base = `${round}-${home}-vs-${away}`;
+  const prefix = input.tournamentSlug?.trim();
+  if (prefix && prefix !== 'world-cup-2026') return `${prefix}-${base}`;
+  return base;
 }
 
 export function matchAnalysisPath(slug: string): string {

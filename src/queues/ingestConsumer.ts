@@ -75,6 +75,11 @@ export async function handleIngestBatch(
           await syncOfficialLineupsToMatches(env, { recompute: true });
           break;
         }
+        case 'sync_leagues': {
+          const { syncAllClubLeagues } = await import('../ingestion/leagues/syncLeagues');
+          await syncAllClubLeagues(env);
+          break;
+        }
         case 'refresh_live_probabilities': {
           const { refreshLiveProbabilitiesFromStats } = await import('../services/liveProbabilityRefresh');
           await refreshLiveProbabilitiesFromStats(env);

@@ -8,6 +8,7 @@ import {
   WC2026_TOURNAMENT_ID,
   WC2026_YEAR,
 } from '../constants/tournament';
+import { getLeagueById } from '../constants/leagues';
 
 type ScheduleMatchRow = {
   id: string;
@@ -83,13 +84,16 @@ export async function buildSchedulePayload(
 
   await enrichScheduleScoreDetails(env.DB, list);
 
+  const league = getLeagueById(tournamentId);
+  const isWc = tournamentId === WC2026_TOURNAMENT_ID;
+
   return {
     data: { byDate, matches: list, tournamentId, total: list.length },
     meta: {
-      expectedMatches: WC2026_MATCH_COUNT,
-      year: WC2026_YEAR,
-      tournamentId: WC2026_TOURNAMENT_ID,
-      wc2026Only: true,
+      expectedMatches: isWc ? WC2026_MATCH_COUNT : list.length,
+      year: league?.year ?? WC2026_YEAR,
+      tournamentId,
+      wc2026Only: isWc,
     },
   };
 }

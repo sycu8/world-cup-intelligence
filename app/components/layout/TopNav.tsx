@@ -13,9 +13,9 @@ const links = [
       (p.startsWith('/matches/') && !p.endsWith('/analysis')),
   },
   {
-    to: '/matches?tab=standings',
+    to: '/leagues',
     k: 'nav.tournaments' as const,
-    match: (p: string, search: string) => p === '/matches' && new URLSearchParams(search).get('tab') === 'standings',
+    match: (p: string, _search: string) => p.startsWith('/leagues') || (p === '/matches' && new URLSearchParams(_search).get('tab') === 'standings'),
   },
   { to: '/news-intelligence', k: 'nav.articles' as const, match: (p: string) => p.startsWith('/news-intelligence') },
   { to: '/guide', k: 'nav.guide' as const, match: (p: string) => p === '/guide' },

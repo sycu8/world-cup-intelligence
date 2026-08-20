@@ -6,6 +6,10 @@ vi.mock('../src/ingestion/newsCrawler', () => ({
   crawlWorldCupNews: vi.fn(async () => 3),
 }));
 
+vi.mock('../src/ingestion/leagues/syncLeagues', () => ({
+  syncAllClubLeagues: vi.fn(async () => []),
+}));
+
 vi.mock('../src/services/bulkRecomputeRunner', () => ({
   runBulkRecomputeIfPending: vi.fn(async () => false),
 }));
@@ -52,6 +56,7 @@ describe('handleScheduledCron', () => {
     await handleScheduledCron(env, '*/15 * * * *');
 
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'crawl_news' }));
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'sync_leagues' }));
     logSpy.mockRestore();
   });
 
@@ -63,6 +68,8 @@ describe('handleScheduledCron', () => {
     await handleScheduledCron(env, 'every-15-min');
 
     expect(crawlWorldCupNews).toHaveBeenCalledWith(env);
+    const { syncAllClubLeagues } = await import('../src/ingestion/leagues/syncLeagues');
+    expect(syncAllClubLeagues).toHaveBeenCalledWith(env);
   });
 
   it('uses waitUntil for inline news crawl when context exists', async () => {
