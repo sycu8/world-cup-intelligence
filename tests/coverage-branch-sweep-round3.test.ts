@@ -237,10 +237,10 @@ describe('coverage branch sweep round 3 — components and pages', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
-        if (String(url).includes('/api/home')) {
+        if (String(url).includes('/api/leagues')) {
           return new Response(
             JSON.stringify({
-              data: { schedule: { matches: [] }, dashboard: null, hotNews: [] },
+              data: { featured: null, regions: [], leagues: [] },
             }),
             { status: 200 },
           );

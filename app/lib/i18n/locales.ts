@@ -63,6 +63,31 @@ export type LocaleKey =
   | 'leagues.tabResults'
   | 'leagues.tabNews'
   | 'home.chooseLeague'
+  | 'home.landing.headline'
+  | 'home.landing.lede'
+  | 'home.landing.ctaLeagues'
+  | 'home.landing.ctaLive'
+  | 'home.landing.leaguesTitle'
+  | 'home.landing.leaguesSubtitle'
+  | 'home.landing.leaguesEmpty'
+  | 'home.landing.valueTitle'
+  | 'home.landing.valueSubtitle'
+  | 'home.landing.valueFixtures'
+  | 'home.landing.valueFixturesBody'
+  | 'home.landing.valuePredict'
+  | 'home.landing.valuePredictBody'
+  | 'home.landing.valueIntel'
+  | 'home.landing.valueIntelBody'
+  | 'home.landing.pulseTitle'
+  | 'home.landing.pulseSubtitle'
+  | 'home.landing.wcEyebrow'
+  | 'home.landing.wcTitle'
+  | 'home.landing.wcBody'
+  | 'home.landing.wcCta'
+  | 'home.landing.newsTitle'
+  | 'home.landing.newsSubtitle'
+  | 'home.landing.metaTitle'
+  | 'home.landing.metaDescription'
   | 'news.pageTitle'
   | 'news.pageSubtitle'
   | 'news.feedTitle'
@@ -637,6 +662,70 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'leagues.tabResults': { vi: 'Kết quả', en: 'Results' },
   'leagues.tabNews': { vi: 'Tin', en: 'News' },
   'home.chooseLeague': { vi: 'Chọn giải đấu', en: 'Choose a league' },
+  'home.landing.headline': {
+    vi: 'Tình báo giải đấu bóng đá câu lạc bộ',
+    en: 'Club football league intelligence',
+  },
+  'home.landing.lede': {
+    vi: 'Lịch đấu, bảng xếp hạng, tỉ số live và dự đoán tỉ số cho V.League, ASEAN, J1, La Liga và Cúp C1 châu Phi.',
+    en: 'Fixtures, tables, live scores, and predicted scorelines for V.League, ASEAN, J1, La Liga, and CAF Champions League.',
+  },
+  'home.landing.ctaLeagues': { vi: 'Chọn giải đấu', en: 'Browse leagues' },
+  'home.landing.ctaLive': { vi: 'Xem đang diễn ra', en: 'See what’s live' },
+  'home.landing.leaguesTitle': { vi: 'Giải đang theo dõi', en: 'Leagues we cover' },
+  'home.landing.leaguesSubtitle': {
+    vi: 'Mở một giải để xem bảng, lịch, kết quả và xác suất PitchIntel.',
+    en: 'Open a league for tables, fixtures, results, and PitchIntel probabilities.',
+  },
+  'home.landing.leaguesEmpty': {
+    vi: 'Chưa tải được danh sách giải. Thử lại sau.',
+    en: 'Leagues could not be loaded. Try again shortly.',
+  },
+  'home.landing.valueTitle': { vi: 'PitchIntel làm gì?', en: 'What PitchIntel does' },
+  'home.landing.valueSubtitle': {
+    vi: 'Cùng một mô hình dự đoán như World Cup — áp dụng cho các giải câu lạc bộ và khu vực bạn theo dõi.',
+    en: 'The same prediction depth as World Cup — applied to the club and regional competitions you follow.',
+  },
+  'home.landing.valueFixtures': { vi: 'Lịch & tỉ số live', en: 'Fixtures & live scores' },
+  'home.landing.valueFixturesBody': {
+    vi: 'Theo dõi vòng đấu, kết quả và trận đang diễn ra trên từng giải.',
+    en: 'Track matchweeks, results, and in-progress games across each league.',
+  },
+  'home.landing.valuePredict': { vi: 'Dự đoán tỉ số', en: 'Scoreline forecasts' },
+  'home.landing.valuePredictBody': {
+    vi: 'Tỉ lệ thắng/hòa/thua và tỉ số khả dĩ nhất cho trận sắp đá — cùng engine với World Cup.',
+    en: 'Win/draw/loss odds and most-likely scorelines for upcoming matches — same engine as World Cup.',
+  },
+  'home.landing.valueIntel': { vi: 'Bảng & tin giải', en: 'Tables & league news' },
+  'home.landing.valueIntelBody': {
+    vi: 'Bảng xếp hạng, vua phá lưới và tin đã lọc theo từng giải.',
+    en: 'Standings, top scorers, and filtered news for each competition.',
+  },
+  'home.landing.pulseTitle': { vi: 'Nhịp trận hôm nay', en: 'Matchday pulse' },
+  'home.landing.pulseSubtitle': {
+    vi: 'Các giải có trận live hoặc sắp đá trong cửa sổ hiện tại.',
+    en: 'Competitions with live or upcoming matches in the current window.',
+  },
+  'home.landing.wcEyebrow': { vi: 'Vẫn theo dõi', en: 'Still covering' },
+  'home.landing.wcTitle': { vi: 'FIFA World Cup 2026', en: 'FIFA World Cup 2026' },
+  'home.landing.wcBody': {
+    vi: 'Lịch 12 bảng, dự đoán trận và bảng xếp hạng vẫn sẵn sàng trên trang Trận đấu.',
+    en: '12-group schedule, match forecasts, and standings remain on the Matches board.',
+  },
+  'home.landing.wcCta': { vi: 'Mở World Cup →', en: 'Open World Cup →' },
+  'home.landing.newsTitle': { vi: 'Tin nóng', en: 'Headlines' },
+  'home.landing.newsSubtitle': {
+    vi: 'Tin bóng đá đã lọc — ưu tiên tiếng Việt khi có.',
+    en: 'Filtered football news — Vietnamese when available.',
+  },
+  'home.landing.metaTitle': {
+    vi: 'PitchIntel — Tình báo giải đấu bóng đá',
+    en: 'PitchIntel — Club football league intelligence',
+  },
+  'home.landing.metaDescription': {
+    vi: 'Lịch, bảng, tỉ số live và dự đoán tỉ số cho V.League, ASEAN Championship, J1, La Liga và CAF Champions League.',
+    en: 'Fixtures, tables, live scores, and predicted scorelines for V.League, ASEAN Championship, J1, La Liga, and CAF Champions League.',
+  },
   'news.pageTitle': { vi: 'Tin World Cup', en: 'World Cup News' },
   'news.pageSubtitle': {
     vi: 'Chạm vào bài để mở trang riêng — chuyển Tiếng Việt / English trên từng bài.',
@@ -673,10 +762,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'news.impactAnalysis': { vi: 'Phân tích tác động tới trận đấu', en: 'Match impact analysis' },
   'news.viewAffectedMatch': { vi: 'Xem trận', en: 'View match' },
   'news.articleLangLabel': { vi: 'Ngôn ngữ bài viết', en: 'Article language' },
-  'home.title': { vi: 'Trung tâm Chiến thuật World Cup', en: 'World Cup Tactical Command' },
+  'home.title': { vi: 'Tình báo giải đấu bóng đá', en: 'Club league intelligence' },
   'home.subtitle': {
-    vi: 'Dữ liệu cập nhật mỗi phút. Dự đoán tính tự động. Tin mới mỗi 15 phút.',
-    en: 'Data refreshes every minute. Predictions update automatically. News every 15 minutes.',
+    vi: 'Lịch, bảng, tỉ số live và dự đoán tỉ số cho các giải câu lạc bộ.',
+    en: 'Fixtures, tables, live scores, and predicted scorelines for club competitions.',
   },
   'home.badge': { vi: 'Chỉ xem · cập nhật tự động', en: 'View only · auto-updated' },
   'home.calendar': { vi: 'Lịch thi đấu', en: 'Match calendar' },
@@ -1506,7 +1595,7 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
     vi: 'Chỉ số từ PitchIntel — ước tính, không phải số liệu phát sóng chính thức.',
     en: 'PitchIntel estimates — not official broadcast stats.',
   },
-  'seo.brandLine': { vi: 'PitchIntel · World Cup 2026', en: 'PitchIntel · World Cup 2026' },
+  'seo.brandLine': { vi: 'PitchIntel · Giải đấu bóng đá', en: 'PitchIntel · Club football leagues' },
   'seo.footerNote': {
     vi: 'Theo dõi World Cup 2026 miễn phí — dự đoán, kịch bản và tin đã lọc.',
     en: 'Free World Cup 2026 hub — predictions, scenarios, and curated news.',

@@ -149,6 +149,10 @@ export const COMPONENT_PROPS: Record<string, Record<string, unknown>> = {
   },
   LeagueMatchList: { matches: sampleScheduleMatches, probs: sampleMatchProbs },
   LeaguePickerStrip: {},
+  HomeLandingHero: { liveCount: 2, leagueCount: 5 },
+  HomeLandingValue: {},
+  HomeLeaguePulse: { leagues: [sampleLeagueCard] },
+  HomeWorldCupStrip: {},
   HomeSidebarInsights: {
     dashboard: {
       featuredMatch: null,

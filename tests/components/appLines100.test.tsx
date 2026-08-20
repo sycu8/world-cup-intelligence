@@ -121,7 +121,7 @@ describe('app lines 100% coverage', () => {
   it('HomePage uses prefetch payload', async () => {
     window.__PITCHINTEL_HOME__ = Promise.resolve(mockApiBody('/api/home') as Awaited<ReturnType<typeof api.home>>);
     const view = renderApp(<HomePage />);
-    await waitFor(() => expect(view.container.textContent).toMatch(/USA|Mexico|World Cup/i), {
+    await waitFor(() => expect(view.container.textContent).toMatch(/PitchIntel|giải đấu|league/i), {
       timeout: 8000,
     });
   });
@@ -129,26 +129,23 @@ describe('app lines 100% coverage', () => {
   it('HomePage handles fetch errors', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('fail', { status: 500 })));
     const view = renderApp(<HomePage />);
-    await waitFor(() => expect(view.container.textContent).toMatch(/World Cup|calendar/i), {
+    await waitFor(() => expect(view.container.textContent).toMatch(/PitchIntel|giải đấu|league/i), {
       timeout: 8000,
     });
   });
 
-  it('HomePage shows no-featured fallback', async () => {
+  it('HomePage shows leagues empty fallback', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: RequestInfo | URL) => {
         const url = typeof input === 'string' ? input : input.toString();
-        const body = mockApiBody(url);
-        if (url.includes('/api/home')) {
-          return new Response(
-            JSON.stringify({
-              ...body,
-              data: { ...body.data, dashboard: { ...body.data.dashboard, featuredMatch: null } },
-            }),
-            { status: 200, headers: { 'Content-Type': 'application/json' } },
-          );
+        if (url.includes('/api/leagues')) {
+          return new Response(JSON.stringify({ data: { featured: null, regions: [], leagues: [] } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
         }
+        const body = mockApiBody(url);
         return new Response(JSON.stringify(body), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -156,7 +153,7 @@ describe('app lines 100% coverage', () => {
       }),
     );
     const view = renderApp(<HomePage />);
-    await waitFor(() => expect(view.container.textContent).toMatch(/no featured|chưa có|sắp diễn ra|upcoming/i), {
+    await waitFor(() => expect(view.container.textContent).toMatch(/chưa tải|could not be loaded|try again/i), {
       timeout: 12000,
     });
   }, 15000);

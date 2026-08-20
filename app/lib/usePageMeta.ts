@@ -18,9 +18,9 @@ function upsertMeta(attr: 'name' | 'property', key: string, content: string) {
   el.setAttribute('content', content);
 }
 
-const DEFAULT_TITLE = 'PitchIntel — Tình báo chiến thuật World Cup';
+const DEFAULT_TITLE = 'PitchIntel — Tình báo giải đấu bóng đá';
 const DEFAULT_DESCRIPTION =
-  'Dự đoán trận, phân tích chiến thuật, kịch bản và tin World Cup 2026 — miễn phí, ưu tiên tiếng Việt.';
+  'Lịch, bảng, tỉ số live và dự đoán tỉ số cho V.League, ASEAN, J1, La Liga và CAF Champions League.';
 const DEFAULT_IMAGE = '/og-cover.jpg';
 
 export function usePageMeta(meta: PageMeta | null) {
