@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import type { LeagueCatalogCard } from '../../lib/api';
 import { useI18n } from '../../lib/i18n/I18nContext';
 
@@ -9,7 +9,6 @@ type Props = {
 /** Pulse of live / upcoming activity across club competitions. */
 export function HomeLeaguePulse({ leagues }: Props) {
   const { t, mode } = useI18n();
-  const navigate = useNavigate();
   const list = leagues ?? [];
   const active = list.filter((l) => l.liveCount > 0 || l.upcomingCount > 0);
 
@@ -35,13 +34,6 @@ export function HomeLeaguePulse({ leagues }: Props) {
             <li key={league.id}>
               <Link
                 to={league.href}
-                onClick={(event) => {
-                  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
-                    return;
-                  }
-                  event.preventDefault();
-                  navigate(league.href);
-                }}
                 className="flex flex-wrap items-center justify-between gap-3 py-4 transition hover:bg-panel2/30"
               >
                 <div className="min-w-0">

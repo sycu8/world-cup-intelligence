@@ -1,11 +1,10 @@
-import { lazy, Suspense, useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import {
   BrowserRouter,
   Routes,
   Route,
   Navigate,
   useLocation,
-  useNavigate,
   Outlet,
 } from 'react-router-dom';
 import { I18nProvider, useI18n } from './lib/i18n/I18nContext';
@@ -50,68 +49,12 @@ function RouteFallback() {
   );
 }
 
-function windowPath(): string {
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
-}
-
-/**
- * Cloudflare Zaraz / edge scripts sometimes call history.pushState on <a> clicks
- * without going through React Router. That updates the address bar while the
- * router location stays on the previous page (homepage stuck until refresh).
- * Re-sync window.location → navigate whenever they diverge.
- */
-function HistoryLocationSync() {
-  const navigate = useNavigate();
+/** Scroll to top on pathname/search changes (not while transitions are deferred). */
+function ScrollToTop() {
   const location = useLocation();
-  const locationRef = useRef(location);
-  locationRef.current = location;
-
-  useEffect(() => {
-    const syncFromWindow = () => {
-      const next = windowPath();
-      const cur = `${locationRef.current.pathname}${locationRef.current.search}${locationRef.current.hash}`;
-      if (next === cur) return;
-      const url = new URL(next, window.location.origin);
-      locationRef.current = {
-        ...locationRef.current,
-        pathname: url.pathname,
-        search: url.search,
-        hash: url.hash,
-      };
-      navigate(next, { replace: true });
-    };
-
-    const wrap =
-      (original: typeof history.pushState) =>
-      function (this: History, ...args: Parameters<History['pushState']>) {
-        const ret = original.apply(this, args);
-        queueMicrotask(syncFromWindow);
-        return ret;
-      };
-
-    const push = history.pushState.bind(history);
-    const replace = history.replaceState.bind(history);
-    history.pushState = wrap(push);
-    history.replaceState = wrap(replace);
-
-    const onClick = () => {
-      queueMicrotask(syncFromWindow);
-    };
-    document.addEventListener('click', onClick, true);
-    window.addEventListener('popstate', syncFromWindow);
-
-    return () => {
-      history.pushState = push;
-      history.replaceState = replace;
-      document.removeEventListener('click', onClick, true);
-      window.removeEventListener('popstate', syncFromWindow);
-    };
-  }, [navigate]);
-
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [location.pathname, location.search]);
-
   return null;
 }
 
@@ -137,8 +80,14 @@ export default function App() {
   return (
     <AppErrorBoundary>
       <I18nProvider>
-        <BrowserRouter>
-          <HistoryLocationSync />
+        {/*
+          RR7 wraps location updates in startTransition by default. On the homepage,
+          lazy sections + data setState can interrupt those transitions: the URL
+          updates via history.pushState but React stays on the previous page until
+          a hard refresh. Opt out so navigations commit synchronously.
+        */}
+        <BrowserRouter useTransitions={false}>
+          <ScrollToTop />
           <Routes>
             <Route
               path="/docs/api"
