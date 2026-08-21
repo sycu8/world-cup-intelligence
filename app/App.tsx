@@ -71,7 +71,6 @@ function HistoryLocationSync() {
       const next = windowPath();
       const cur = `${locationRef.current.pathname}${locationRef.current.search}${locationRef.current.hash}`;
       if (next === cur) return;
-      // Optimistically align the ref so our pushState wrapper cannot re-enter.
       const url = new URL(next, window.location.origin);
       locationRef.current = {
         ...locationRef.current,
@@ -82,7 +81,19 @@ function HistoryLocationSync() {
       navigate(next, { replace: true });
     };
 
-    // Capture-phase click: edge scripts may pushState before React Router sees the event.
+    const wrap =
+      (original: typeof history.pushState) =>
+      function (this: History, ...args: Parameters<History['pushState']>) {
+        const ret = original.apply(this, args);
+        queueMicrotask(syncFromWindow);
+        return ret;
+      };
+
+    const push = history.pushState.bind(history);
+    const replace = history.replaceState.bind(history);
+    history.pushState = wrap(push);
+    history.replaceState = wrap(replace);
+
     const onClick = () => {
       queueMicrotask(syncFromWindow);
     };
@@ -90,6 +101,8 @@ function HistoryLocationSync() {
     window.addEventListener('popstate', syncFromWindow);
 
     return () => {
+      history.pushState = push;
+      history.replaceState = replace;
       document.removeEventListener('click', onClick, true);
       window.removeEventListener('popstate', syncFromWindow);
     };
