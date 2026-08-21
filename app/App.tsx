@@ -67,33 +67,31 @@ function HistoryLocationSync() {
   locationRef.current = location;
 
   useEffect(() => {
-    const sync = () => {
+    const syncFromWindow = () => {
       const next = windowPath();
       const cur = `${locationRef.current.pathname}${locationRef.current.search}${locationRef.current.hash}`;
-      if (next !== cur) {
-        navigate(next, { replace: true });
-      }
+      if (next === cur) return;
+      // Optimistically align the ref so our pushState wrapper cannot re-enter.
+      const url = new URL(next, window.location.origin);
+      locationRef.current = {
+        ...locationRef.current,
+        pathname: url.pathname,
+        search: url.search,
+        hash: url.hash,
+      };
+      navigate(next, { replace: true });
     };
 
-    const wrap =
-      (original: typeof history.pushState) =>
-      function (this: History, ...args: Parameters<History['pushState']>) {
-        const ret = original.apply(this, args);
-        queueMicrotask(sync);
-        return ret;
-      };
-
-    const push = history.pushState.bind(history);
-    const replace = history.replaceState.bind(history);
-    history.pushState = wrap(push);
-    history.replaceState = wrap(replace);
-    window.addEventListener('popstate', sync);
-    sync();
+    // Capture-phase click: edge scripts may pushState before React Router sees the event.
+    const onClick = () => {
+      queueMicrotask(syncFromWindow);
+    };
+    document.addEventListener('click', onClick, true);
+    window.addEventListener('popstate', syncFromWindow);
 
     return () => {
-      history.pushState = push;
-      history.replaceState = replace;
-      window.removeEventListener('popstate', sync);
+      document.removeEventListener('click', onClick, true);
+      window.removeEventListener('popstate', syncFromWindow);
     };
   }, [navigate]);
 
