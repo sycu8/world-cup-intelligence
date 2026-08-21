@@ -1,5 +1,13 @@
-import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
+import { lazy, Suspense, useEffect, useRef } from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+  Outlet,
+} from 'react-router-dom';
 import { I18nProvider, useI18n } from './lib/i18n/I18nContext';
 import { TopNav } from './components/layout/TopNav';
 import { BottomNav } from './components/layout/BottomNav';
@@ -42,20 +50,60 @@ function RouteFallback() {
   );
 }
 
-/** Keep the viewport aligned when the path changes (also subscribes layout to location). */
-function ScrollToTop() {
-  const { pathname, search } = useLocation();
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }, [pathname, search]);
-  return null;
+function windowPath(): string {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
 /**
- * Suspense + error boundary must wrap the Outlet (not the whole Routes tree).
- * Wrapping <Routes> in Suspense caused URL/UI desync under React 19 concurrent
- * navigations: history updated but the previous page stayed on screen until refresh.
+ * Cloudflare Zaraz / edge scripts sometimes call history.pushState on <a> clicks
+ * without going through React Router. That updates the address bar while the
+ * router location stays on the previous page (homepage stuck until refresh).
+ * Re-sync window.location → navigate whenever they diverge.
  */
+function HistoryLocationSync() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const locationRef = useRef(location);
+  locationRef.current = location;
+
+  useEffect(() => {
+    const sync = () => {
+      const next = windowPath();
+      const cur = `${locationRef.current.pathname}${locationRef.current.search}${locationRef.current.hash}`;
+      if (next !== cur) {
+        navigate(next, { replace: true });
+      }
+    };
+
+    const wrap =
+      (original: typeof history.pushState) =>
+      function (this: History, ...args: Parameters<History['pushState']>) {
+        const ret = original.apply(this, args);
+        queueMicrotask(sync);
+        return ret;
+      };
+
+    const push = history.pushState.bind(history);
+    const replace = history.replaceState.bind(history);
+    history.pushState = wrap(push);
+    history.replaceState = wrap(replace);
+    window.addEventListener('popstate', sync);
+    sync();
+
+    return () => {
+      history.pushState = push;
+      history.replaceState = replace;
+      window.removeEventListener('popstate', sync);
+    };
+  }, [navigate]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname, location.search]);
+
+  return null;
+}
+
 function AppShell() {
   const location = useLocation();
   return (
@@ -79,7 +127,7 @@ export default function App() {
     <AppErrorBoundary>
       <I18nProvider>
         <BrowserRouter>
-          <ScrollToTop />
+          <HistoryLocationSync />
           <Routes>
             <Route
               path="/docs/api"
