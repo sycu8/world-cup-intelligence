@@ -92,8 +92,19 @@ function asTeam(club: Club, leagueCountry: string | null) {
   };
 }
 
-function kickoffHoursFromNow(hours: number): string {
-  return new Date(Date.now() + hours * 3600_000).toISOString();
+function kickoffAtVietnamHour(dayOffset: number, hourVn: number): string {
+  // Stable wall-clock kickoffs in Asia/Ho_Chi_Minh (no Date.now() drift / odd seconds).
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? '01';
+  const hh = String(hourVn).padStart(2, '0');
+  const baseMs = Date.parse(`${get('year')}-${get('month')}-${get('day')}T${hh}:00:00+07:00`);
+  return new Date(baseMs + dayOffset * 86_400_000).toISOString();
 }
 
 export function buildMockLeagueMatches(league: LeagueCatalogEntry): ParsedLeagueMatch[] {
@@ -108,14 +119,25 @@ export function buildMockLeagueMatches(league: LeagueCatalogEntry): ParsedLeague
     [5, 6, 'completed', 0, 3, 90],
     [7, 0, 'completed', 2, 2, 90],
   ];
-  const offsets = [-2, -1, 24, 48, -72, -96, -120, -144];
+  /** dayOffset from today (VN), hour VN — typical evening kickoffs. */
+  const kickoffs: [number, number][] = [
+    [0, 19],
+    [0, 17],
+    [1, 19],
+    [2, 19],
+    [-3, 19],
+    [-4, 19],
+    [-5, 19],
+    [-6, 19],
+  ];
   return pairs.map(([hi, ai, status, hs, as, minute], index) => {
     const home = clubs[hi]!;
     const away = clubs[ai]!;
     const groupCode = league.format === 'groups_knockout' ? (index % 2 === 0 ? 'A' : 'B') : null;
+    const [dayOffset, hourVn] = kickoffs[index] ?? [1, 19];
     return {
       sourceEventId: `mock-${league.slug}-${index + 1}`,
-      kickoffUtc: kickoffHoursFromNow(offsets[index] ?? 12),
+      kickoffUtc: kickoffAtVietnamHour(dayOffset, hourVn),
       status,
       minute,
       home: asTeam(home, league.countryCode),

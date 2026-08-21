@@ -38,6 +38,10 @@ describe('league catalog', () => {
     expect(getLeagueBySlug('la-liga')?.id).toBe(LA_LIGA_ID);
     expect(getLeagueById(V_LEAGUE_ID)?.slug).toBe('v-league-1');
     expect(getLeagueBySlug('asean-championship')?.espnSlug).toBe('aff.championship');
+    expect(getLeagueBySlug('v-league-1')?.theSportsDbId).toBe('4803');
+    expect(getLeagueBySlug('j1-league')?.theSportsDbId).toBe('4633');
+    expect(getLeagueBySlug('caf-champions-league')?.theSportsDbId).toBe('4720');
+    expect(getLeagueBySlug('la-liga')?.season).toBe('2026-2027');
     expect(isClubLeagueTournamentId(LA_LIGA_ID)).toBe(true);
     expect(isClubLeagueTournamentId('t-2026')).toBe(false);
     expect(clubTeamId(getLeagueBySlug('la-liga')!, '86')).toBe('team-liga-86');
@@ -161,6 +165,8 @@ describe('parse league sources', () => {
           intAwayScore: '1',
           dateEvent: '2026-08-19',
           strTime: '11:00:00',
+          strTimestamp: '2026-08-19T11:00:00',
+          strTimeLocal: '18:00:00',
           strStatus: 'Match Finished',
           intRound: '6',
           idHomeTeam: 'hanoi',
@@ -168,7 +174,12 @@ describe('parse league sources', () => {
         },
       ],
     });
-    expect(matches[0]).toMatchObject({ status: 'completed', homeScore: 2, matchweek: 6 });
+    expect(matches[0]).toMatchObject({
+      status: 'completed',
+      homeScore: 2,
+      matchweek: 6,
+      kickoffUtc: '2026-08-19T11:00:00.000Z',
+    });
 
     const table = parseTheSportsDbTable({
       table: [{ intRank: '1', strTeam: 'Hà Nội FC', idTeam: 'hanoi', intPlayed: '8', intWin: '6', intDraw: '1', intLoss: '1', intGoalsFor: '16', intGoalsAgainst: '7', intPoints: '19' }],
@@ -176,11 +187,24 @@ describe('parse league sources', () => {
     expect(table[0]).toMatchObject({ points: 19, gd: 9 });
   });
 
-  it('builds mock fixtures for every club league', () => {
+  it('builds mock fixtures with whole-hour Vietnam kickoffs', () => {
     for (const league of CLUB_LEAGUES) {
-      expect(buildMockLeagueMatches(league).length).toBeGreaterThan(0);
+      const matches = buildMockLeagueMatches(league);
+      expect(matches.length).toBeGreaterThan(0);
       expect(buildMockLeagueStandings(league).length).toBeGreaterThan(0);
+      for (const match of matches) {
+        expect(match.kickoffUtc).toMatch(/T\d{2}:00:00\.000Z$/);
+      }
     }
+  });
+});
+
+describe('theSportsDb season candidates', () => {
+  it('expands slash seasons into hyphenated variants', async () => {
+    const { theSportsDbSeasonCandidates } = await import('../src/ingestion/leagues/leagueApiClient');
+    expect(theSportsDbSeasonCandidates('2026/27', 2026)).toEqual(
+      expect.arrayContaining(['2026/27', '2026-2027', '2026', '2025-2026']),
+    );
   });
 });
 
