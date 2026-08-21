@@ -1,7 +1,9 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
 import { I18nProvider, useI18n } from './lib/i18n/I18nContext';
-import { AppShell } from './components/layout/AppShell';
+import { TopNav } from './components/layout/TopNav';
+import { BottomNav } from './components/layout/BottomNav';
+import { Footer } from './components/layout/Footer';
 import { AppErrorBoundary } from './components/layout/AppErrorBoundary';
 import { SEO_PAGES } from './lib/seoPages';
 
@@ -40,14 +42,53 @@ function RouteFallback() {
   );
 }
 
+/** Keep the viewport aligned when the path changes (also subscribes layout to location). */
+function ScrollToTop() {
+  const { pathname, search } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [pathname, search]);
+  return null;
+}
+
+/**
+ * Suspense + error boundary must wrap the Outlet (not the whole Routes tree).
+ * Wrapping <Routes> in Suspense caused URL/UI desync under React 19 concurrent
+ * navigations: history updated but the previous page stayed on screen until refresh.
+ */
+function AppShell() {
+  const location = useLocation();
+  return (
+    <div className="min-h-screen overflow-x-hidden bg-background text-base leading-relaxed text-foreground">
+      <TopNav />
+      <main className="mobile-main-pad mx-auto w-full min-w-0 max-w-[1280px] px-4 pt-6 md:px-6 md:pb-10">
+        <AppErrorBoundary key={location.pathname}>
+          <Suspense fallback={<RouteFallback />}>
+            <Outlet />
+          </Suspense>
+        </AppErrorBoundary>
+        <Footer />
+      </main>
+      <BottomNav />
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <AppErrorBoundary>
       <I18nProvider>
         <BrowserRouter>
-          <Suspense fallback={<RouteFallback />}>
-            <Routes>
-            <Route path="/docs/api" element={<ApiDocsPage />} />
+          <ScrollToTop />
+          <Routes>
+            <Route
+              path="/docs/api"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <ApiDocsPage />
+                </Suspense>
+              }
+            />
             <Route element={<AppShell />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/matches" element={<MatchesPage />} />
@@ -70,9 +111,8 @@ export default function App() {
               <Route path="/admin" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
-        </Suspense>
-      </BrowserRouter>
-    </I18nProvider>
+        </BrowserRouter>
+      </I18nProvider>
     </AppErrorBoundary>
   );
 }

@@ -27,7 +27,9 @@ export function LeagueHubPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setData(null);
     setMissing(false);
+    setTab('overview');
     api
       .league(slug)
       .then((res) => {

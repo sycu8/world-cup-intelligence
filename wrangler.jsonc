@@ -12,6 +12,8 @@
     "run_worker_first": [
       "/",
       "/matches/*",
+      "/leagues",
+      "/leagues/*",
       "/api/*",
       "/.well-known/*",
       "/robots.txt",
