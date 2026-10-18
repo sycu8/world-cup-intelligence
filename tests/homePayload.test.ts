@@ -56,4 +56,23 @@ describe('buildHomePayloadData', () => {
     await buildHomePayloadData(env, 't-custom');
     expect(buildSchedulePayload).toHaveBeenCalledWith(env, 't-custom');
   });
+
+  it('returns the other sections when schedule build fails', async () => {
+    const { buildSchedulePayload } = await import('../src/services/schedulePayload');
+    vi.mocked(buildSchedulePayload).mockRejectedValueOnce(new Error('D1_ERROR: too many SQL variables'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const payload = await buildHomePayloadData(createMockEnv());
+
+    expect(payload.schedule).toEqual({ byDate: {}, matches: [], tournamentId: 't-2026', total: 0 });
+    expect(payload.scheduleMeta.tournamentId).toBe('t-2026');
+    expect(payload.hotNews).toHaveLength(1);
+    expect(payload.dashboard).toEqual({ featuredMatch: null, matchCount: 0 });
+    expect(payload.topScorers.scorers).toHaveLength(1);
+    expect(payload.matchProbabilities['m-1']).toBeDefined();
+    const logged = warn.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(logged).toContain('"section":"schedule"');
+    expect(logged).toContain('too many SQL variables');
+    warn.mockRestore();
+  });
 });

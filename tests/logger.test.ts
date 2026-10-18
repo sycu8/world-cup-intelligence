@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { logError, logInfo } from '../src/utils/logger';
+import { logError, logInfo, logWarn } from '../src/utils/logger';
 
 describe('logger', () => {
   afterEach(() => {
@@ -15,6 +15,17 @@ describe('logger', () => {
     expect(payload.message).toBe('hello');
     expect(payload.userId).toBe('u1');
     expect(payload.active).toBe(true);
+    expect(payload.ts).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('logWarn writes structured JSON to console.warn', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    logWarn('degraded', { section: 'schedule' });
+    expect(spy).toHaveBeenCalledOnce();
+    const payload = JSON.parse(String(spy.mock.calls[0][0]));
+    expect(payload.level).toBe('warn');
+    expect(payload.message).toBe('degraded');
+    expect(payload.section).toBe('schedule');
     expect(payload.ts).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 

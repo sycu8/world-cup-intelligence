@@ -11,7 +11,7 @@ export default defineConfig({
   plugins: [
     react(),
     injectApiBase(),
-    inlineAppCss('mobile/www', { apiOrigin: PRODUCTION_ORIGIN }),
+    inlineAppCss('mobile/www'),
   ],
   define: {
     'import.meta.env.VITE_API_ORIGIN': JSON.stringify(PRODUCTION_ORIGIN),
