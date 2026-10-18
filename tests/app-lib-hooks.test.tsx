@@ -41,7 +41,7 @@ describe('usePageMeta', () => {
       expect(document.title).toContain('PitchIntel');
     });
     expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toContain(
-      'World Cup 2026',
+      'V.League',
     );
   });
 

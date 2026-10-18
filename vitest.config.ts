@@ -14,10 +14,10 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
+    fileParallelism: false,
+    maxWorkers: 1,
+    forks: {
+      singleFork: true,
     },
     coverage: {
       provider: 'v8',
