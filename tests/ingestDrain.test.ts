@@ -7,6 +7,9 @@ import {
   REFRESH_MIN_GAP_MS,
   REFRESH_STALE_MS,
   dlqMessageAction,
+  DLQ_PARK_TTL_SECONDS,
+  DLQ_REPLAY_CURSOR_KV_KEY,
+  cappedQueueDelay,
   dlqParkKey,
   drainPauseMs,
   estimateIngestDrainSeconds,
@@ -42,6 +45,11 @@ describe('ingest drain', () => {
     expect(dlqMessageAction({ type: 'refresh_minute' }, new Date(now), true, now)).toBe('park');
     expect(dlqMessageAction({ type: 'crawl_news', fromDlq: true }, new Date(now), true, now)).toBe('park');
     expect(dlqMessageAction({ type: 'crawl_news' }, new Date(now), true, now)).toBe('replay');
+    expect(dlqMessageAction({ type: 'crawl_news' }, undefined, true, now)).toBe('park');
+    expect(dlqMessageAction({ type: 'sync_leagues' }, new Date(Number.NaN), true, now)).toBe('park');
+    expect(cappedQueueDelay(86_399)).toBe(86_399);
+    expect(cappedQueueDelay(86_400)).toBe('park');
+    expect(DLQ_PARK_TTL_SECONDS).toBe(345600);
     expect(dlqMessageAction({ type: 'recompute_wc2026_bulk' }, new Date(now), false, now)).toBe('park');
     expect(ingestDedupeKey({ type: 'refresh_minute', idempotencyKey: 'a' })).toBe('refresh_minute');
     expect(ingestDedupeKey({ type: 'refresh_minute', idempotencyKey: 'b' })).toBe('refresh_minute');
@@ -159,11 +167,16 @@ describe('ingest drain', () => {
     expect(logged).toContain('"replayed":2');
     const parkedKeys = vi.mocked(env.KV.put).mock.calls.map((call) => String(call[0]));
     expect(parkedKeys).toContain(dlqParkKey('wc-ingest-dlq', 'fresh-refresh'));
+    expect(vi.mocked(env.KV.put)).toHaveBeenCalledWith(
+      dlqParkKey('wc-ingest-dlq', 'fresh-refresh'),
+      expect.any(String),
+      { expirationTtl: 345600 },
+    );
     expect(parkedKeys).toContain(dlqParkKey('wc-ingest-dlq', 'again'));
     expect(parkedKeys).toContain(dlqParkKey('wc-ingest-dlq', 'hook'));
     expect(parkedKeys).not.toContain(dlqParkKey('wc-ingest-dlq', 'stale'));
     expect(parkedKeys).not.toContain(dlqParkKey('wc-ingest-dlq', 'old-news'));
-    expect(parkedKeys).toContain(DLQ_PARKED_COUNT_KEY);
+    expect(parkedKeys).not.toContain(DLQ_PARKED_COUNT_KEY);
     errorSpy.mockRestore();
   });
 
@@ -358,8 +371,8 @@ describe('ingest drain', () => {
 
     await expect(readPipelineCounter(env, DLQ_PARKED_COUNT_KEY)).resolves.toBe(10);
     await expect(readPipelineCounter(env, INGEST_STALE_DROPS_KEY)).resolves.toBe(10);
-    expect(store.get(DLQ_PARKED_COUNT_KEY)).toBe('10');
-    expect(store.get(INGEST_STALE_DROPS_KEY)).toBe('10');
+    expect(store.get(DLQ_PARKED_COUNT_KEY)).toBeUndefined();
+    expect(store.get(INGEST_STALE_DROPS_KEY)).toBeUndefined();
   });
 
   it('adds a D1 counter ten times when KV rejects the hot key', async () => {
@@ -369,7 +382,10 @@ describe('ingest drain', () => {
         first: (sql, binds) => {
           if (sql.includes('pipeline_counters.value +')) {
             const key = String(binds[0]);
-            const next = (rows.get(key) ?? 0) + Number(binds[1]);
+            const insertValue = Number(binds[1]);
+            const delta = Number(binds[2]);
+            const existing = rows.get(key);
+            const next = existing == null ? insertValue : existing + delta;
             rows.set(key, next);
             return { value: next };
           }
@@ -414,5 +430,112 @@ describe('ingest drain', () => {
       dlqParkKey('wc-model-dlq', 'bulk'),
     );
     errorSpy.mockRestore();
+  });
+
+  it('parks an idempotent DLQ job that has no timestamp', async () => {
+    const send = vi.fn(async () => undefined);
+    const ack = vi.fn();
+    const env = createMockEnv({ INGEST_QUEUE: { send } as never });
+    await handleDlqBatch(
+      {
+        queue: 'wc-ingest-dlq',
+        messages: [
+          {
+            id: 'no-time',
+            attempts: 4,
+            body: { type: 'crawl_news', idempotencyKey: 'news-1' },
+            ack,
+          },
+        ],
+      } as never,
+      env,
+    );
+    expect(send).not.toHaveBeenCalled();
+    expect(ack).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(env.KV.put)).toHaveBeenCalledWith(
+      dlqParkKey('wc-ingest-dlq', 'no-time'),
+      expect.any(String),
+      { expirationTtl: 345600 },
+    );
+  });
+
+  it('keeps the last good replay cursor when D1 is down', async () => {
+    const rows = new Map<string, number>();
+    const kvStore = new Map<string, string>();
+    let dbDown = false;
+    const kv = {
+      get: vi.fn(async (key: string) => kvStore.get(key) ?? null),
+      put: vi.fn(async (key: string, value: string) => {
+        kvStore.set(key, value);
+      }),
+      delete: vi.fn(async () => undefined),
+    };
+    const db = createMockDb({
+      first: (sql, binds) => {
+        if (dbDown) throw new Error('d1 down');
+        if (sql.includes('ON CONFLICT(key) DO UPDATE SET value = excluded.value')) {
+          const key = String(binds[0]);
+          const value = Number(binds[1]);
+          const current = rows.get(key) ?? 0;
+          if (!rows.has(key) || value > current) rows.set(key, value);
+          return { value: rows.get(key) };
+        }
+        if (sql.includes('SELECT value FROM pipeline_counters')) {
+          const value = rows.get(String(binds[0]));
+          return value == null ? null : { value };
+        }
+        return null;
+      },
+    });
+    const env = createMockEnv({ DB: db, KV: kv as never });
+    const cursor = Date.now() + 60_000;
+    await expect(saveReplayCursorMs(env, cursor)).resolves.toBe(true);
+    expect(kvStore.get(DLQ_REPLAY_CURSOR_KV_KEY)).toBe(String(cursor));
+
+    dbDown = true;
+    await expect(loadReplayCursorMs(env)).resolves.toBe(cursor);
+    await expect(saveReplayCursorMs(env, cursor + 90_000)).resolves.toBe(false);
+    await expect(loadReplayCursorMs(env)).resolves.toBe(cursor);
+
+    const fresh = createMockEnv({
+      DB: createMockDb({
+        first: () => {
+          throw new Error('d1 down');
+        },
+      }),
+      KV: kv as never,
+    });
+    await expect(loadReplayCursorMs(fresh)).resolves.toBe(cursor);
+  });
+
+  it('replays a recap sync onto the recap queue', async () => {
+    const ingestSend = vi.fn(async () => undefined);
+    const recapSend = vi.fn(async () => undefined);
+    const env = createMockEnv({
+      INGEST_QUEUE: { send: ingestSend } as never,
+      RECAP_QUEUE: { send: recapSend } as never,
+    });
+    await handleDlqBatch(
+      {
+        queue: 'wc-ingest-dlq',
+        messages: [
+          {
+            id: 'recap',
+            attempts: 4,
+            timestamp: new Date(),
+            body: { type: 'sync_match_recap', matchRef: 'm-1', idempotencyKey: 'sync_match_recap:m-1' },
+            ack: vi.fn(),
+          },
+        ],
+      } as never,
+      env,
+    );
+    expect(ingestSend).not.toHaveBeenCalled();
+    expect(recapSend).toHaveBeenCalledWith({
+      type: 'sync_match_recap',
+      matchRef: 'm-1',
+      idempotencyKey: 'sync_match_recap:m-1',
+      fromDlq: true,
+    });
   });
 });

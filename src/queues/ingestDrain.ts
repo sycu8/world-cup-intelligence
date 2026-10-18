@@ -16,17 +16,20 @@
  * DLQ policy (WC58-PD-07): a failed message is retried, parked, or dropped
  * only when it is a stale duplicate. `wc-ingest-dlq` and `wc-ingest-dlq-uat`
  * have consumers (batch 10, max_retries 1, max_concurrency 1, no nested DLQ).
- * An unacked message is discarded after that one retry, so anything that is
- * not a stale duplicate is written to KV before it is acked.
+ * Anything that is not a stale duplicate is written to KV before it is acked.
+ * If that park fails, the message is retried with a delay. It is not left
+ * unacked: the platform would ack it and drop the body.
  *
  * Stale duplicates (refresh, crawl, league, and live-probability ticks older
  * than 10 minutes) are acked and not stored: a later cron tick has replaced
- * them. A fresh idempotent job is sent once with `fromDlq`, at most one every
- * DRAIN_REPLAY_GAP_SECONDS. A second visit, a fresh refresh tick, a webhook,
- * an unknown body, and every model-DLQ message are parked under
- * `ingest:dlq_parked:` for four days. If the replay send fails, the body is
- * parked and then acked. If that KV write fails, the message is retried with
- * a delay. Leaving it unacked lets the platform ack it and drop the body.
+ * them. A fresh idempotent job with a usable timestamp is sent once with
+ * `fromDlq`, at most one every DRAIN_REPLAY_GAP_SECONDS. A job with no
+ * timestamp is parked, the same as every other message that already used its
+ * retries. A second visit, a fresh refresh tick, a webhook, an unknown body,
+ * and every model-DLQ message are parked under `ingest:dlq_parked:` for four
+ * days. If the replay send fails, the body is parked and the cursor stays.
+ * Cloudflare Queues reject a delay of 86400 seconds. A delay at or above that
+ * 24 hour cap is parked, and the cursor is not moved.
  *
  * QA measured lastFifaSync change 8 times from 02:36:47 to 02:49:43 ICT while
  * lastDataRefresh stayed at 02:36:47. Several refreshes wrote the FIFA stamp
@@ -66,10 +69,14 @@ export const DRAIN_PAUSE_SECONDS = 10;
 
 /** One idempotent DLQ replay this far after the previous one. */
 export const DRAIN_REPLAY_GAP_SECONDS = 30;
-/** Cloudflare Queues rejects a delay of 86,400 seconds. Park at or above that. */
+/** Cloudflare Queues reject a delay of 86400 seconds. Park at or above that. */
 export const QUEUE_DELAY_LIMIT_SECONDS = 86_399;
-/** D1 row. Not a KV key: one KV key accepts about one write per second. */
+/** Hard platform cap. A send must stay strictly below this. */
+export const QUEUE_DELAY_MAX_SECONDS = 86_400;
+/** D1 row. Not a hot KV key: one KV key accepts about one write per second. */
 export const DLQ_REPLAY_CURSOR_KEY = 'dlq_replay_not_before_ms';
+/** Last cursor D1 accepted, and the pre-cutover KV value. Written after a successful D1 write. */
+export const DLQ_REPLAY_CURSOR_KV_KEY = 'ingest:dlq_replay_not_before_ms';
 
 type CursorEnv = {
   DB: {
@@ -89,21 +96,31 @@ type CursorEnv = {
 
 export type ReplayPlan = { delaySeconds: number; nextCursorMs: number };
 
+/** A delay of 86400 seconds or more is parked. Smaller delays are sent as integers. */
+export function cappedQueueDelay(delaySeconds: number): number | 'park' {
+  if (!Number.isFinite(delaySeconds) || delaySeconds >= QUEUE_DELAY_MAX_SECONDS) return 'park';
+  return Math.max(0, Math.floor(delaySeconds));
+}
+
 /** Delay for the current cursor. Does not store the next slot. */
 export function replayDelayForCursor(cursorMs: number, now: number): ReplayPlan | 'park' {
   const notBefore = Math.max(cursorMs, now);
-  const delaySeconds = Math.max(0, Math.ceil((notBefore - now) / 1000));
-  if (delaySeconds > QUEUE_DELAY_LIMIT_SECONDS) return 'park';
+  const rawDelay = Math.max(0, Math.ceil((notBefore - now) / 1000));
+  const delaySeconds = cappedQueueDelay(rawDelay);
+  if (delaySeconds === 'park') return 'park';
   return { delaySeconds, nextCursorMs: notBefore + DRAIN_REPLAY_GAP_SECONDS * 1000 };
 }
 
 export async function loadReplayCursorMs(env: CursorEnv): Promise<number> {
-  return readPipelineCounter(env, DLQ_REPLAY_CURSOR_KEY);
+  return readPipelineCounter(env, DLQ_REPLAY_CURSOR_KEY, DLQ_REPLAY_CURSOR_KV_KEY);
 }
 
-/** Call only after the queue send succeeds. */
-export async function saveReplayCursorMs(env: CursorEnv, cursorMs: number): Promise<void> {
-  await writePipelineCounter(env, DLQ_REPLAY_CURSOR_KEY, cursorMs);
+/**
+ * Call only after the queue send succeeds.
+ * False means D1 rejected the write and the previous cursor is unchanged.
+ */
+export async function saveReplayCursorMs(env: CursorEnv, cursorMs: number): Promise<boolean> {
+  return writePipelineCounter(env, DLQ_REPLAY_CURSOR_KEY, cursorMs, DLQ_REPLAY_CURSOR_KV_KEY);
 }
 
 export function drainPauseMs(ackOnly: number, ranWork: boolean, burst = DRAIN_ACK_BURST): number {
@@ -184,6 +201,9 @@ export function dlqMessageAction(
   if (!ingestDlq || !body?.type) return 'park';
   if (isStaleIngestTick(body, timestamp, now)) return 'drop_stale';
   if (body.fromDlq) return 'park';
+  // No timestamp: this already used its retries, and it is not a proven stale duplicate.
+  // Park it. Do not replay it just because the type is idempotent.
+  if (messageAgeMs(timestamp, now) == null) return 'park';
   if (IDEMPOTENT_INGEST_TYPES.has(body.type)) return 'replay';
   return 'park';
 }

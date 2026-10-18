@@ -10,6 +10,7 @@ import {
   queueRetryDelaySeconds,
 } from '../src/queues/modelJobLane';
 import { INGEST_LAST_RUN_KEY, INGEST_STALE_DROPS_KEY, MODEL_QUEUE_STALE_DROPS_KEY } from '../src/constants/pipeline';
+import { readPipelineCounter } from '../src/services/pipelineCounters';
 import { DRAIN_PAUSE_SECONDS } from '../src/queues/ingestDrain';
 import { createMockDb, createMockEnv } from './helpers/mockEnv';
 import { createMockMessageBatch } from './helpers/mockMessageBatch';
@@ -436,7 +437,7 @@ describe('handleIngestBatch', () => {
     expect(ackLive).toHaveBeenCalledTimes(1);
     expect(crawlWorldCupNews).not.toHaveBeenCalled();
     expect(syncAllClubLeagues).not.toHaveBeenCalled();
-    expect(await env.KV.get(INGEST_STALE_DROPS_KEY)).toBe('3');
+    expect(await readPipelineCounter(env, INGEST_STALE_DROPS_KEY)).toBe(3);
   });
 
   it('pauses after an ack-only drain burst so the next batch waits', async () => {
@@ -1036,7 +1037,7 @@ describe('handleModelBatch', () => {
     expect(ack).toHaveBeenCalled();
   });
 
-  it('counts stale drops in KV for the health endpoint', async () => {
+  it('counts stale drops for the health endpoint', async () => {
     const env = createMockEnv();
     await handleModelBatch(
       createMockMessageBatch([
@@ -1044,7 +1045,8 @@ describe('handleModelBatch', () => {
       ]),
       env,
     );
-    expect(await env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY)).toBe('1');
+    expect(await readPipelineCounter(env, MODEL_QUEUE_STALE_DROPS_KEY)).toBe(1);
+    expect(await env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY)).toBeNull();
   });
 
   it('acks an unknown job type without calling the model', async () => {

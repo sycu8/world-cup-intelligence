@@ -25,6 +25,8 @@ export type AppEnv = {
   VECTOR_INDEX?: VectorizeIndex;
   INGEST_QUEUE?: Queue;
   MODEL_QUEUE?: Queue;
+  /** Recap syncs. Separate from INGEST_QUEUE so a refresh is not behind them. */
+  RECAP_QUEUE?: Queue;
   MATCH_ROOM: DurableObjectNamespace;
   ASSETS: Fetcher;
 };

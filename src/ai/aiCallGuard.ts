@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { AppEnv } from '../env';
+import { addPipelineCounter } from '../services/pipelineCounters';
 import { logInfo } from '../utils/logger';
 
 /** Default ceiling for one queue message or refresh. Wrangler can override it. */
@@ -13,8 +14,9 @@ export const AI_RESULT_TTL_SECONDS = 3600;
 const storage = new AsyncLocalStorage<AiRunState>();
 
 /**
- * Per-isolate minute counter. KV is the shared ceiling; this map stops one
- * isolate from overshooting it when several translations run at once.
+ * Per-isolate minute counter. The D1 key ai:calls for this minute is the
+ * shared ceiling; this map stops one isolate from overshooting it when
+ * several translations run at once.
  * Keyed by the env object, which is the Worker's binding set, not a user.
  */
 const minuteCounts = new WeakMap<object, { minute: number; count: number }>();
@@ -134,14 +136,16 @@ export async function claimAiCall(env: AppEnv): Promise<boolean> {
   }
 
   const minute = Math.floor(Date.now() / 60_000);
-  const minuteKey = `ai:calls:${minute}`;
-  const kvUsed = await readCount(env, minuteKey);
-  if (kvUsed >= perMinute || !reserveMinute(env, minute, perMinute, kvUsed)) {
+  if (!reserveMinute(env, minute, perMinute, 0)) {
+    if (state) state.skipped += 1;
+    return false;
+  }
+  const used = await addPipelineCounter(env, `ai:calls:${minute}`, 1);
+  if (used > perMinute) {
     if (state) state.skipped += 1;
     return false;
   }
   if (state) state.calls += 1;
-  await writeCount(env, minuteKey, Math.max(kvUsed + 1, localMinuteCount(env, minute)));
   return true;
 }
 
@@ -205,24 +209,6 @@ async function backoffActive(env: AppEnv): Promise<boolean> {
   }
 }
 
-async function readCount(env: AppEnv, key: string): Promise<number> {
-  try {
-    const raw = await env.KV.get(key);
-    const value = Number.parseInt(raw ?? '0', 10);
-    return Number.isFinite(value) ? value : 0;
-  } catch {
-    return 0;
-  }
-}
-
-async function writeCount(env: AppEnv, key: string, value: number): Promise<void> {
-  try {
-    await env.KV.put(key, String(value), { expirationTtl: 120 });
-  } catch {
-    /* the in-isolate counter still applies */
-  }
-}
-
 async function readCached(env: AppEnv, key: string): Promise<unknown | null> {
   try {
     const raw = await env.KV.get(key);
@@ -244,12 +230,6 @@ function reserveMinute(env: object, minute: number, limit: number, kvUsed: numbe
   if (bucket.count >= limit) return false;
   bucket.count += 1;
   return true;
-}
-
-function localMinuteCount(env: object, minute: number): number {
-  const bucket = minuteCounts.get(env);
-  if (!bucket || bucket.minute !== minute) return 0;
-  return bucket.count;
 }
 
 function serializeAiResult(response: unknown): string | null {

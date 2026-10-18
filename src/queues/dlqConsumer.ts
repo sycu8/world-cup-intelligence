@@ -63,21 +63,26 @@ export async function handleDlqBatch(
 
     if (action === 'replay' && env.INGEST_QUEUE) {
       const planned = replayDelayForCursor(cursor, Date.now());
-      if (planned === 'park') {
+      if (planned === 'park' || planned.delaySeconds >= 86_400) {
         await park(msg, body, type, 'replay_delay_capped');
+        continue;
+      }
+      const target = type === 'sync_match_recap' ? env.RECAP_QUEUE : env.INGEST_QUEUE;
+      if (!target) {
+        await park(msg, body, type, 'replay_failed');
         continue;
       }
       try {
         const payload = { ...body, fromDlq: true };
-        if (planned.delaySeconds > 0) await env.INGEST_QUEUE.send(payload, { delaySeconds: planned.delaySeconds });
-        else await env.INGEST_QUEUE.send(payload);
+        if (planned.delaySeconds > 0) await target.send(payload, { delaySeconds: planned.delaySeconds });
+        else await target.send(payload);
       } catch (error) {
         logError('queue dlq replay failed', { queue, id: msg.id, type, error: String(error) });
         await park(msg, body, type, 'replay_failed');
         continue;
       }
-      cursor = planned.nextCursorMs;
-      await saveReplayCursorMs(env, cursor);
+      const saved = await saveReplayCursorMs(env, planned.nextCursorMs);
+      if (saved) cursor = planned.nextCursorMs;
       msg.ack();
       replayed += 1;
       continue;
