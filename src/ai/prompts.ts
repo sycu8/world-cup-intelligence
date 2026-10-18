@@ -42,18 +42,21 @@ export const tacticalBriefingPrompt = (matchId: string, probability: Record<stri
 ${JSON.stringify(probability)}
 
 Every prose field must be { "vi": "tiếng Việt", "en": "English" }.
+Write vi in Vietnamese. If you cannot write Vietnamese, set vi to "" and do not copy the English sentence into vi.
+homeWinProb is the home team's chance of winning. drawProb is the chance of a draw. awayWinProb is the away team's chance of winning, not of losing.
 Return one JSON object and nothing else. No markdown. At most 2 items in each array.
+Omit citations, source names, source URLs, and supportingSources.
 Use this shape, including every nested field:
 {
   "matchId": "${matchId}",
   "generatedAt": "ISO-8601",
   "summary": { "vi": "...", "en": "..." },
-  "tacticalThemes": [{ "title": { "vi": "...", "en": "..." }, "detail": { "vi": "...", "en": "..." }, "confidence": 0.6, "supportingSources": ["platform-model"] }],
+  "tacticalThemes": [{ "title": { "vi": "...", "en": "..." }, "detail": { "vi": "...", "en": "..." }, "confidence": 0.6 }],
   "collectiveTeamFactors": [{ "teamId": "home or away team id", "factor": { "vi": "...", "en": "..." }, "explanation": { "vi": "...", "en": "..." }, "direction": "positive", "confidence": 0.6 }],
   "lineupRisks": [{ "teamId": "home or away team id", "playerId": "player id or unspecified", "risk": { "vi": "...", "en": "..." }, "confidence": 0.5 }],
   "keyPlayers": [{ "playerId": "player id or unspecified", "reason": { "vi": "...", "en": "..." }, "impactArea": { "vi": "...", "en": "..." }, "confidence": 0.5 }],
   "probabilityExplanation": [{ "vi": "...", "en": "..." }],
-  "uncertaintyNotes": [{ "vi": "...", "en": "..." }],
-  "citations": [{ "sourceDocumentId": "platform-model", "sourceName": "PitchIntel", "reliabilityScore": 0.6 }]
+  "uncertaintyNotes": [{ "vi": "...", "en": "..." }]
 }
-direction is only "positive", "negative", or "neutral". confidence and reliabilityScore are numbers from 0 to 1.`;
+direction is only "positive", "negative", or "neutral". confidence is a number from 0 to 1.
+probabilityExplanation must contain at least one takeaway, and summary must be non-empty.`;

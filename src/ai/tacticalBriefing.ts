@@ -6,9 +6,17 @@ import { WORKERS_AI_BRIEFING_MAX_TOKENS, WORKERS_AI_TEXT_MODEL } from './modelRo
 import { SYSTEM_NO_INVENT_NUMBERS, TACTICAL_BRIEFING_RESPONSE_FORMAT, tacticalBriefingPrompt } from './prompts';
 import { logAiCallFailure, logInfo } from '../utils/logger';
 import { extractJsonObject, workersAiResultText } from './workersAiText';
-import { parseModelBriefing } from './coerceBriefing';
+import { briefingHasContent, parseModelBriefing } from './coerceBriefing';
 
-const BRIEFING_AI_TIMEOUT_MS = 60_000;
+/** One observed call finished at 60.1s, so the cap sits above that. */
+export const BRIEFING_AI_TIMEOUT_MS = 120_000;
+
+const withheldFromCache = new WeakSet<object>();
+
+/** Incomplete model output is returned as the statistical draft and not stored. */
+export function briefingWithheldFromCache(briefing: object): boolean {
+  return withheldFromCache.has(briefing);
+}
 
 const BRIEFING_CACHE_PREFIX = 'briefing:vi3:';
 const BRIEFING_CACHE_TTL_SECONDS = 3600;
@@ -112,6 +120,7 @@ export async function generateTacticalBriefing(
   if (cached) return cached;
 
   let aiFailed = false;
+  let withholdCache = false;
 
   if (isGatewayConfigured(env) && !input.aiFallback) {
     const started = Date.now();
@@ -127,6 +136,11 @@ export async function generateTacticalBriefing(
         durationMs: Date.now() - started,
       });
       if (parsed) {
+        if (!briefingHasContent(parsed)) {
+          withholdCache = true;
+          throw new Error('briefing missing summary or takeaway');
+        }
+        withholdCache = false;
         const briefing = parseModelBriefing(parsed, input.matchId);
         await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(briefing), {
           expirationTtl: BRIEFING_CACHE_TTL_SECONDS,
@@ -172,7 +186,13 @@ export async function generateTacticalBriefing(
         durationMs,
       });
       const text = extractJsonObject(await workersAiResultText(response));
-      const briefing = parseModelBriefing(JSON.parse(text), input.matchId);
+      const parsed: unknown = JSON.parse(text);
+      if (!briefingHasContent(parsed)) {
+        withholdCache = true;
+        throw new Error('briefing missing summary or takeaway');
+      }
+      withholdCache = false;
+      const briefing = parseModelBriefing(parsed, input.matchId);
       await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(briefing), {
         expirationTtl: BRIEFING_CACHE_TTL_SECONDS,
       });
@@ -188,6 +208,10 @@ export async function generateTacticalBriefing(
   }
 
   const fallback = fallbackBriefing(input);
+  if (withholdCache) {
+    withheldFromCache.add(fallback);
+    return fallback;
+  }
   await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(fallback), {
     expirationTtl: aiFailed ? BRIEFING_AI_FAILURE_TTL_SECONDS : BRIEFING_CACHE_TTL_SECONDS,
   });

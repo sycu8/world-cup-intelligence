@@ -70,6 +70,7 @@ vi.mock('../src/models/scenarios/backtesting/scenarioBacktestRunner', () => ({
 
 vi.mock('../src/ai/tacticalBriefing', () => ({
   generateTacticalBriefing: vi.fn(async () => ({ matchId: 'm-1', summary: 'brief' })),
+  briefingWithheldFromCache: vi.fn(() => false),
 }));
 
 vi.mock('../src/ai/multiVariableAnalysis', () => ({
@@ -327,6 +328,18 @@ describe('handleModelBatch', () => {
       expect.any(String),
       expect.objectContaining({ expirationTtl: 3600 }),
     );
+  });
+
+  it('ai_briefing leaves the in-flight marker when the briefing is not cached', async () => {
+    const { briefingWithheldFromCache } = await import('../src/ai/tacticalBriefing');
+    vi.mocked(briefingWithheldFromCache).mockReturnValueOnce(true);
+    const env = createMockEnv({ AI_FALLBACK_MODE: 'true' });
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'ai_briefing', matchId: 'm-1' } }]),
+      env,
+    );
+    expect(env.KV.put).not.toHaveBeenCalledWith('briefing:m-1', expect.any(String), expect.anything());
+    expect(env.KV.delete).not.toHaveBeenCalled();
   });
 
   it('ai_briefing warns when the snapshot is missing', async () => {

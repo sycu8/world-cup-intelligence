@@ -17,7 +17,7 @@ export function parseModelBriefing(raw: unknown, matchId: string): TacticalBrief
       title: localized(item.title),
       detail: localized(item.detail),
       confidence: unitScore(item.confidence, 0.5),
-      supportingSources: stringList(item.supportingSources),
+      supportingSources: [],
     })),
     collectiveTeamFactors: objects(root.collectiveTeamFactors).map((item) => ({
       teamId: text(item.teamId) || UNSPECIFIED_ID,
@@ -41,20 +41,20 @@ export function parseModelBriefing(raw: unknown, matchId: string): TacticalBrief
       impactArea: localized(item.impactArea),
       confidence: unitScore(item.confidence, 0.5),
     })),
-    probabilityExplanation: asArray(root.probabilityExplanation).map((item) => localized(item)),
+    probabilityExplanation: asArray(root.probabilityExplanation).map((item) => localized(item)).filter(hasText),
     uncertaintyNotes: asArray(root.uncertaintyNotes).map((item) => localized(item)),
-    citations: objects(root.citations).map((item) => {
-      const title = text(item.title);
-      const sourceUrl = text(item.sourceUrl);
-      return {
-        sourceDocumentId: text(item.sourceDocumentId) || 'platform-model',
-        ...(title ? { title } : {}),
-        sourceName: text(item.sourceName) || 'PitchIntel',
-        ...(sourceUrl ? { sourceUrl } : {}),
-        reliabilityScore: unitScore(item.reliabilityScore, 0.6),
-      };
-    }),
+    // Sources are attached by the server. Model citation fields and URLs are ignored.
+    citations: [],
   });
+}
+
+/** A briefing needs a summary and at least one takeaway, or it is not cached. */
+export function briefingHasContent(raw: unknown): boolean {
+  const root = asRecord(raw);
+  if (!root) return false;
+  const summary = localized(root.summary);
+  const takeaways = asArray(root.probabilityExplanation).map((item) => localized(item)).filter(hasText);
+  return hasText(summary) && takeaways.length > 0;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -77,8 +77,9 @@ function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function stringList(value: unknown): string[] {
-  return asArray(value).filter((item): item is string => typeof item === 'string');
+function hasText(value: string | { vi: string; en: string }): boolean {
+  if (typeof value === 'string') return value.trim().length > 0;
+  return value.vi.trim().length > 0 || value.en.trim().length > 0;
 }
 
 function localized(value: unknown): string | { vi: string; en: string } {
@@ -86,8 +87,8 @@ function localized(value: unknown): string | { vi: string; en: string } {
   const rec = asRecord(value);
   if (!rec) return { vi: '', en: '' };
   if (typeof rec.vi === 'string' || typeof rec.en === 'string') {
-    const en = typeof rec.en === 'string' ? rec.en : String(rec.vi);
-    const vi = typeof rec.vi === 'string' ? rec.vi : en;
+    const vi = typeof rec.vi === 'string' ? rec.vi : '';
+    const en = typeof rec.en === 'string' ? rec.en : vi;
     return { vi, en };
   }
   if ('note' in rec) return localized(rec.note);

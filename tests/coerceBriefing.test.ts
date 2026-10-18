@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import realOutputs from './fixtures/wc55-real-outputs.json';
 import { parseModelBriefing } from '../src/ai/coerceBriefing';
 import { TacticalBriefingSchema } from '../src/ai/schemas';
-import { generateTacticalBriefing } from '../src/ai/tacticalBriefing';
+import { BRIEFING_AI_TIMEOUT_MS, generateTacticalBriefing } from '../src/ai/tacticalBriefing';
 import { extractJsonObject } from '../src/ai/workersAiText';
 import { createMockEnv } from './helpers/mockEnv';
 
@@ -25,8 +25,9 @@ describe('captured Workers AI briefings', () => {
       expect(briefing.collectiveTeamFactors[0]?.direction).toBe('neutral');
       expect(briefing.lineupRisks[0]?.confidence).toBe(0.5);
       expect(briefing.keyPlayers[0]?.confidence).toBe(0.5);
-      expect(briefing.citations[0]?.sourceDocumentId).toBe('platform-model');
-      expect(briefing.citations[0]?.reliabilityScore).toBe(0.6);
+      expect(briefing.citations).toEqual([]);
+      expect(JSON.stringify(briefing)).not.toContain('example.com');
+      expect(JSON.stringify(briefing)).not.toContain('Statistical Engine');
       expect(TacticalBriefingSchema.parse(briefing).matchId).toBe(raw.matchId);
     }
   });
@@ -40,9 +41,7 @@ describe('captured Workers AI briefings', () => {
       vi: 'Không có thông tin về khả năng của các cầu thủ',
       en: 'No information about the abilities of the players',
     });
-    expect(parseModelBriefing(second, second.matchId).citations[0]?.sourceUrl).toBe(
-      'https://example.com/statistical-engine',
-    );
+    expect(parseModelBriefing(second, second.matchId).citations).toEqual([]);
     expect(parseModelBriefing(third, third.matchId).keyPlayers[0]?.playerId).toBe('unspecified');
     expect(parseModelBriefing(third, 'm-canonical').matchId).toBe('m-canonical');
   });
@@ -52,7 +51,51 @@ describe('captured Workers AI briefings', () => {
     const fenced = '```\n' + JSON.stringify(third) + '\n```';
     const briefing = parseModelBriefing(JSON.parse(extractJsonObject(fenced)), third.matchId);
     expect(briefing.summary).toEqual(third.summary);
-    expect(briefing.citations[0]?.sourceName).toBe('Statistical Engine');
+    expect(briefing.citations).toEqual([]);
+  });
+
+  it('drops model citations, including an empty citation object', () => {
+    const withUrl = parseModelBriefing(
+      {
+        summary: { vi: 'Tóm tắt', en: 'Summary' },
+        probabilityExplanation: [{ vi: 'Điểm chính', en: 'Takeaway' }],
+        citations: [
+          {
+            sourceName: 'Statistical Engine',
+            sourceUrl: 'https://example.com/statistical-engine',
+            title: 'Statistical preview',
+            reliabilityScore: 0.9,
+          },
+        ],
+      },
+      'm-cite',
+    );
+    expect(withUrl.citations).toEqual([]);
+    expect(JSON.stringify(withUrl)).not.toContain('example.com');
+    expect(JSON.stringify(withUrl)).not.toContain('Statistical Engine');
+    expect(JSON.stringify(withUrl)).not.toContain('PitchIntel');
+
+    const emptyCitation = parseModelBriefing(
+      {
+        summary: { vi: 'Tóm tắt', en: 'Summary' },
+        probabilityExplanation: [{ vi: 'Điểm chính', en: 'Takeaway' }],
+        citations: [{}],
+      },
+      'm-empty-cite',
+    );
+    expect(emptyCitation.citations).toEqual([]);
+  });
+
+  it('keeps English out of vi when the model omits Vietnamese', () => {
+    const briefing = parseModelBriefing(
+      {
+        summary: { en: 'Home side are favourites.' },
+        probabilityExplanation: [{ en: 'Away win chance is 26.2%.' }],
+      },
+      'm-vi',
+    );
+    expect(briefing.summary).toEqual({ vi: '', en: 'Home side are favourites.' });
+    expect(briefing.probabilityExplanation[0]).toEqual({ vi: '', en: 'Away win chance is 26.2%.' });
   });
 
   it('caches a schema-valid briefing when Workers AI omits nested fields', async () => {
@@ -67,7 +110,9 @@ describe('captured Workers AI briefings', () => {
     });
 
     expect(result.summary).toEqual(raw.summary);
-    expect(result.citations[0]?.sourceDocumentId).toBe('platform-model');
+    expect(result.citations).toEqual([]);
+    expect(BRIEFING_AI_TIMEOUT_MS).toBeGreaterThanOrEqual(90_000);
+    expect(BRIEFING_AI_TIMEOUT_MS).toBeLessThanOrEqual(120_000);
     expect(env.KV.put).toHaveBeenCalledWith(
       `briefing:vi3:${raw.matchId}`,
       expect.any(String),
@@ -75,5 +120,21 @@ describe('captured Workers AI briefings', () => {
     );
     const stored = JSON.parse(String(vi.mocked(env.KV.put).mock.calls[0]?.[1]));
     expect(TacticalBriefingSchema.parse(stored).matchId).toBe(raw.matchId);
+    expect(stored.citations).toEqual([]);
+  });
+
+  it.each(['{}', '[]'])('falls back and does not cache a blank %s briefing', async (body) => {
+    const env = createMockEnv({
+      AI: { run: vi.fn(async () => ({ response: body })) } as never,
+    });
+    const result = await generateTacticalBriefing(env, {
+      matchId: 'm-blank',
+      aiFallback: false,
+      probability: { homeWinProb: 0.4, drawProb: 0.3, awayWinProb: 0.3 },
+    });
+
+    expect(result.summary.en).toContain('statistical model');
+    expect(result.probabilityExplanation.length).toBeGreaterThan(0);
+    expect(env.KV.put).not.toHaveBeenCalled();
   });
 });
