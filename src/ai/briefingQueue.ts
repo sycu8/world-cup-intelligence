@@ -2,8 +2,11 @@ import type { AppEnv } from '../env';
 import { logInfo } from '../utils/logger';
 
 export const BRIEFING_INFLIGHT_PREFIX = 'briefing:inflight:';
-/** Long enough for a queue consumer to finish, short enough to retry after a crash. */
-export const BRIEFING_INFLIGHT_TTL_SECONDS = 120;
+/**
+ * Covers a full queue batch. QA saw calls of about 35–56s, and a batch can
+ * hold 5 messages, so the marker must outlive about 5 × 75s.
+ */
+export const BRIEFING_INFLIGHT_TTL_SECONDS = 420;
 
 function inflightKey(matchId: string) {
   return `${BRIEFING_INFLIGHT_PREFIX}${matchId}`;

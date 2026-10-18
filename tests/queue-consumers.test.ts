@@ -329,6 +329,36 @@ describe('handleModelBatch', () => {
     );
   });
 
+  it('ai_briefing warns when the snapshot is missing', async () => {
+    const { getLatestSnapshot } = await import('../src/db/repositories/probabilityRepo');
+    const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+    vi.mocked(getLatestSnapshot).mockResolvedValueOnce(null as never);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'ai_briefing', matchId: 'm-missing' } }]),
+      createMockEnv(),
+    );
+    const logged = warn.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(logged).toContain('tactical briefing snapshot missing');
+    expect(logged).toContain('m-missing');
+    expect(generateTacticalBriefing).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('ai_briefing warns when a slug cannot be resolved', async () => {
+    const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'ai_briefing', matchId: 'vong-bang-c-brazil-vs-haiti' } }]),
+      createMockEnv(),
+    );
+    const logged = warn.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(logged).toContain('tactical briefing match ref unresolved');
+    expect(logged).toContain('vong-bang-c-brazil-vs-haiti');
+    expect(generateTacticalBriefing).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it('ai_extract_news updates document entities', async () => {
     const env = createMockEnv({
       DB: createMockDb({ run: () => ({ success: true }) }),

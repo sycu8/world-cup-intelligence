@@ -1,6 +1,8 @@
 import type { ModelJob } from './types';
 import type { AppEnv } from '../env';
-import { logInfo, logError } from '../utils/logger';
+import { logInfo, logError, logWarn } from '../utils/logger';
+import { resolveMatchRef } from '../services/matchRef';
+import { isLegacyMatchId } from '../utils/matchSlug';
 import { recomputeMatchProbability } from '../services/recomputeMatch';
 import { runBulkRecomputeIfPending } from '../services/bulkRecomputeRunner';
 import {
@@ -74,13 +76,26 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
           await runMultiVariableAnalysis(env, msg.body.matchId);
           break;
         case 'ai_briefing': {
-          const snap = await probabilityRepo.getLatestSnapshot(env.DB, msg.body.matchId);
+          const requestedRef = msg.body.matchId;
+          let matchId = requestedRef;
+          if (!isLegacyMatchId(requestedRef)) {
+            const resolved = await resolveMatchRef(env.DB, requestedRef, env.KV);
+            if (!resolved) {
+              logWarn('tactical briefing match ref unresolved', { matchId: requestedRef });
+              await clearBriefingInflight(env, requestedRef);
+              break;
+            }
+            matchId = resolved.id;
+          }
+          const snap = await probabilityRepo.getLatestSnapshot(env.DB, matchId);
           if (!snap) {
-            await clearBriefingInflight(env, msg.body.matchId);
+            logWarn('tactical briefing snapshot missing', { matchId });
+            await clearBriefingInflight(env, requestedRef);
+            if (matchId !== requestedRef) await clearBriefingInflight(env, matchId);
             break;
           }
           const briefing = await generateTacticalBriefing(env, {
-            matchId: msg.body.matchId,
+            matchId,
             probability: {
               homeWinProb: snap.home_win_prob,
               drawProb: snap.draw_prob,
@@ -90,13 +105,10 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
             },
             aiFallback: config.aiFallback,
           });
-          await env.KV.put(
-            `briefing:${msg.body.matchId}`,
-            JSON.stringify(briefing),
-            { expirationTtl: 3600 },
-          );
-          await clearBriefingInflight(env, msg.body.matchId);
-          logInfo('ai briefing cached', { match_id: msg.body.matchId });
+          await env.KV.put(`briefing:${matchId}`, JSON.stringify(briefing), { expirationTtl: 3600 });
+          await clearBriefingInflight(env, matchId);
+          if (matchId !== requestedRef) await clearBriefingInflight(env, requestedRef);
+          logInfo('ai briefing cached', { match_id: matchId });
           break;
         }
         case 'ai_extract_news': {

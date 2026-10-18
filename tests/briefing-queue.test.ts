@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { probabilityRoutes } from '../src/routes/probability';
+import { BRIEFING_INFLIGHT_TTL_SECONDS } from '../src/ai/briefingQueue';
 import { fallbackBriefing } from '../src/ai/tacticalBriefing';
 import { FIXTURE_MATCH } from './helpers/fixtures';
 import { jsonRoute } from './helpers/routeHarness';
@@ -64,5 +65,41 @@ describe('tactical briefing queue', () => {
     const { json } = await jsonRoute<{ generating: boolean }>(probabilityRoutes, path, { env });
     expect(json.generating).toBe(false);
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it('enqueues the canonical match id when the page asks by slug', async () => {
+    const send = vi.fn(async () => undefined);
+    const env = createRouteTestEnv({
+      AI_FALLBACK_MODE: 'false',
+      MODEL_QUEUE: { send } as never,
+    });
+    const slug = 'vong-bang-a-mexico-vs-south-africa';
+
+    const first = await jsonRoute<{
+      data: { matchId: string; summary: { en: string } };
+      generating: boolean;
+    }>(probabilityRoutes, `/${slug}/tactical-briefing`, { env });
+
+    expect(first.res.status).toBe(200);
+    expect(first.json.generating).toBe(true);
+    expect(first.json.data.matchId).toBe(FIXTURE_MATCH.id);
+    expect(first.json.data.summary.en).toContain('statistical model');
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ type: 'ai_briefing', matchId: FIXTURE_MATCH.id });
+    expect(env.KV.put).toHaveBeenCalledWith(
+      `briefing:inflight:${FIXTURE_MATCH.id}`,
+      '1',
+      { expirationTtl: BRIEFING_INFLIGHT_TTL_SECONDS },
+    );
+    expect(BRIEFING_INFLIGHT_TTL_SECONDS).toBeGreaterThanOrEqual(5 * 75);
+    expect(await env.KV.get(`briefing:inflight:${slug}`)).toBeNull();
+
+    const second = await jsonRoute<{ generating: boolean }>(
+      probabilityRoutes,
+      `/${slug}/tactical-briefing`,
+      { env },
+    );
+    expect(second.json.generating).toBe(true);
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });

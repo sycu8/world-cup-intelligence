@@ -176,27 +176,30 @@ probabilityRoutes.get('/:matchId/intervals', async (c) => {
 });
 
 probabilityRoutes.get('/:matchId/tactical-briefing', async (c) => {
-  const matchId = c.req.param('matchId');
+  const matchRef = c.req.param('matchId');
   const recompute = c.req.query('recompute') === '1';
-  const resolved = await resolveProbability(c, matchId, recompute);
+  const resolved = await resolveProbability(c, matchRef, recompute);
   if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const payload = resolved.data as Record<string, unknown>;
+  const canonicalId = typeof payload.matchId === 'string' ? payload.matchId : '';
+  if (!canonicalId) return c.json({ error: 'Not found' }, 404);
   const config = parseEnv(c.env);
 
-  const cached = await getCachedBriefing(c.env, matchId);
+  const cached = await getCachedBriefing(c.env, canonicalId);
   if (cached) return c.json({ data: cached, generating: false });
 
   const input = {
-    matchId,
+    matchId: canonicalId,
     probability: resolved.data,
     aiFallback: config.aiFallback,
   };
   let generating = false;
   if (!config.aiFallback) {
     try {
-      generating = await requestBriefingGeneration(c.env, matchId);
+      generating = await requestBriefingGeneration(c.env, canonicalId);
     } catch (error) {
       logAiCallFailure('tactical briefing enqueue failed', error, {
-        matchId,
+        matchId: canonicalId,
         model: 'model-queue',
         durationMs: 0,
       });
