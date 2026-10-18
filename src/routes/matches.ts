@@ -212,7 +212,12 @@ matchRoutes.get('/:matchId/stats', async (c) => {
 });
 
 matchRoutes.get('/:matchId/recap', async (c) => {
-  const data = await getMatchRecap(c.env, c.req.param('matchId'));
+  // The stored recap is loaded before any FIFA sync, and the sync result is not
+  // part of this response. Waiting on it held the slowest prod route (one
+  // request at 48s). Hand the sync to waitUntil so the response returns.
+  const data = await getMatchRecap(c.env, c.req.param('matchId'), {
+    waitUntil: (promise) => c.executionCtx.waitUntil(promise),
+  });
   if (!data) return c.json({ error: 'Not found' }, 404);
   return c.json({ data });
 });

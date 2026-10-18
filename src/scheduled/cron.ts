@@ -14,8 +14,10 @@ export async function handleScheduledCron(
     logInfo('bulk wc2026 recompute resume failed', { error: String(error) });
   });
 
-  // Enqueue every 60s. The stamp cadence is the sync duration (about 2 minutes)
-  // because the ingest consumer runs one batch at a time. See REFRESH_MAX_HOLD_MS.
+  // Enqueue every 60s. This handler does not run the sync and does not write
+  // meta:last_data_refresh. Production has no 5-minute cron. The 300s queue
+  // retry starts only after a failed attempt, so it does not recover a refresh
+  // that is still in flight. See REFRESH_MAX_HOLD_MS.
   if (cron === '* * * * *' || cron === 'every-minute') {
     const job: IngestJob = { type: 'refresh_minute', idempotencyKey: crypto.randomUUID() };
     await env.INGEST_QUEUE?.send(job);
