@@ -31,6 +31,7 @@ import {
   modelJobPriority,
   modelMessageDisposition,
   modelMessageTimeoutMs,
+  queueRetryDelaySeconds,
   withMessageTimeout,
 } from './modelJobLane';
 
@@ -83,7 +84,7 @@ export async function handleModelBatch(
       msg.ack();
     } catch (e) {
       logError('model job failed', { error: String(e), type: msg.body.type });
-      msg.retry();
+      msg.retry({ delaySeconds: queueRetryDelaySeconds(msg.attempts) });
     }
   }
 }

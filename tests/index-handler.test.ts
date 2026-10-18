@@ -273,6 +273,23 @@ describe('index default export', () => {
     expect(mocks.handleModelBatch).toHaveBeenCalled();
   });
 
+  it('logs and acks a dead-letter batch instead of running the model consumer', async () => {
+    const env = createRouteTestEnv();
+    const ack = vi.fn();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await worker.queue(
+      {
+        queue: 'wc-model-dlq',
+        messages: [{ id: 'msg-1', attempts: 4, body: { type: 'recompute_wc2026_bulk' }, ack, retry: vi.fn() }],
+      } as never,
+      env,
+    );
+    expect(ack).toHaveBeenCalled();
+    expect(mocks.handleModelBatch).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
   it('scheduled delegates to cron handler', async () => {
     const env = createRouteTestEnv();
     await worker.scheduled({ cron: '* * * * *' } as ScheduledController, env, mockExecutionCtx);

@@ -35,6 +35,7 @@ describe('buildHealthPayload', () => {
     expect(payload.pipeline.lastFifaSync).toBe('2026-06-01T00:05:00.000Z');
     expect(payload.pipeline.lastNewsCrawl).toBe('2026-06-01T00:10:00.000Z');
     expect(payload.pipeline.modelQueueStaleDrops).toBe(12);
+    expect(payload.pipeline.bulkRecomputeBudgetSkips).toBe(0);
     expect(payload.viewOnly).toBe(true);
     expect(payload.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });

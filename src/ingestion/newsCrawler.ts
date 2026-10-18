@@ -1,5 +1,6 @@
 import type { AppEnv } from '../env';
 import {
+  DEAD_NEWS_FEED_IDS,
   WC_NEWS_FEEDS,
   parseRssItems,
   shouldKeepSoccerNews,
@@ -84,7 +85,13 @@ const THUMB_FEEDS_PER_CHUNK = 4;
 const HTML_PHASE = WC_NEWS_FEEDS.length;
 const THUMB_PHASE = WC_NEWS_FEEDS.length + 1;
 
+const DEAD_NEWS_FEED_ID_SET = new Set<string>(DEAD_NEWS_FEED_IDS);
+
 async function crawlOneFeed(env: AppEnv, feed: NewsFeed): Promise<number> {
+  if (DEAD_NEWS_FEED_ID_SET.has(feed.id)) {
+    logInfo('news feed listed dead', { feed: feed.id });
+    return 0;
+  }
   let inserted = 0;
   try {
     const res = await fetch(feed.url, {

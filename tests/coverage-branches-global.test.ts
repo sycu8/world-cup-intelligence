@@ -49,7 +49,7 @@ vi.mock('../src/ingestion/fifa/teamMatchStatsComplete', () => ({
 vi.mock('../src/services/bulkRecomputeRunner', () => ({
   runBulkRecomputeIfPending: vi.fn(async () => false),
   scheduleRecomputeAfterDataChange: vi.fn(async () => undefined),
-  isBulkWalkPending: vi.fn(async () => false),
+  isBulkWalkLeaseActive: vi.fn(async () => false),
 }));
 
 vi.mock('../src/services/recomputeMatch', () => ({

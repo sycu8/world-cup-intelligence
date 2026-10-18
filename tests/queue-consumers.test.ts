@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { handleIngestBatch } from '../src/queues/ingestConsumer';
 import { handleModelBatch } from '../src/queues/modelConsumer';
-import { AI_BRIEFING_QUEUE_MAX_AGE_MS, AI_MESSAGE_TIMEOUT_MS, CONSUMER_BATCH_DEADLINE_MS } from '../src/queues/modelJobLane';
+import {
+  AI_BRIEFING_QUEUE_MAX_AGE_MS,
+  AI_MESSAGE_TIMEOUT_MS,
+  CONSUMER_BATCH_DEADLINE_MS,
+  queueRetryDelaySeconds,
+} from '../src/queues/modelJobLane';
 import { MODEL_QUEUE_STALE_DROPS_KEY } from '../src/constants/pipeline';
 import { createMockDb, createMockEnv } from './helpers/mockEnv';
 import { createMockMessageBatch } from './helpers/mockMessageBatch';
@@ -50,7 +55,7 @@ vi.mock('../src/services/tournamentChampionOdds', () => ({
 vi.mock('../src/services/bulkRecomputeRunner', () => ({
   runBulkRecomputeIfPending: vi.fn(async () => false),
   scheduleRecomputeAfterDataChange: vi.fn(async () => undefined),
-  isBulkWalkPending: vi.fn(async () => false),
+  isBulkWalkLeaseActive: vi.fn(async () => false),
 }));
 
 vi.mock('../src/services/publicApi/webhooks', () => ({
@@ -183,9 +188,9 @@ describe('handleIngestBatch', () => {
     expect(scheduleRecomputeAfterDataChange).toHaveBeenCalled();
   });
 
-  it('refresh_minute breaks early when bulk recompute is pending', async () => {
-    const { isBulkWalkPending } = await import('../src/services/bulkRecomputeRunner');
-    vi.mocked(isBulkWalkPending).mockResolvedValueOnce(true);
+  it('refresh_minute skips live recompute only while the bulk lease is active', async () => {
+    const { isBulkWalkLeaseActive } = await import('../src/services/bulkRecomputeRunner');
+    vi.mocked(isBulkWalkLeaseActive).mockResolvedValueOnce(true);
     const send = vi.fn();
     await handleIngestBatch(
       createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'k5c' } }]),
@@ -246,7 +251,7 @@ describe('handleIngestBatch', () => {
       ]),
       createMockEnv(),
     );
-    expect(retry).toHaveBeenCalled();
+    expect(retry).toHaveBeenCalledWith({ delaySeconds: 10 });
   });
 
   it('continues a statsbomb ingest from the season cursor instead of restarting', async () => {
@@ -709,10 +714,10 @@ describe('handleModelBatch', () => {
     vi.mocked(recomputeMatchProbability).mockRejectedValueOnce(new Error('fail'));
     const retry = vi.fn();
     await handleModelBatch(
-      createMockMessageBatch([{ body: { type: 'recompute', matchId: 'm-1' }, retry }]),
+      createMockMessageBatch([{ body: { type: 'recompute', matchId: 'm-1' }, retry, attempts: 2 }]),
       createMockEnv(),
     );
-    expect(retry).toHaveBeenCalled();
+    expect(retry).toHaveBeenCalledWith({ delaySeconds: 30 });
   });
 
   it('retries a message that does not finish and still runs the next one', async () => {
@@ -760,5 +765,16 @@ describe('handleModelBatch', () => {
     expect(ack).toHaveBeenCalled();
     expect(send).toHaveBeenCalledWith({ type: 'PRE_MATCH_RECOMPUTE', matchId: 'm-2' });
     expect(generateMatchScenarios).not.toHaveBeenCalled();
+  });
+});
+
+describe('queueRetryDelaySeconds', () => {
+  it('grows 10/30/90/300 and stays at the cap', () => {
+    expect(queueRetryDelaySeconds(undefined)).toBe(10);
+    expect(queueRetryDelaySeconds(1)).toBe(10);
+    expect(queueRetryDelaySeconds(2)).toBe(30);
+    expect(queueRetryDelaySeconds(3)).toBe(90);
+    expect(queueRetryDelaySeconds(4)).toBe(300);
+    expect(queueRetryDelaySeconds(9)).toBe(300);
   });
 });

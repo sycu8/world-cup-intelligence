@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { crawlWorldCupNews } from '../src/ingestion/newsCrawler';
+import { DEAD_NEWS_FEED_IDS, WC_NEWS_FEEDS } from '../src/ingestion/adapters/TrustedNewsRssAdapter';
 import { createIngestionEnv } from './helpers/ingestionMockDb';
 import { NEWS_CRAWL_KV_KEY } from '../src/constants/pipeline';
 
@@ -67,6 +68,12 @@ describe('ingestion newsCrawler', () => {
 
     const { env } = createIngestionEnv();
     const inserted = await crawlWorldCupNews(env);
+    const deadUrls = new Set(
+      WC_NEWS_FEEDS.filter((feed) => (DEAD_NEWS_FEED_IDS as readonly string[]).includes(feed.id)).map((feed) => feed.url),
+    );
+    const fetched = vi.mocked(globalThis.fetch).mock.calls.map((call) => String(call[0]));
+    for (const url of deadUrls) expect(fetched).not.toContain(url);
+    expect(deadUrls.size).toBe(DEAD_NEWS_FEED_IDS.length);
     expect(inserted).toBeGreaterThan(0);
     expect(env.KV.put).toHaveBeenCalledWith(NEWS_CRAWL_KV_KEY, expect.any(String), expect.any(Object));
     const { backfillNewsThumbnails } = await import('../src/services/newsThumbnailBackfill');

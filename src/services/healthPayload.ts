@@ -1,7 +1,12 @@
 import type { AppEnv } from '../env';
 import { isGatewayConfigured } from '../ai/gatewayClient';
 import { parseEnv } from '../env';
-import { MODEL_QUEUE_STALE_DROPS_KEY, NEWS_CRAWL_INTERVAL_SEC, NEWS_CRAWL_KV_KEY } from '../constants/pipeline';
+import {
+  BULK_BUDGET_SKIPS_KEY,
+  MODEL_QUEUE_STALE_DROPS_KEY,
+  NEWS_CRAWL_INTERVAL_SEC,
+  NEWS_CRAWL_KV_KEY,
+} from '../constants/pipeline';
 
 export type HealthPayload = {
   status: string;
@@ -14,6 +19,7 @@ export type HealthPayload = {
     lastFifaSync: string | null;
     lastNewsCrawl: string | null;
     modelQueueStaleDrops: number;
+    bulkRecomputeBudgetSkips: number;
   };
   viewOnly: boolean;
   timestamp: string;
@@ -23,14 +29,16 @@ export async function buildHealthPayload(env: AppEnv): Promise<HealthPayload> {
   const config = parseEnv(env);
   const isProduction = config.environment === 'production';
 
-  const [dbResult, lastRefresh, lastFifaSync, lastNewsCrawl, staleDropsRaw] = await Promise.all([
+  const [dbResult, lastRefresh, lastFifaSync, lastNewsCrawl, staleDropsRaw, budgetSkipsRaw] = await Promise.all([
     env.DB.prepare('SELECT 1 AS ok').first<{ ok: number }>().catch(() => null),
     env.KV.get('meta:last_data_refresh'),
     env.KV.get('meta:last_fifa_sync'),
     env.KV.get(NEWS_CRAWL_KV_KEY),
     env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY),
+    env.KV.get(BULK_BUDGET_SKIPS_KEY),
   ]);
   const staleDrops = Number.parseInt(staleDropsRaw ?? '0', 10);
+  const budgetSkips = Number.parseInt(budgetSkipsRaw ?? '0', 10);
 
   const dbOk = dbResult?.ok === 1;
 
@@ -55,6 +63,7 @@ export async function buildHealthPayload(env: AppEnv): Promise<HealthPayload> {
       lastFifaSync,
       lastNewsCrawl,
       modelQueueStaleDrops: Number.isFinite(staleDrops) ? staleDrops : 0,
+      bulkRecomputeBudgetSkips: Number.isFinite(budgetSkips) ? budgetSkips : 0,
     },
     viewOnly: true,
     timestamp: new Date().toISOString(),

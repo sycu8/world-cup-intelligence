@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BULK_RECOMPUTE_CURSOR_KEY, BULK_RECOMPUTE_KV_KEY } from '../src/constants/pipeline';
+import { BULK_BUDGET_SKIPS_KEY, BULK_RECOMPUTE_CURSOR_KEY, BULK_RECOMPUTE_KV_KEY } from '../src/constants/pipeline';
 import { recomputeMatchProbability } from '../src/services/recomputeMatch';
 import {
+  isBulkWalkLeaseActive,
+  resumeStalledBulkWalk,
   runBulkRecomputeIfPending,
   scheduleRecomputeAfterDataChange,
 } from '../src/services/bulkRecomputeRunner';
@@ -93,10 +95,14 @@ describe('bulkRecomputeRunner KV contract', () => {
       reason: 'ingest',
       cursor: 'm-b',
     });
-    expect(JSON.parse((await env.KV.get(BULK_RECOMPUTE_KV_KEY)) ?? '{}')).toEqual({
-      reason: 'ingest',
-      cursor: 'm-b',
-    });
+    const saved = JSON.parse((await env.KV.get(BULK_RECOMPUTE_KV_KEY)) ?? '{}') as {
+      reason?: string;
+      cursor?: string;
+      progressAt?: number;
+    };
+    expect(saved.reason).toBe('ingest');
+    expect(saved.cursor).toBe('m-b');
+    expect(saved.progressAt).toEqual(expect.any(Number));
     expect(await env.KV.get(BULK_RECOMPUTE_CURSOR_KEY)).toBe('m-b');
   });
 
@@ -143,7 +149,79 @@ describe('bulkRecomputeRunner KV contract', () => {
       reason: 'ingest',
     });
     expect(await env.KV.get(BULK_RECOMPUTE_CURSOR_KEY)).toBeNull();
-    expect(await env.KV.get(BULK_RECOMPUTE_KV_KEY)).toBe('ingest');
+    const flag = JSON.parse((await env.KV.get(BULK_RECOMPUTE_KV_KEY)) ?? '{}') as {
+      reason?: string;
+      budgetCuts?: Record<string, number>;
+    };
+    expect(flag.reason).toBe('ingest');
+    expect(flag.budgetCuts).toEqual({ 'm-a': 1 });
+  });
+
+  it('skips a match after the second budget cut and the walk can finish', async () => {
+    vi.mocked(recomputeMatchProbability).mockClear();
+    vi.mocked(recomputeMatchProbability).mockImplementation(() => new Promise(() => undefined));
+    const env = createMockEnv({
+      DB: createMockDb({ all: () => ({ results: [{ id: 'm-a' }, { id: 'm-b' }] }) }),
+      KV: createMockKv({ [BULK_RECOMPUTE_KV_KEY]: 'ingest' }),
+      MODEL_QUEUE: { send: vi.fn(async () => undefined) } as never,
+    });
+
+    await runBulkRecomputeIfPending(env, { budgetMs: 20 });
+    await runBulkRecomputeIfPending(env, { budgetMs: 20 });
+
+    expect(await env.KV.get(BULK_RECOMPUTE_CURSOR_KEY)).toBe('m-a');
+    expect(await env.KV.get(BULK_BUDGET_SKIPS_KEY)).toBe('1');
+    vi.mocked(recomputeMatchProbability).mockReset();
+    vi.mocked(recomputeMatchProbability).mockResolvedValue(null);
+
+    await runBulkRecomputeIfPending(env, { budgetMs: 60_000 });
+
+    expect(vi.mocked(recomputeMatchProbability).mock.calls.map((call) => call[1])).toEqual(['m-b']);
+    expect(await env.KV.get(BULK_RECOMPUTE_KV_KEY)).toBeNull();
+  });
+
+  it('blocks live recompute only while the walk lease is active', async () => {
+    const now = 1_700_000_000_000;
+    const active = createMockEnv({
+      KV: createMockKv({
+        [BULK_RECOMPUTE_KV_KEY]: JSON.stringify({ walkId: 'w', reason: 'ingest', leaseUntil: now + 1_000 }),
+      }),
+    });
+    const expired = createMockEnv({
+      KV: createMockKv({
+        [BULK_RECOMPUTE_KV_KEY]: JSON.stringify({ walkId: 'w', reason: 'ingest', leaseUntil: now - 1 }),
+      }),
+    });
+    expect(await isBulkWalkLeaseActive(active, now)).toBe(true);
+    expect(await isBulkWalkLeaseActive(expired, now)).toBe(false);
+    expect(await isBulkWalkLeaseActive(createMockEnv(), now)).toBe(false);
+  });
+
+  it('re-sends a stalled walk from the last finished match', async () => {
+    const now = 1_700_000_000_000;
+    const send = vi.fn(async () => undefined);
+    const env = createMockEnv({
+      KV: createMockKv({
+        [BULK_RECOMPUTE_KV_KEY]: JSON.stringify({
+          walkId: 'walk-stalled',
+          reason: 'ingest',
+          cursor: 'm-a',
+          leaseUntil: 0,
+          progressAt: now - 11 * 60_000,
+        }),
+      }),
+      MODEL_QUEUE: { send } as never,
+    });
+
+    expect(await resumeStalledBulkWalk(env, now)).toBe(true);
+    expect(send).toHaveBeenCalledWith({
+      type: 'recompute_wc2026_bulk',
+      reason: 'ingest',
+      walkId: 'walk-stalled',
+      cursor: 'm-a',
+    });
+    expect(await resumeStalledBulkWalk(env, now)).toBe(false);
+    expect(send).toHaveBeenCalledTimes(1);
   });
 
   it('a retry after a timeout starts again at the match the budget cut off', async () => {

@@ -36,6 +36,17 @@ export const INGEST_CHUNK_BUDGET_MS = 45_000;
 export const INGEST_LONG_JOB_TIMEOUT_MS = 180_000;
 /** KV write for the stale-drop counter. It must not outlive the message timeout. */
 export const STALE_DROP_COUNT_TIMEOUT_MS = 2_000;
+/**
+ * Growing backoff for an explicit retry. `wrangler` `retry_delay` is the
+ * platform default (the first step). Later attempts wait longer, then the DLQ.
+ */
+export const QUEUE_RETRY_DELAYS_SECONDS = [10, 30, 90, 300] as const;
+
+export function queueRetryDelaySeconds(attempts: number | undefined): number {
+  const attempt = typeof attempts === 'number' && attempts > 0 ? attempts : 1;
+  const index = Math.min(QUEUE_RETRY_DELAYS_SECONDS.length, attempt) - 1;
+  return QUEUE_RETRY_DELAYS_SECONDS[index]!;
+}
 
 const INGEST_TIMEOUT_MS: Record<string, number> = {
   crawl_news: INGEST_LONG_JOB_TIMEOUT_MS,

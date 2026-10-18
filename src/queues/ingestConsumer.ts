@@ -8,7 +8,7 @@ import { getIngestHandler } from '../ingestion/sourceRegistry';
 import { recomputeMatchProbability } from '../services/recomputeMatch';
 import { processMatchCompletion, replayKnockoutBracketFromCompleted } from '../services/tournamentProgression';
 import {
-  isBulkWalkPending,
+  isBulkWalkLeaseActive,
   scheduleRecomputeAfterDataChange,
 } from '../services/bulkRecomputeRunner';
 import { runChampionOddsRefreshIfPending } from '../services/tournamentChampionOdds';
@@ -20,6 +20,7 @@ import {
   INGEST_CHUNK_BUDGET_MS,
   deferQueuedMessage,
   ingestMessageTimeoutMs,
+  queueRetryDelaySeconds,
   withMessageTimeout,
 } from './modelJobLane';
 
@@ -57,7 +58,7 @@ export async function handleIngestBatch(
       msg.ack();
     } catch (e) {
       logInfo('ingest retry', { error: String(e) });
-      msg.retry();
+      msg.retry({ delaySeconds: queueRetryDelaySeconds(msg.attempts) });
     }
   }
 }
@@ -76,7 +77,7 @@ async function runIngestMessage(msg: Message<IngestJob>, env: AppEnv): Promise<v
             await scheduleRecomputeAfterDataChange(env, 'knockout-teams-bracket', { queue: true });
           }
 
-          if (await isBulkWalkPending(env)) break;
+          if (await isBulkWalkLeaseActive(env)) break;
 
           if (await runChampionOddsRefreshIfPending(env)) break;
 

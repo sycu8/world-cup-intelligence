@@ -18,6 +18,7 @@ import { dashboardRoutes } from './routes/dashboard';
 import { scheduleRoutes } from './routes/schedule';
 import { newsRoutes } from './routes/news';
 import { analysisRoutes } from './routes/analysis';
+import { handleDlqBatch } from './queues/dlqConsumer';
 import { handleIngestBatch } from './queues/ingestConsumer';
 import { handleModelBatch } from './queues/modelConsumer';
 import type { IngestJob } from './queues/types';
@@ -168,6 +169,10 @@ export default {
     await handleScheduledCron(env, controller.cron, ctx);
   },
   async queue(batch: MessageBatch<IngestJob | ModelJob>, env: AppEnv): Promise<void> {
+    if (typeof batch.queue === 'string' && batch.queue.includes('dlq')) {
+      await handleDlqBatch(batch, env);
+      return;
+    }
     const first = batch.messages[0]?.body;
     if (isIngestJob(first)) {
       await handleIngestBatch(batch as MessageBatch<IngestJob>, env);
