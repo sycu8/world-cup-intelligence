@@ -65,6 +65,7 @@ describe('buildHealthPayload', () => {
     expect(payload.pipeline.modelQueueStaleDrops).toBe(12);
     expect(payload.pipeline.bulkRecomputeBudgetSkips).toBe(0);
     expect(payload.pipeline.ingestStaleDrops).toBe(7);
+    expect(payload.pipeline.ingestDlqParked).toBe(0);
     expect(payload.pipeline.ingestLastRefreshRunMs).toBe(1710000000000);
     expect(payload.viewOnly).toBe(true);
     expect(payload.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);

@@ -3,6 +3,7 @@ import { isGatewayConfigured } from '../ai/gatewayClient';
 import { parseEnv } from '../env';
 import {
   BULK_BUDGET_SKIPS_KEY,
+  DLQ_PARKED_COUNT_KEY,
   INGEST_LAST_RUN_KEY,
   INGEST_STALE_DROPS_KEY,
   MODEL_QUEUE_STALE_DROPS_KEY,
@@ -51,6 +52,8 @@ export type HealthPayload = {
     bulkRecomputeBudgetSkips: number;
     /** Ingest ticks acked without running. Cached with the rest of this payload for 15s. */
     ingestStaleDrops: number;
+    /** DLQ messages stored for replay. Cumulative. Cached with this payload for 15s. */
+    ingestDlqParked: number;
     /** Epoch ms of the last accepted minute refresh. Null when none is stored. */
     ingestLastRefreshRunMs: number | null;
   };
@@ -62,7 +65,7 @@ export async function buildHealthPayload(env: AppEnv): Promise<HealthPayload> {
   const config = parseEnv(env);
   const isProduction = config.environment === 'production';
 
-  const [dbResult, lastRefresh, lastFifaSync, lastNewsCrawl, staleDropsRaw, budgetSkipsRaw, ingestDropsRaw, ingestLastRunRaw] =
+  const [dbResult, lastRefresh, lastFifaSync, lastNewsCrawl, staleDropsRaw, budgetSkipsRaw, ingestDropsRaw, ingestLastRunRaw, dlqParkedRaw] =
     await Promise.all([
       env.DB.prepare('SELECT 1 AS ok').first<{ ok: number }>().catch(() => null),
       env.KV.get('meta:last_data_refresh'),
@@ -72,10 +75,12 @@ export async function buildHealthPayload(env: AppEnv): Promise<HealthPayload> {
       env.KV.get(BULK_BUDGET_SKIPS_KEY),
       env.KV.get(INGEST_STALE_DROPS_KEY),
       env.KV.get(INGEST_LAST_RUN_KEY),
+      env.KV.get(DLQ_PARKED_COUNT_KEY),
     ]);
   const staleDrops = Number.parseInt(staleDropsRaw ?? '0', 10);
   const budgetSkips = Number.parseInt(budgetSkipsRaw ?? '0', 10);
   const ingestDrops = Number.parseInt(ingestDropsRaw ?? '0', 10);
+  const dlqParked = Number.parseInt(dlqParkedRaw ?? '0', 10);
 
   const dbOk = dbResult?.ok === 1;
 
@@ -102,6 +107,7 @@ export async function buildHealthPayload(env: AppEnv): Promise<HealthPayload> {
       modelQueueStaleDrops: Number.isFinite(staleDrops) ? staleDrops : 0,
       bulkRecomputeBudgetSkips: Number.isFinite(budgetSkips) ? budgetSkips : 0,
       ingestStaleDrops: Number.isFinite(ingestDrops) ? ingestDrops : 0,
+      ingestDlqParked: Number.isFinite(dlqParked) ? dlqParked : 0,
       ingestLastRefreshRunMs: parseLastRunMs(ingestLastRunRaw),
     },
     viewOnly: true,

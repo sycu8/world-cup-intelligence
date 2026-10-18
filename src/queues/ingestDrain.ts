@@ -13,15 +13,20 @@
  * Continuations (a feed or league cursor, or a refresh follow-up step) use
  * their own idempotency key, so a fresh slice is not collapsed into the tick.
  *
- * DLQ policy: `wc-ingest-dlq` and `wc-ingest-dlq-uat` have explicit consumers
- * (batch 10, max_retries 1, max_concurrency 1, no nested dead-letter queue).
- * A message that is not acked is discarded after that retry. Refresh ticks
- * are acked and not replayed. Other idempotent jobs are sent once with
- * `fromDlq` set, at most one every DRAIN_REPLAY_GAP_SECONDS; a second visit
- * is acked. Stale crawl, league, and live-probability ticks are acked and
- * not replayed. Model DLQ messages are counted and acked. Without a consumer,
- * Cloudflare keeps a DLQ message for four days and then deletes it — these
- * queues have consumers, so that retention is not the drain path.
+ * DLQ policy (WC58-PD-07): a failed message is retried, parked, or dropped
+ * only when it is a stale duplicate. `wc-ingest-dlq` and `wc-ingest-dlq-uat`
+ * have consumers (batch 10, max_retries 1, max_concurrency 1, no nested DLQ).
+ * An unacked message is discarded after that one retry, so anything that is
+ * not a stale duplicate is written to KV before it is acked.
+ *
+ * Stale duplicates (refresh, crawl, league, and live-probability ticks older
+ * than 10 minutes) are acked and not stored: a later cron tick has replaced
+ * them. A fresh idempotent job is sent once with `fromDlq`, at most one every
+ * DRAIN_REPLAY_GAP_SECONDS. A second visit, a fresh refresh tick, a webhook,
+ * an unknown body, and every model-DLQ message are parked under
+ * `ingest:dlq_parked:` for four days. If the replay send fails, the body is
+ * parked and then acked. The ack is skipped only when that KV write also
+ * fails, so the platform can retry it once.
  *
  * Reported after the #58 deploy, not measured in this repo: prod DLQ 3,072
  * and UAT DLQ 4,422. An ack-only batch of 10 then waits DRAIN_PAUSE_SECONDS,
@@ -30,6 +35,9 @@
  * one replay every 30s: about 26 hours prod and 37 hours UAT. Read the live
  * depth before expecting either number. Do not purge.
  */
+import { DLQ_PARKED_COUNT_KEY } from '../constants/pipeline';
+import { logError } from '../utils/logger';
+
 export const REFRESH_STALE_MS = 10 * 60_000;
 
 /**
@@ -117,6 +125,73 @@ export function isStaleIngestTick(
   if (!body?.type || !STALE_TICK_TYPES.has(body.type)) return false;
   const age = messageAgeMs(timestamp, now);
   return age != null && age > REFRESH_STALE_MS;
+}
+
+export const DLQ_PARK_TTL_SECONDS = 4 * 24 * 60 * 60;
+
+export type DlqMessageAction = 'replay' | 'drop_stale' | 'park';
+
+/**
+ * replay: send back to ingest once.
+ * drop_stale: a scheduled tick older than 10 minutes. A newer cron tick replaced it.
+ * park: store the body, then ack. Not a stale duplicate, so it is not deleted.
+ */
+export function dlqMessageAction(
+  body: { type?: string; fromDlq?: boolean } | null | undefined,
+  timestamp: Date | undefined,
+  ingestDlq: boolean,
+  now = Date.now(),
+): DlqMessageAction {
+  if (!ingestDlq || !body?.type) return 'park';
+  if (isStaleIngestTick(body, timestamp, now)) return 'drop_stale';
+  if (body.fromDlq) return 'park';
+  if (IDEMPOTENT_INGEST_TYPES.has(body.type)) return 'replay';
+  return 'park';
+}
+
+export function dlqParkKey(queue: string, id: string): string {
+  return `ingest:dlq_parked:${queue}:${id}`;
+}
+
+export async function parkDlqMessage(
+  env: {
+    KV: {
+      get(key: string): Promise<string | null>;
+      put(key: string, value: string, options?: { expirationTtl?: number }): Promise<unknown>;
+    };
+  },
+  message: { queue: string; id: string; type: string; body: unknown; reason: string },
+): Promise<boolean> {
+  try {
+    await env.KV.put(
+      dlqParkKey(message.queue, message.id),
+      JSON.stringify({
+        queue: message.queue,
+        id: message.id,
+        type: message.type,
+        reason: message.reason,
+        body: message.body,
+        parkedAt: new Date().toISOString(),
+      }),
+      { expirationTtl: DLQ_PARK_TTL_SECONDS },
+    );
+  } catch (error) {
+    logError('queue dlq park failed', {
+      queue: message.queue,
+      id: message.id,
+      type: message.type,
+      error: String(error),
+    });
+    return false;
+  }
+  try {
+    const raw = await env.KV.get(DLQ_PARKED_COUNT_KEY);
+    const current = Number.parseInt(raw ?? '0', 10);
+    await env.KV.put(DLQ_PARKED_COUNT_KEY, String((Number.isFinite(current) ? current : 0) + 1));
+  } catch (error) {
+    logError('queue dlq park count failed', { error: String(error) });
+  }
+  return true;
 }
 
 export function isStaleRefreshMinute(

@@ -5,6 +5,8 @@ import {
   DRAIN_REPLAY_GAP_SECONDS,
   REFRESH_MIN_GAP_MS,
   REFRESH_STALE_MS,
+  dlqMessageAction,
+  dlqParkKey,
   drainPauseMs,
   estimateIngestDrainSeconds,
   ingestDedupeKey,
@@ -13,6 +15,7 @@ import {
   refreshRunIsDue,
   takeDlqReplayDelaySeconds,
 } from '../src/queues/ingestDrain';
+import { DLQ_PARKED_COUNT_KEY } from '../src/constants/pipeline';
 import { createMockEnv } from './helpers/mockEnv';
 
 describe('ingest drain', () => {
@@ -28,6 +31,13 @@ describe('ingest drain', () => {
     expect(isStaleIngestTick({ type: 'sync_leagues' }, new Date(now - REFRESH_STALE_MS - 1), now)).toBe(true);
     expect(isStaleIngestTick({ type: 'refresh_live_probabilities' }, new Date(now - 60_000), now)).toBe(false);
     expect(isStaleIngestTick({ type: 'source_ingest' }, new Date(now - REFRESH_STALE_MS - 1), now)).toBe(false);
+    expect(dlqMessageAction({ type: 'refresh_minute' }, new Date(now - REFRESH_STALE_MS - 1), true, now)).toBe(
+      'drop_stale',
+    );
+    expect(dlqMessageAction({ type: 'refresh_minute' }, new Date(now), true, now)).toBe('park');
+    expect(dlqMessageAction({ type: 'crawl_news', fromDlq: true }, new Date(now), true, now)).toBe('park');
+    expect(dlqMessageAction({ type: 'crawl_news' }, new Date(now), true, now)).toBe('replay');
+    expect(dlqMessageAction({ type: 'recompute_wc2026_bulk' }, new Date(now), false, now)).toBe('park');
     expect(ingestDedupeKey({ type: 'refresh_minute', idempotencyKey: 'a' })).toBe('refresh_minute');
     expect(ingestDedupeKey({ type: 'refresh_minute', idempotencyKey: 'b' })).toBe('refresh_minute');
     expect(ingestDedupeKey({ type: 'refresh_minute', step: 'lineups', idempotencyKey: 'step-1' })).toBe(
@@ -142,10 +152,17 @@ describe('ingest drain', () => {
     expect(logged).toContain('refresh_minute');
     expect(logged).toContain('crawl_news');
     expect(logged).toContain('"replayed":2');
+    const parkedKeys = vi.mocked(env.KV.put).mock.calls.map((call) => String(call[0]));
+    expect(parkedKeys).toContain(dlqParkKey('wc-ingest-dlq', 'fresh-refresh'));
+    expect(parkedKeys).toContain(dlqParkKey('wc-ingest-dlq', 'again'));
+    expect(parkedKeys).toContain(dlqParkKey('wc-ingest-dlq', 'hook'));
+    expect(parkedKeys).not.toContain(dlqParkKey('wc-ingest-dlq', 'stale'));
+    expect(parkedKeys).not.toContain(dlqParkKey('wc-ingest-dlq', 'old-news'));
+    expect(parkedKeys).toContain(DLQ_PARKED_COUNT_KEY);
     errorSpy.mockRestore();
   });
 
-  it('does not ack a DLQ message when the replay send fails', async () => {
+  it('parks a DLQ message when the replay send fails', async () => {
     const send = vi.fn(async () => {
       throw new Error('queue full');
     });
@@ -170,8 +187,40 @@ describe('ingest drain', () => {
     );
 
     expect(send).toHaveBeenCalledTimes(1);
-    expect(ack).not.toHaveBeenCalled();
+    expect(ack).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(env.KV.put).mock.calls.map((call) => String(call[0]))).toContain(
+      dlqParkKey('wc-ingest-dlq', 'news'),
+    );
     expect(errorSpy.mock.calls.map((call) => String(call[0])).join('\n')).toContain('queue dlq replay failed');
+    errorSpy.mockRestore();
+  });
+
+  it('leaves a DLQ message unacked when the replay and the park both fail', async () => {
+    const send = vi.fn(async () => {
+      throw new Error('queue full');
+    });
+    const ack = vi.fn();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const env = createMockEnv({ INGEST_QUEUE: { send } as never });
+    vi.mocked(env.KV.put).mockRejectedValue(new Error('kv down'));
+
+    await handleDlqBatch(
+      {
+        queue: 'wc-ingest-dlq',
+        messages: [
+          {
+            id: 'news',
+            attempts: 1,
+            timestamp: new Date(),
+            body: { type: 'crawl_news', idempotencyKey: 'news-1' },
+            ack,
+          },
+        ],
+      } as never,
+      env,
+    );
+
+    expect(ack).not.toHaveBeenCalled();
     errorSpy.mockRestore();
   });
 
@@ -199,6 +248,9 @@ describe('ingest drain', () => {
 
     expect(ack).toHaveBeenCalledTimes(1);
     expect(send).not.toHaveBeenCalled();
+    expect(vi.mocked(env.KV.put).mock.calls.map((call) => String(call[0]))).toContain(
+      dlqParkKey('wc-model-dlq', 'bulk'),
+    );
     errorSpy.mockRestore();
   });
 });
