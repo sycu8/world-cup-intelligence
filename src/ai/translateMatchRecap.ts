@@ -1,5 +1,6 @@
 import type { AppEnv } from '../env';
 import { gatewayChatJson, isGatewayConfigured } from './gatewayClient';
+import { resolveModel, WORKERS_AI_TEXT_MODEL } from './modelRouter';
 import {
   COMMENTATOR_SYSTEM,
   commentaryUserPrompt,
@@ -44,11 +45,12 @@ async function workersAiTranslate(
   maxLen: number,
 ): Promise<string | null> {
   if (!env.AI || !textEn.trim()) return null;
-  const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3-8b-instruct'] as const;
+  const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', WORKERS_AI_TEXT_MODEL] as const;
 
   for (const model of models) {
     try {
       const response = await env.AI.run(model, {
+        max_tokens: resolveModel('news_summary').maxTokens,
         messages: [
           { role: 'system', content: COMMENTATOR_SYSTEM },
           { role: 'user', content: userPrompt },

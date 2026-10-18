@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  BRIEFING_AI_FAILURE_TTL_SECONDS,
   fallbackBriefing,
   generateTacticalBriefing,
   getCachedBriefing,
@@ -25,6 +26,11 @@ import { createMockEnv, createMockKv } from './helpers/mockEnv';
 import { mockScenario } from './helpers/scenarioFixtures';
 import type { MatchScenarioSet } from '../src/models/scenarios/types';
 import { MARKET_DISCLAIMER } from '../src/market/types';
+import {
+  resolveModel,
+  WORKERS_AI_BRIEFING_MAX_TOKENS,
+  WORKERS_AI_TEXT_MODEL,
+} from '../src/ai/modelRouter';
 
 vi.mock('../src/ai/gatewayClient', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/ai/gatewayClient')>();
@@ -124,7 +130,9 @@ describe('tacticalBriefing', () => {
       probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
     });
     expect(result.summary).toBeTruthy();
-    expect(env.KV.put).toHaveBeenCalled();
+    expect(env.KV.put).toHaveBeenCalledWith('briefing:vi3:m-2', expect.any(String), {
+      expirationTtl: 3600,
+    });
   });
 
   it('getCachedBriefing returns null for invalid cache payload', async () => {
@@ -185,6 +193,9 @@ describe('tacticalBriefing', () => {
       probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
     });
     expect(result.matchId).toBe('m-gw-fail');
+    expect(env.KV.put).toHaveBeenCalledWith('briefing:vi3:m-gw-fail', expect.any(String), {
+      expirationTtl: BRIEFING_AI_FAILURE_TTL_SECONDS,
+    });
   });
 
   it('generateTacticalBriefing parses Workers AI non-response payloads', async () => {
@@ -193,9 +204,10 @@ describe('tacticalBriefing', () => {
       aiFallback: false,
       probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
     });
+    const run = vi.fn(async () => briefing);
     const env = createMockEnv({
       AI: {
-        run: vi.fn(async () => briefing),
+        run,
       } as never,
     });
     const result = await generateTacticalBriefing(env, {
@@ -204,6 +216,12 @@ describe('tacticalBriefing', () => {
       probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
     });
     expect(result.matchId).toBe('m-workers');
+    expect(run).toHaveBeenCalledWith(
+      WORKERS_AI_TEXT_MODEL,
+      expect.objectContaining({ max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS }),
+    );
+    expect(WORKERS_AI_BRIEFING_MAX_TOKENS).toBeGreaterThanOrEqual(4096);
+    expect(WORKERS_AI_BRIEFING_MAX_TOKENS).not.toBe(resolveModel('tactical_briefing').maxTokens);
   });
 
   it('generateTacticalBriefing falls back when Workers AI returns invalid JSON', async () => {
@@ -216,6 +234,61 @@ describe('tacticalBriefing', () => {
       probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
     });
     expect(result.matchId).toBe('m-workers-bad');
+  });
+
+  it('generateTacticalBriefing uses a short cache when Workers AI JSON is truncated', async () => {
+    const truncated = '{"matchId":"m-trunc","summary":{"vi":"Phân tích bị cắt';
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const run = vi.fn(async () => ({ response: truncated }));
+    const env = createMockEnv({
+      AI: { run } as never,
+    });
+    const result = await generateTacticalBriefing(env, {
+      matchId: 'm-trunc',
+      aiFallback: false,
+      probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
+    });
+
+    expect(result.summary.en).toContain('statistical model');
+    expect(run).toHaveBeenCalledWith(
+      WORKERS_AI_TEXT_MODEL,
+      expect.objectContaining({ max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS }),
+    );
+    expect(env.KV.put).toHaveBeenCalledWith(
+      'briefing:vi3:m-trunc',
+      expect.any(String),
+      { expirationTtl: BRIEFING_AI_FAILURE_TTL_SECONDS },
+    );
+    expect(BRIEFING_AI_FAILURE_TTL_SECONDS).toBeLessThan(3600);
+
+    const logged = spy.mock.calls.map((call) => String(call[0])).join('\n');
+    const payload = JSON.parse(String(spy.mock.calls[0]?.[0]));
+    expect(payload.message).toBe('tactical briefing workers ai failed');
+    expect(payload.error).toBe('SyntaxError');
+    expect(payload.matchId).toBe('m-trunc');
+    expect(logged).not.toContain('Phân tích bị cắt');
+    spy.mockRestore();
+  });
+
+  it('caches the fallback for 60s when Workers AI fails without a parse error', async () => {
+    for (const message of ['2001', '5028', 'network']) {
+      const env = createMockEnv({
+        AI: {
+          run: vi.fn(async () => {
+            throw new Error(message);
+          }),
+        } as never,
+      });
+      const result = await generateTacticalBriefing(env, {
+        matchId: `m-${message}`,
+        aiFallback: false,
+        probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
+      });
+      expect(result.summary.en).toContain('statistical model');
+      expect(env.KV.put).toHaveBeenCalledWith(`briefing:vi3:m-${message}`, expect.any(String), {
+        expirationTtl: BRIEFING_AI_FAILURE_TTL_SECONDS,
+      });
+    }
   });
 });
 
@@ -249,6 +322,10 @@ describe('translateNews', () => {
     const env = createMockEnv({ AI: { run: aiRun } as never });
     const result = await translateNewsHeadline(env, 'USA wins friendly', 'The United States beat Mexico.');
     expect(result?.titleVi).toContain('Hoa Kỳ');
+    expect(aiRun).toHaveBeenCalledWith(
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      expect.objectContaining({ max_tokens: resolveModel('news_summary').maxTokens }),
+    );
   });
 
   it('uses gateway when Workers AI paths fail', async () => {
@@ -392,7 +469,7 @@ describe('gatewayClient', () => {
       vi.fn(async () =>
         Response.json({
           choices: [{ message: { content: '{"ok":true}' } }],
-          model: '@cf/meta/llama-3-8b-instruct',
+          model: WORKERS_AI_TEXT_MODEL,
           usage: { total_tokens: 10 },
         }),
       ),
@@ -454,7 +531,7 @@ describe('gatewayClient', () => {
     });
     vi.mocked(gatewayChat).mockResolvedValueOnce({
       content: '```json\n{"titleVi":"Tiêu đề từ gateway"}\n```',
-      model: '@cf/meta/llama-3-8b-instruct',
+      model: WORKERS_AI_TEXT_MODEL,
       provider: 'workers',
     });
     const parsed = await gatewayChatJson<{ titleVi: string }>(createMockEnv(), 'news_summary', [
@@ -476,7 +553,7 @@ describe('gatewayClient', () => {
     });
     vi.mocked(gatewayChat).mockResolvedValueOnce({
       content: 'not valid json',
-      model: '@cf/meta/llama-3-8b-instruct',
+      model: WORKERS_AI_TEXT_MODEL,
       provider: 'workers',
     });
     expect(await gatewayChatJson(createMockEnv(), 'news_summary', [{ role: 'user', content: 'x' }])).toBeNull();
@@ -536,6 +613,10 @@ describe('entityExtraction', () => {
       OPENAI_API_KEY: 'sk-test',
     });
     expect((await extractEntitiesFromArticle(workersEnv, 'Brazil uses 4-3-3'))?.teams).toContain('Brazil');
+    expect(workersEnv.AI.run).toHaveBeenCalledWith(
+      WORKERS_AI_TEXT_MODEL,
+      expect.objectContaining({ max_tokens: resolveModel('entity_extract').maxTokens }),
+    );
   });
 
   it('extractEntitiesFromArticle stringifies non-response Workers payloads', async () => {
