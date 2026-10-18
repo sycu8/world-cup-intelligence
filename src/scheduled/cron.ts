@@ -1,7 +1,6 @@
 import type { AppEnv } from '../env';
 import type { IngestJob } from '../queues/types';
 import { logInfo } from '../utils/logger';
-import { runBulkRecomputeIfPending } from '../services/bulkRecomputeRunner';
 import { crawlWorldCupNews } from '../ingestion/newsCrawler';
 import { runProbabilitySnapshotRetention } from '../services/probabilitySnapshotRetention';
 
@@ -54,8 +53,6 @@ export async function handleScheduledCron(
     );
     if (ctx) ctx.waitUntil(retention);
     else await retention;
-
-    if (await runBulkRecomputeIfPending(env)) return;
 
     const job: IngestJob = {
       type: 'source_ingest',

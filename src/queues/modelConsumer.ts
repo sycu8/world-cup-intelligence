@@ -26,6 +26,8 @@ import { parseEnv } from '../env';
 import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import {
   CONSUMER_BATCH_DEADLINE_MS,
+  STALE_DROP_COUNT_TIMEOUT_MS,
+  deferQueuedMessage,
   modelJobPriority,
   modelMessageDisposition,
   modelMessageTimeoutMs,
@@ -54,9 +56,9 @@ export async function handleModelBatch(
         .join(','),
     });
     try {
-      const current = Number.parseInt((await env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY)) ?? '0', 10);
-      const base = Number.isFinite(current) ? current : 0;
-      await env.KV.put(MODEL_QUEUE_STALE_DROPS_KEY, String(base + dropped.length));
+      await withMessageTimeout(STALE_DROP_COUNT_TIMEOUT_MS, () =>
+        recordStaleDrops(env, dropped.length),
+      );
     } catch (error) {
       logError('model queue drop count failed', { error: String(error) });
     }
@@ -69,7 +71,7 @@ export async function handleModelBatch(
     const elapsed = Date.now() - batchStarted;
     if (elapsed >= deadlineMs) {
       logInfo('model batch deferred', { type: msg.body.type });
-      msg.retry();
+      await deferQueuedMessage(env.MODEL_QUEUE, msg);
       continue;
     }
     const timeoutMs = Math.max(
@@ -84,6 +86,19 @@ export async function handleModelBatch(
       msg.retry();
     }
   }
+}
+
+/** Best-effort. A concurrent batch can overwrite the count; one reread repairs a lost add. */
+async function recordStaleDrops(env: AppEnv, count: number): Promise<void> {
+  const raw = await env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY);
+  const base = Number.parseInt(raw ?? '0', 10);
+  const next = String((Number.isFinite(base) ? base : 0) + count);
+  await env.KV.put(MODEL_QUEUE_STALE_DROPS_KEY, next);
+  const seen = await env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY);
+  if (seen === next) return;
+  const again = Number.parseInt(seen ?? '0', 10);
+  const merged = String((Number.isFinite(again) ? again : 0) + count);
+  if (merged !== seen) await env.KV.put(MODEL_QUEUE_STALE_DROPS_KEY, merged);
 }
 
 async function runModelMessage(
@@ -143,6 +158,8 @@ async function runModelMessage(
           await runBulkRecomputeIfPending(env, {
             cursor: msg.body.cursor,
             phase: msg.body.phase,
+            walkId: msg.body.walkId,
+            reason: msg.body.reason,
           });
           break;
         case 'ai_multi_analyze':

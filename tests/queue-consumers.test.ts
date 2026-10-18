@@ -50,6 +50,7 @@ vi.mock('../src/services/tournamentChampionOdds', () => ({
 vi.mock('../src/services/bulkRecomputeRunner', () => ({
   runBulkRecomputeIfPending: vi.fn(async () => false),
   scheduleRecomputeAfterDataChange: vi.fn(async () => undefined),
+  isBulkWalkPending: vi.fn(async () => false),
 }));
 
 vi.mock('../src/services/publicApi/webhooks', () => ({
@@ -183,8 +184,8 @@ describe('handleIngestBatch', () => {
   });
 
   it('refresh_minute breaks early when bulk recompute is pending', async () => {
-    const { runBulkRecomputeIfPending } = await import('../src/services/bulkRecomputeRunner');
-    vi.mocked(runBulkRecomputeIfPending).mockResolvedValueOnce(true);
+    const { isBulkWalkPending } = await import('../src/services/bulkRecomputeRunner');
+    vi.mocked(isBulkWalkPending).mockResolvedValueOnce(true);
     const send = vi.fn();
     await handleIngestBatch(
       createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'k5c' } }]),
@@ -246,6 +247,93 @@ describe('handleIngestBatch', () => {
       createMockEnv(),
     );
     expect(retry).toHaveBeenCalled();
+  });
+
+  it('continues a statsbomb ingest from the season cursor instead of restarting', async () => {
+    const { ingestStatsbombWorldCup } = await import('../src/ingestion/statsbombIngest');
+    const { scheduleRecomputeAfterDataChange } = await import('../src/services/bulkRecomputeRunner');
+    vi.mocked(ingestStatsbombWorldCup).mockResolvedValueOnce({
+      seasonsProcessed: 1,
+      matchesInserted: 1,
+      matchesSkipped: 0,
+      teamsUpdated: 0,
+      done: false,
+      seasonCursor: 1,
+    });
+    const send = vi.fn(async () => undefined);
+    await handleIngestBatch(
+      createMockMessageBatch([
+        { body: { type: 'source_ingest', sourceId: 'statsbomb', idempotencyKey: 'k-sb' } },
+      ]),
+      createMockEnv({ INGEST_QUEUE: { send } as never }),
+    );
+    expect(scheduleRecomputeAfterDataChange).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'source_ingest', sourceId: 'statsbomb', seasonCursor: 1 }),
+    );
+  });
+
+  it('continues a news crawl from the feed cursor', async () => {
+    const { crawlWorldCupNews } = await import('../src/ingestion/newsCrawler');
+    const { syncOfficialLineupsToMatches } = await import('../src/services/officialLineupSync');
+    vi.mocked(crawlWorldCupNews).mockResolvedValueOnce({ inserted: 1, done: false, feedCursor: 4 } as never);
+    const send = vi.fn(async () => undefined);
+    await handleIngestBatch(
+      createMockMessageBatch([{ body: { type: 'crawl_news', idempotencyKey: 'k-news' } }]),
+      createMockEnv({ INGEST_QUEUE: { send } as never }),
+    );
+    expect(syncOfficialLineupsToMatches).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'crawl_news', feedCursor: 4 }));
+  });
+
+  it('continues league sync from the next league', async () => {
+    const { syncAllClubLeagues } = await import('../src/ingestion/leagues/syncLeagues');
+    const partial = Object.assign([{ leagueId: 't-la-liga', matchesUpserted: 1 }], {
+      done: false,
+      leagueCursor: 1,
+    });
+    vi.mocked(syncAllClubLeagues).mockResolvedValueOnce(partial as never);
+    const send = vi.fn(async () => undefined);
+    await handleIngestBatch(
+      createMockMessageBatch([{ body: { type: 'sync_leagues', idempotencyKey: 'k-lg2' } }]),
+      createMockEnv({ INGEST_QUEUE: { send } as never }),
+    );
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'sync_leagues', leagueCursor: 1 }));
+  });
+
+  it('defers a later ingest message without spending a retry', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    const { deliverWebhook } = await import('../src/services/publicApi/webhooks');
+    let clock = Date.now();
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => clock);
+    vi.mocked(refreshMatchData).mockImplementationOnce(async () => {
+      clock += 240_000;
+      return { updatedIds: [], completedIds: [], teamUpdatedIds: [], bracketUpdatedIds: [] };
+    });
+    const retry = vi.fn();
+    const ack = vi.fn();
+    const send = vi.fn(async () => undefined);
+    try {
+      await handleIngestBatch(
+        createMockMessageBatch([
+          { body: { type: 'refresh_minute', idempotencyKey: 'k-defer' } },
+          {
+            body: { type: 'webhook_deliver', subscriptionId: 'wh-1', eventId: 9, idempotencyKey: 'k-wh' },
+            retry,
+            ack,
+          },
+        ]),
+        createMockEnv({ INGEST_QUEUE: { send } as never }),
+      );
+    } finally {
+      now.mockRestore();
+    }
+    expect(retry).not.toHaveBeenCalled();
+    expect(ack).toHaveBeenCalled();
+    expect(deliverWebhook).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'webhook_deliver', subscriptionId: 'wh-1', eventId: 9 }),
+    );
   });
 
   it('a slow ingest message does not hold the rest of the batch', async () => {
@@ -655,18 +743,22 @@ describe('handleModelBatch', () => {
       clock += CONSUMER_BATCH_DEADLINE_MS;
     });
     const retry = vi.fn();
+    const ack = vi.fn();
+    const send = vi.fn(async () => undefined);
     try {
       await handleModelBatch(
         createMockMessageBatch([
           { body: { type: 'recompute', matchId: 'm-1' } },
-          { body: { type: 'PRE_MATCH_RECOMPUTE', matchId: 'm-2' }, retry },
+          { body: { type: 'PRE_MATCH_RECOMPUTE', matchId: 'm-2' }, retry, ack },
         ]),
-        createMockEnv(),
+        createMockEnv({ MODEL_QUEUE: { send } as never }),
       );
     } finally {
       now.mockRestore();
     }
-    expect(retry).toHaveBeenCalled();
+    expect(retry).not.toHaveBeenCalled();
+    expect(ack).toHaveBeenCalled();
+    expect(send).toHaveBeenCalledWith({ type: 'PRE_MATCH_RECOMPUTE', matchId: 'm-2' });
     expect(generateMatchScenarios).not.toHaveBeenCalled();
   });
 });

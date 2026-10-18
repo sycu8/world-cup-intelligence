@@ -14,9 +14,9 @@ type DocRow = {
   content_r2_key: string | null;
 };
 
-async function buildRssImageIndex(): Promise<Map<string, string>> {
+async function buildRssImageIndex(feedOffset = 0, feedLimit: number = WC_NEWS_FEEDS.length): Promise<Map<string, string>> {
   const map = new Map<string, string>();
-  for (const feed of WC_NEWS_FEEDS) {
+  for (const feed of WC_NEWS_FEEDS.slice(feedOffset, feedOffset + feedLimit)) {
     try {
       const res = await fetch(feed.url, {
         headers: { 'User-Agent': 'wc-tactical-platform/1.0 (rss-reader)' },
@@ -69,7 +69,11 @@ export async function resolveNewsThumbSourceUrl(
 }
 
 /** Fill thumbnails for articles crawled before image pipeline or when R2 store failed. */
-export async function backfillNewsThumbnails(env: AppEnv, limit = 50): Promise<number> {
+export async function backfillNewsThumbnails(
+  env: AppEnv,
+  limit = 50,
+  options?: { feedOffset?: number; feedLimit?: number },
+): Promise<number> {
   const { results } = await env.DB.prepare(
     `SELECT id, source_url, content_r2_key
      FROM source_documents
@@ -84,7 +88,7 @@ export async function backfillNewsThumbnails(env: AppEnv, limit = 50): Promise<n
   const rows = results ?? [];
   if (!rows.length) return 0;
 
-  const rssImages = await buildRssImageIndex();
+  const rssImages = await buildRssImageIndex(options?.feedOffset ?? 0, options?.feedLimit ?? WC_NEWS_FEEDS.length);
   let updated = 0;
 
   for (const row of rows) {

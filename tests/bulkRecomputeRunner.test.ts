@@ -51,16 +51,22 @@ describe('bulkRecomputeRunner KV contract', () => {
     );
   });
 
-  it('scheduleRecomputeAfterDataChange runs immediately when requested', async () => {
+  it('scheduleRecomputeAfterDataChange queues a new walk and does not run it inline', async () => {
+    vi.mocked(recomputeMatchProbability).mockClear();
+    const send = vi.fn(async () => undefined);
     const env = createMockEnv({
-      KV: {
-        get: vi.fn(async (k: string) => (k === BULK_RECOMPUTE_KV_KEY ? 'immediate' : null)),
-        put: vi.fn(async () => undefined),
-        delete: vi.fn(async () => undefined),
-      } as never,
+      MODEL_QUEUE: { send } as never,
+      DB: createMockDb({ all: () => ({ results: [{ id: 'm-a' }] }) }),
     });
     await scheduleRecomputeAfterDataChange(env, 'manual', { immediate: true });
-    expect(env.KV.delete).toHaveBeenCalledWith(BULK_RECOMPUTE_KV_KEY);
+    expect(recomputeMatchProbability).not.toHaveBeenCalled();
+    const flag = JSON.parse((await env.KV.get(BULK_RECOMPUTE_KV_KEY)) ?? '{}') as { walkId?: string; cursor?: string };
+    expect(flag.walkId).toEqual(expect.any(String));
+    expect(flag.cursor).toBeUndefined();
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'recompute_wc2026_bulk', reason: 'manual', walkId: flag.walkId }),
+    );
+    expect(env.KV.delete).not.toHaveBeenCalledWith(BULK_RECOMPUTE_KV_KEY);
   });
 
   it('stops at the time budget and enqueues a continuation with a cursor', async () => {
@@ -119,7 +125,7 @@ describe('bulkRecomputeRunner KV contract', () => {
     expect(await env.KV.get(BULK_RECOMPUTE_KV_KEY)).toBeNull();
   });
 
-  it('advances past a match that exceeds the budget so the next chunk can continue', async () => {
+  it('leaves a match cut off by the budget for the next chunk', async () => {
     vi.mocked(recomputeMatchProbability).mockClear();
     vi.mocked(recomputeMatchProbability).mockImplementationOnce(() => new Promise(() => undefined));
     const send = vi.fn(async () => undefined);
@@ -135,16 +141,12 @@ describe('bulkRecomputeRunner KV contract', () => {
     expect(send).toHaveBeenCalledWith({
       type: 'recompute_wc2026_bulk',
       reason: 'ingest',
-      cursor: 'm-a',
     });
-    expect(await env.KV.get(BULK_RECOMPUTE_CURSOR_KEY)).toBe('m-a');
-    expect(JSON.parse((await env.KV.get(BULK_RECOMPUTE_KV_KEY)) ?? '{}')).toEqual({
-      reason: 'ingest',
-      cursor: 'm-a',
-    });
+    expect(await env.KV.get(BULK_RECOMPUTE_CURSOR_KEY)).toBeNull();
+    expect(await env.KV.get(BULK_RECOMPUTE_KV_KEY)).toBe('ingest');
   });
 
-  it('a retry after a timeout continues from the cursor instead of the first match', async () => {
+  it('a retry after a timeout starts again at the match the budget cut off', async () => {
     const ids = ['m-a', 'm-b', 'm-c'];
     vi.mocked(recomputeMatchProbability).mockClear();
     vi.mocked(recomputeMatchProbability).mockImplementationOnce(() => new Promise(() => undefined));
@@ -160,7 +162,24 @@ describe('bulkRecomputeRunner KV contract', () => {
 
     await runBulkRecomputeIfPending(env, { budgetMs: 60_000 });
 
-    expect(vi.mocked(recomputeMatchProbability).mock.calls.map((call) => call[1])).toEqual(['m-b', 'm-c']);
+    expect(vi.mocked(recomputeMatchProbability).mock.calls.map((call) => call[1])).toEqual(['m-a', 'm-b', 'm-c']);
+  });
+
+  it('rethrows a chunk error instead of enqueueing another walk', async () => {
+    const send = vi.fn(async () => undefined);
+    const env = createMockEnv({
+      DB: {
+        prepare: () => {
+          throw new Error('D1 down');
+        },
+      } as never,
+      KV: createMockKv({ [BULK_RECOMPUTE_KV_KEY]: 'ingest' }),
+      MODEL_QUEUE: { send } as never,
+    });
+
+    await expect(runBulkRecomputeIfPending(env)).rejects.toThrow('D1 down');
+    expect(send).not.toHaveBeenCalled();
+    expect(await env.KV.get(BULK_RECOMPUTE_KV_KEY)).toBe('ingest');
   });
 
   it('processes at most one chunk of matches per message', async () => {

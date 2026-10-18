@@ -1,10 +1,13 @@
+import { BRIEFING_INFLIGHT_TTL_SECONDS } from '../ai/briefingQueue';
+import { logError } from '../utils/logger';
+
 /**
  * How long an ai_briefing may sit on the queue before it is dropped.
- * One batch can be 5 AI calls at 120s each (600s). The 150s page guard is
- * separate and must not drop a briefing that is only waiting its turn.
- * Hours-old backlog messages are still dropped.
+ * One batch can be 5 AI calls at 120s each (600s). The in-flight marker lives
+ * for the same 660s, so a briefing waiting its turn is not dropped early.
+ * The 150s page guard is separate. Hours-old backlog messages are still dropped.
  */
-export const AI_BRIEFING_QUEUE_MAX_AGE_MS = 12 * 60_000;
+export const AI_BRIEFING_QUEUE_MAX_AGE_MS = BRIEFING_INFLIGHT_TTL_SECONDS * 1000;
 
 /**
  * ai_briefing stays on MODEL_QUEUE. A second queue binding would isolate it
@@ -21,6 +24,54 @@ export const AI_MESSAGE_TIMEOUT_MS = 120_000;
 export const CONSUMER_BATCH_DEADLINE_MS = 240_000;
 /** Non-AI messages, including a bulk chunk, stay inside the batch deadline. */
 export const MODEL_MESSAGE_TIMEOUT_MS = 90_000;
+/**
+ * One slice of crawl_news, statsbomb, league sync, or bulk_ingest.
+ * Short enough that the message returns and queues the next slice.
+ */
+export const INGEST_CHUNK_BUDGET_MS = 45_000;
+/**
+ * Backstop for those four jobs. Above the old 90s cap, so a slice is not
+ * killed and restarted from the beginning, and under the 4-minute batch deadline.
+ */
+export const INGEST_LONG_JOB_TIMEOUT_MS = 180_000;
+/** KV write for the stale-drop counter. It must not outlive the message timeout. */
+export const STALE_DROP_COUNT_TIMEOUT_MS = 2_000;
+
+const INGEST_TIMEOUT_MS: Record<string, number> = {
+  crawl_news: INGEST_LONG_JOB_TIMEOUT_MS,
+  sync_leagues: INGEST_LONG_JOB_TIMEOUT_MS,
+  source_ingest: INGEST_LONG_JOB_TIMEOUT_MS,
+  bulk_ingest: INGEST_LONG_JOB_TIMEOUT_MS,
+  refresh_minute: 60_000,
+  match_complete: 60_000,
+  refresh_live_probabilities: 60_000,
+  webhook_deliver: 30_000,
+};
+
+export function ingestMessageTimeoutMs(type: string): number {
+  return INGEST_TIMEOUT_MS[type] ?? MODEL_MESSAGE_TIMEOUT_MS;
+}
+
+/**
+ * The batch ran out of time. Re-queue the same body and ack so max_retries
+ * stays unused. `retry()` would spend an attempt and can land the message on the DLQ.
+ */
+export async function deferQueuedMessage<Body>(
+  queue: { send(body: Body, options?: { delaySeconds?: number }): Promise<unknown> } | undefined,
+  msg: Message<Body>,
+): Promise<void> {
+  if (!queue) {
+    logError('queue defer skipped', { reason: 'no queue' });
+    return;
+  }
+  try {
+    await queue.send(msg.body);
+    msg.ack();
+  } catch (error) {
+    logError('queue defer failed', { error: String(error) });
+  }
+}
+
 export const MODEL_JOB_MAX_AGE_MS: Record<string, number> = {
   ai_briefing: AI_BRIEFING_QUEUE_MAX_AGE_MS,
   ai_multi_analyze: 30 * 60_000,

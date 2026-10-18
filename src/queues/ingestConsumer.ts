@@ -2,19 +2,26 @@ import type { IngestJob } from './types';
 import type { AppEnv } from '../env';
 import { logInfo } from '../utils/logger';
 import { refreshMatchData, handleCompletedMatches } from '../ingestion/matchDataRefresh';
-import { crawlWorldCupNews } from '../ingestion/newsCrawler';
+import { crawlWorldCupNews, type NewsCrawlChunk } from '../ingestion/newsCrawler';
 import { ingestStatsbombWorldCup } from '../ingestion/statsbombIngest';
 import { getIngestHandler } from '../ingestion/sourceRegistry';
 import { recomputeMatchProbability } from '../services/recomputeMatch';
 import { processMatchCompletion, replayKnockoutBracketFromCompleted } from '../services/tournamentProgression';
 import {
-  runBulkRecomputeIfPending,
+  isBulkWalkPending,
   scheduleRecomputeAfterDataChange,
 } from '../services/bulkRecomputeRunner';
 import { runChampionOddsRefreshIfPending } from '../services/tournamentChampionOdds';
 import { deliverWebhook } from '../services/publicApi/webhooks';
 import { syncOfficialLineupsToMatches } from '../services/officialLineupSync';
-import { CONSUMER_BATCH_DEADLINE_MS, MODEL_MESSAGE_TIMEOUT_MS, withMessageTimeout } from './modelJobLane';
+import { STATSBOMB_INGEST_DIRTY_KEY } from '../constants/pipeline';
+import {
+  CONSUMER_BATCH_DEADLINE_MS,
+  INGEST_CHUNK_BUDGET_MS,
+  deferQueuedMessage,
+  ingestMessageTimeoutMs,
+  withMessageTimeout,
+} from './modelJobLane';
 
 function statsbombDataChanged(result: {
   matchesInserted: number;
@@ -34,12 +41,16 @@ export async function handleIngestBatch(
     const elapsed = Date.now() - batchStarted;
     if (elapsed >= deadlineMs) {
       logInfo('ingest batch deferred', { type: msg.body.type });
-      msg.retry();
+      await deferQueuedMessage(env.INGEST_QUEUE, msg);
       continue;
     }
     const timeoutMs = Math.max(
       1,
-      Math.min(MODEL_MESSAGE_TIMEOUT_MS, options?.messageTimeoutMs ?? Number.POSITIVE_INFINITY, deadlineMs - elapsed),
+      Math.min(
+        ingestMessageTimeoutMs(msg.body.type),
+        options?.messageTimeoutMs ?? Number.POSITIVE_INFINITY,
+        deadlineMs - elapsed,
+      ),
     );
     try {
       await withMessageTimeout(timeoutMs, () => runIngestMessage(msg, env));
@@ -65,7 +76,7 @@ async function runIngestMessage(msg: Message<IngestJob>, env: AppEnv): Promise<v
             await scheduleRecomputeAfterDataChange(env, 'knockout-teams-bracket', { queue: true });
           }
 
-          if (await runBulkRecomputeIfPending(env)) break;
+          if (await isBulkWalkPending(env)) break;
 
           if (await runChampionOddsRefreshIfPending(env)) break;
 
@@ -91,17 +102,32 @@ async function runIngestMessage(msg: Message<IngestJob>, env: AppEnv): Promise<v
         }
         case 'match_complete': {
           await processMatchCompletion(env, msg.body.matchId);
-          await runBulkRecomputeIfPending(env);
           break;
         }
         case 'crawl_news': {
-          await crawlWorldCupNews(env);
-          await syncOfficialLineupsToMatches(env, { recompute: true });
+          await runNewsCrawl(env, msg.body.feedCursor, 'crawl_news');
           break;
         }
         case 'sync_leagues': {
           const { syncAllClubLeagues } = await import('../ingestion/leagues/syncLeagues');
-          await syncAllClubLeagues(env);
+          let leagueCursor = msg.body.leagueCursor;
+          for (;;) {
+            const results = await syncAllClubLeagues(env, {
+              leagueCursor,
+              budgetMs: INGEST_CHUNK_BUDGET_MS,
+            });
+            if (results.done !== false) break;
+            if (env.INGEST_QUEUE) {
+              await env.INGEST_QUEUE.send({
+                type: 'sync_leagues',
+                idempotencyKey: crypto.randomUUID(),
+                leagueCursor: results.leagueCursor,
+              });
+              break;
+            }
+            if (results.leagueCursor == null || results.leagueCursor === leagueCursor) break;
+            leagueCursor = results.leagueCursor;
+          }
           break;
         }
         case 'refresh_live_probabilities': {
@@ -112,21 +138,26 @@ async function runIngestMessage(msg: Message<IngestJob>, env: AppEnv): Promise<v
         case 'source_ingest': {
           const handler = getIngestHandler(msg.body.sourceId);
           if (handler === 'statsbomb') {
-            const result = await ingestStatsbombWorldCup(env);
-            if (statsbombDataChanged(result)) {
-              await scheduleRecomputeAfterDataChange(env, 'statsbomb-ingest', { immediate: true });
-            }
+            await runStatsbombChunk(env, msg.body.seasonCursor, 'source_ingest', msg.body.sourceId);
           } else {
             logInfo('source ingest not configured', { sourceId: msg.body.sourceId });
           }
           break;
         }
         case 'bulk_ingest': {
-          const result = await ingestStatsbombWorldCup(env);
-          await crawlWorldCupNews(env);
-          if (statsbombDataChanged(result)) {
-            await scheduleRecomputeAfterDataChange(env, 'bulk-ingest', { immediate: true });
+          if ((msg.body.stage ?? 'statsbomb') === 'statsbomb') {
+            const finished = await runStatsbombChunk(env, msg.body.seasonCursor, 'bulk_ingest');
+            if (!finished) break;
+            if (env.INGEST_QUEUE) {
+              await env.INGEST_QUEUE.send({
+                type: 'bulk_ingest',
+                idempotencyKey: crypto.randomUUID(),
+                stage: 'news',
+              });
+              break;
+            }
           }
+          await runNewsCrawl(env, msg.body.feedCursor, 'bulk_ingest');
           break;
         }
         case 'webhook_deliver': {
@@ -134,4 +165,94 @@ async function runIngestMessage(msg: Message<IngestJob>, env: AppEnv): Promise<v
           break;
         }
       }
+}
+
+function asNewsChunk(result: number | NewsCrawlChunk): NewsCrawlChunk {
+  if (typeof result === 'number') return { inserted: result, done: true };
+  return result;
+}
+
+async function runNewsCrawl(
+  env: AppEnv,
+  feedCursor: number | undefined,
+  kind: 'crawl_news' | 'bulk_ingest',
+): Promise<void> {
+  let cursor = feedCursor;
+  for (;;) {
+    const chunk = asNewsChunk(
+      await crawlWorldCupNews(env, {
+        feedCursor: cursor,
+        budgetMs: INGEST_CHUNK_BUDGET_MS,
+        chunk: true,
+      }),
+    );
+    if (chunk.done !== false) break;
+    if (env.INGEST_QUEUE) {
+      if (kind === 'bulk_ingest') {
+        await env.INGEST_QUEUE.send({
+          type: 'bulk_ingest',
+          idempotencyKey: crypto.randomUUID(),
+          stage: 'news',
+          feedCursor: chunk.feedCursor,
+        });
+      } else {
+        await env.INGEST_QUEUE.send({
+          type: 'crawl_news',
+          idempotencyKey: crypto.randomUUID(),
+          feedCursor: chunk.feedCursor,
+        });
+      }
+      return;
+    }
+    if (chunk.feedCursor == null || chunk.feedCursor === cursor) break;
+    cursor = chunk.feedCursor;
+  }
+  await syncOfficialLineupsToMatches(env, { recompute: true });
+}
+
+/** @returns true when this statsbomb walk has no further season to queue. */
+async function runStatsbombChunk(
+  env: AppEnv,
+  seasonCursor: number | undefined,
+  kind: 'source_ingest' | 'bulk_ingest',
+  sourceId = 'statsbomb',
+): Promise<boolean> {
+  const result = await ingestStatsbombWorldCup(env, {
+    seasonCursor,
+    budgetMs: INGEST_CHUNK_BUDGET_MS,
+  });
+  if (statsbombDataChanged(result)) {
+    await env.KV.put(STATSBOMB_INGEST_DIRTY_KEY, '1', { expirationTtl: 86400 });
+  }
+  if (result.done === false) {
+    if (env.INGEST_QUEUE) {
+      if (kind === 'bulk_ingest') {
+        await env.INGEST_QUEUE.send({
+          type: 'bulk_ingest',
+          idempotencyKey: crypto.randomUUID(),
+          stage: 'statsbomb',
+          seasonCursor: result.seasonCursor,
+        });
+      } else {
+        await env.INGEST_QUEUE.send({
+          type: 'source_ingest',
+          sourceId,
+          idempotencyKey: crypto.randomUUID(),
+          seasonCursor: result.seasonCursor,
+        });
+      }
+      return false;
+    }
+    if (result.seasonCursor == null || result.seasonCursor === seasonCursor) return false;
+    return runStatsbombChunk(env, result.seasonCursor, kind, sourceId);
+  }
+  if ((await env.KV.get(STATSBOMB_INGEST_DIRTY_KEY)) === '1' || statsbombDataChanged(result)) {
+    await env.KV.delete(STATSBOMB_INGEST_DIRTY_KEY);
+    await scheduleRecomputeAfterDataChange(
+      env,
+      kind === 'bulk_ingest' ? 'bulk-ingest' : 'statsbomb-ingest',
+      { immediate: true },
+    );
+  }
+  return true;
 }

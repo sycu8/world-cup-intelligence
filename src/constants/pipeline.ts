@@ -7,4 +7,6 @@ export const LIVE_PROB_REFRESH_INTERVAL_SEC = 900;
 export const NEWS_CRAWL_KV_KEY = 'meta:last_news_crawl';
 /** Count of model-queue messages acked as stale. Readable from /api/health. */
 export const MODEL_QUEUE_STALE_DROPS_KEY = 'meta:model_queue_stale_drops';
+/** Set while a statsbomb chunk inserted rows, so the last chunk can schedule one walk. */
+export const STATSBOMB_INGEST_DIRTY_KEY = 'meta:statsbomb_ingest_dirty';
 export const NEWS_CRAWL_LOCK_KV_KEY = 'meta:news_crawl_lock';

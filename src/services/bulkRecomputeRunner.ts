@@ -7,9 +7,9 @@ import { logError, logInfo } from '../utils/logger';
 import { nowIso } from '../utils/time';
 
 export type RecomputeScheduleOptions = {
-  /** Run one bounded chunk in this invocation, then queue the rest. */
+  /** Queue the walk now. Does not run a chunk in this invocation. */
   immediate?: boolean;
-  /** Enqueue async bulk job when not running immediately. */
+  /** Enqueue the walk when a queue is bound. */
   queue?: boolean;
 };
 
@@ -19,18 +19,33 @@ export type BulkRecomputeRunOptions = {
   phase?: 'matches' | 'champion';
   budgetMs?: number;
   now?: () => number;
+  /** Kept on every continuation. A cleared flag is not rewritten with a new reason. */
   reason?: string;
+  /** Continuation must match the current walk or it drops. */
+  walkId?: string;
 };
 
-type BulkPending = { reason: string; cursor?: string };
+export type BulkWalk = {
+  walkId?: string;
+  reason: string;
+  cursor?: string;
+  leaseUntil?: number;
+  leaseToken?: string;
+};
 
-export function readBulkPending(raw: string | null): BulkPending | null {
+export function readBulkPending(raw: string | null): BulkWalk | null {
   if (!raw) return null;
   if (raw.startsWith('{')) {
     try {
-      const parsed = JSON.parse(raw) as { reason?: string; cursor?: string };
+      const parsed = JSON.parse(raw) as BulkWalk;
       if (typeof parsed.reason === 'string' && parsed.reason) {
-        return { reason: parsed.reason, cursor: parsed.cursor };
+        return {
+          walkId: typeof parsed.walkId === 'string' ? parsed.walkId : undefined,
+          reason: parsed.reason,
+          cursor: typeof parsed.cursor === 'string' ? parsed.cursor : undefined,
+          leaseUntil: typeof parsed.leaseUntil === 'number' ? parsed.leaseUntil : undefined,
+          leaseToken: typeof parsed.leaseToken === 'string' ? parsed.leaseToken : undefined,
+        };
       }
     } catch {
       /* A plain source string is a fresh schedule. */
@@ -39,9 +54,9 @@ export function readBulkPending(raw: string | null): BulkPending | null {
   return { reason: raw };
 }
 
-async function writeBulkPending(env: AppEnv, reason: string, cursor?: string): Promise<void> {
-  const value = cursor ? JSON.stringify({ reason, cursor }) : reason;
-  await env.KV.put(BULK_RECOMPUTE_KV_KEY, value, { expirationTtl: 86400 });
+/** True when a walk record exists. Starter paths no-op instead of running a second chunk. */
+export async function isBulkWalkPending(env: AppEnv): Promise<boolean> {
+  return readBulkPending(await env.KV.get(BULK_RECOMPUTE_KV_KEY)) != null;
 }
 
 /**
@@ -51,12 +66,18 @@ async function writeBulkPending(env: AppEnv, reason: string, cursor?: string): P
  */
 export const BULK_RECOMPUTE_CHUNK_SIZE = 8;
 export const BULK_RECOMPUTE_BUDGET_MS = 60_000;
+/** Covers one chunk budget plus the time to ack and enqueue the continuation. */
+export const BULK_RECOMPUTE_LEASE_MS = 90_000;
 
 export type BulkChunkResult = {
   done: boolean;
   processed: number;
   nextCursor?: string;
+  /** The walk was replaced or the flag was cleared. Do not enqueue or rewrite it. */
+  dropped?: boolean;
 };
+
+type ClaimResult = { walk: BulkWalk; deferSeconds?: number };
 
 function resumeIndex(ids: string[], cursors: Array<string | null | undefined>): number {
   let furthest = -1;
@@ -85,6 +106,10 @@ function awaitWithin<T>(work: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+function budgetExhausted(error: unknown): boolean {
+  return error instanceof Error && error.message === 'bulk recompute budget exhausted';
+}
+
 async function listWc2026MatchIds(env: AppEnv): Promise<string[]> {
   const { results } = await env.DB.prepare(
     `SELECT id FROM matches WHERE tournament_id = ? ORDER BY kickoff_utc ASC, id ASC`,
@@ -94,22 +119,86 @@ async function listWc2026MatchIds(env: AppEnv): Promise<string[]> {
   return (results ?? []).map((row) => row.id);
 }
 
+async function loadWalk(env: AppEnv): Promise<BulkWalk | null> {
+  return readBulkPending(await env.KV.get(BULK_RECOMPUTE_KV_KEY));
+}
+
+async function saveWalk(env: AppEnv, walk: BulkWalk): Promise<void> {
+  await env.KV.put(BULK_RECOMPUTE_KV_KEY, JSON.stringify(walk), { expirationTtl: 86400 });
+}
+
 /**
- * Recompute matches until the budget is spent. A match that throws or exceeds
- * the remaining time is skipped so the same id cannot pin the next invocation.
- * The cursor is that match id. Running the same cursor twice recomputes only
- * what is still after the further of the message cursor and the saved cursor.
+ * One worker holds the lease. A second delivery of the same walk waits out
+ * the lease via a delayed message instead of starting another chunk.
+ * Compare-and-set on leaseToken because KV writes are not transactional.
+ */
+async function claimWalk(env: AppEnv, walkId: string | undefined, now: number): Promise<ClaimResult | null> {
+  const pending = await loadWalk(env);
+  if (!pending) return null;
+  if (walkId && pending.walkId !== walkId) return null;
+  if (!walkId && pending.walkId) return null;
+  if (!pending.walkId) return { walk: pending };
+  if ((pending.leaseUntil ?? 0) > now) {
+    const deferSeconds = Math.max(1, Math.ceil((pending.leaseUntil! - now) / 1000));
+    return { walk: pending, deferSeconds };
+  }
+  const token = crypto.randomUUID();
+  const next: BulkWalk = {
+    ...pending,
+    leaseUntil: now + BULK_RECOMPUTE_LEASE_MS,
+    leaseToken: token,
+  };
+  await saveWalk(env, next);
+  const confirmed = await loadWalk(env);
+  if (!confirmed || confirmed.walkId !== walkId || confirmed.leaseToken !== token) return null;
+  return { walk: confirmed };
+}
+
+async function releaseLease(env: AppEnv, walk: BulkWalk): Promise<void> {
+  if (!walk.walkId || !walk.leaseToken) return;
+  const current = await loadWalk(env);
+  if (!current || current.walkId !== walk.walkId || current.leaseToken !== walk.leaseToken) return;
+  const next: BulkWalk = { ...current, leaseUntil: 0 };
+  delete next.leaseToken;
+  await saveWalk(env, next);
+}
+
+async function persistCursor(env: AppEnv, walk: BulkWalk, cursor: string): Promise<boolean> {
+  const current = await loadWalk(env);
+  if (!current) return false;
+  if (walk.walkId && current.walkId !== walk.walkId) return false;
+  if (!walk.walkId && current.walkId) return false;
+  if (walk.leaseToken && current.leaseToken !== walk.leaseToken) return false;
+  await saveWalk(env, { ...current, cursor, reason: current.reason });
+  await env.KV.put(BULK_RECOMPUTE_CURSOR_KEY, cursor, { expirationTtl: 86400 });
+  return true;
+}
+
+async function clearWalk(env: AppEnv, walk: BulkWalk): Promise<boolean> {
+  const current = await loadWalk(env);
+  if (!current) return false;
+  if (walk.walkId && current.walkId !== walk.walkId) return false;
+  if (!walk.walkId && current.walkId) return false;
+  await env.KV.delete(BULK_RECOMPUTE_KV_KEY);
+  await env.KV.delete(BULK_RECOMPUTE_CURSOR_KEY);
+  return true;
+}
+
+/**
+ * Recompute matches until the chunk size or the budget is spent.
+ * A match still running when the budget ends is left as the next start.
+ * The cursor is the last match that finished.
  */
 export async function runWc2026BulkChunk(
   env: AppEnv,
-  options: BulkRecomputeRunOptions = {},
+  options: BulkRecomputeRunOptions & { walk: BulkWalk },
 ): Promise<BulkChunkResult> {
   const budgetMs = options.budgetMs ?? BULK_RECOMPUTE_BUDGET_MS;
   const now = options.now ?? Date.now;
   const started = now();
   const ids = await listWc2026MatchIds(env);
   const saved = await env.KV.get(BULK_RECOMPUTE_CURSOR_KEY);
-  let index = resumeIndex(ids, [options.cursor, saved]);
+  let index = resumeIndex(ids, [options.cursor, saved, options.walk.cursor]);
   let processed = 0;
   let last = index > 0 ? ids[index - 1] : undefined;
 
@@ -121,22 +210,23 @@ export async function runWc2026BulkChunk(
       () => ({ ok: true as const }),
       (error: unknown) => ({ ok: false as const, error }),
     );
-    let budgetHit = false;
     try {
       const result = await awaitWithin(outcome, budgetMs - elapsed);
       if (!result.ok) {
         logError('recompute failed', { match_id: matchId, error: String(result.error) });
       }
     } catch (error) {
-      budgetHit = true;
-      logError('recompute failed', { match_id: matchId, error: String(error) });
+      if (budgetExhausted(error)) {
+        logError('recompute failed', { match_id: matchId, error: String(error) });
+        break;
+      }
+      throw error;
     }
+    const wrote = await persistCursor(env, options.walk, matchId);
+    if (!wrote) return { done: false, processed, nextCursor: last, dropped: true };
     last = matchId;
     processed += 1;
     index += 1;
-    await env.KV.put(BULK_RECOMPUTE_CURSOR_KEY, matchId, { expirationTtl: 86400 });
-    if (options.reason) await writeBulkPending(env, options.reason, matchId);
-    if (budgetHit) break;
   }
 
   const done = index >= ids.length;
@@ -145,72 +235,116 @@ export async function runWc2026BulkChunk(
 
 async function enqueueBulk(
   env: AppEnv,
-  body: { reason?: string; cursor?: string; phase?: 'matches' | 'champion' },
+  body: { reason?: string; cursor?: string; phase?: 'matches' | 'champion'; walkId?: string },
+  delaySeconds?: number,
 ): Promise<void> {
   if (!env.MODEL_QUEUE) {
     logInfo('bulk wc2026 recompute paused', {
       reason: body.reason,
       cursor: body.cursor,
       phase: body.phase,
+      walkId: body.walkId,
     });
     return;
   }
-  await env.MODEL_QUEUE.send({ type: 'recompute_wc2026_bulk', ...body });
+  const message = {
+    type: 'recompute_wc2026_bulk' as const,
+    reason: body.reason,
+    ...(body.walkId ? { walkId: body.walkId } : {}),
+    ...(body.cursor ? { cursor: body.cursor } : {}),
+    ...(body.phase ? { phase: body.phase } : {}),
+  };
+  if (delaySeconds != null) await env.MODEL_QUEUE.send(message, { delaySeconds });
+  else await env.MODEL_QUEUE.send(message);
 }
 
-/** Run one bulk slice if the KV flag is set. A continuation carries the cursor. */
+/** Run one bulk slice if this message still owns the walk. A chunk error propagates. */
 export async function runBulkRecomputeIfPending(
   env: AppEnv,
   options: BulkRecomputeRunOptions = {},
 ): Promise<boolean> {
+  const now = options.now ?? Date.now;
+
   if (options.phase === 'champion') {
+    const pending = await loadWalk(env);
+    if (options.walkId && pending?.walkId && pending.walkId !== options.walkId) {
+      logInfo('bulk wc2026 recompute dropped', { walkId: options.walkId, phase: 'champion' });
+      return false;
+    }
     try {
       await awaitWithin(refreshChampionOdds(env), options.budgetMs ?? BULK_RECOMPUTE_BUDGET_MS);
-      logInfo('champion odds refreshed after bulk recompute', {});
+      logInfo('champion odds refreshed after bulk recompute', { reason: options.reason });
     } catch (err) {
       logInfo('champion odds refresh failed after bulk recompute', { error: String(err) });
     }
     return true;
   }
 
-  const pending = readBulkPending(await env.KV.get(BULK_RECOMPUTE_KV_KEY));
-  if (!pending && !options.cursor) return false;
-  const reason = pending?.reason ?? options.reason ?? 'continuation';
+  const pending = await loadWalk(env);
+  if (!pending) return false;
+  if (pending.walkId && options.walkId !== pending.walkId) {
+    logInfo('bulk wc2026 recompute dropped', { walkId: options.walkId, current: pending.walkId });
+    return false;
+  }
+  if (!pending.walkId && options.walkId) {
+    logInfo('bulk wc2026 recompute dropped', { walkId: options.walkId });
+    return false;
+  }
 
+  const claimed = await claimWalk(env, pending.walkId, now());
+  if (!claimed) {
+    logInfo('bulk wc2026 recompute dropped', { walkId: options.walkId ?? pending.walkId, reason: 'lease' });
+    return false;
+  }
+  if (claimed.deferSeconds) {
+    await enqueueBulk(
+      env,
+      {
+        reason: options.reason || claimed.walk.reason,
+        cursor: options.cursor ?? claimed.walk.cursor,
+        walkId: claimed.walk.walkId,
+      },
+      claimed.deferSeconds,
+    );
+    logInfo('bulk wc2026 recompute deferred', { walkId: claimed.walk.walkId, delaySeconds: claimed.deferSeconds });
+    return true;
+  }
+
+  const reason = options.reason || claimed.walk.reason;
   let chunk: BulkChunkResult;
   try {
     chunk = await runWc2026BulkChunk(env, {
       ...options,
       reason,
-      cursor: options.cursor ?? pending?.cursor,
+      cursor: options.cursor ?? claimed.walk.cursor,
+      walk: claimed.walk,
     });
-  } catch (error) {
-    const cursor = (await env.KV.get(BULK_RECOMPUTE_CURSOR_KEY)) ?? pending?.cursor;
-    if (cursor) {
-      await writeBulkPending(env, reason, cursor);
-      await enqueueBulk(env, { reason, cursor });
-      logInfo('bulk wc2026 recompute paused', { reason, cursor, error: String(error) });
-      return true;
-    }
-    throw error;
+  } finally {
+    await releaseLease(env, claimed.walk);
   }
 
+  if (chunk.dropped) return false;
+  const still = await loadWalk(env);
+  if (!still || (claimed.walk.walkId && still.walkId !== claimed.walk.walkId)) return false;
+  if (!claimed.walk.walkId && still.walkId) return false;
+
   if (!chunk.done) {
-    await enqueueBulk(env, { reason, cursor: chunk.nextCursor });
+    await enqueueBulk(env, { reason, cursor: chunk.nextCursor, walkId: claimed.walk.walkId });
     logInfo('bulk wc2026 recompute continued', {
       reason,
+      walkId: claimed.walk.walkId,
       processed: chunk.processed,
       cursor: chunk.nextCursor,
     });
     return true;
   }
 
-  await env.KV.delete(BULK_RECOMPUTE_KV_KEY);
-  await env.KV.delete(BULK_RECOMPUTE_CURSOR_KEY);
+  const cleared = await clearWalk(env, claimed.walk);
+  if (!cleared) return false;
   await env.KV.put(LAST_RECOMPUTE_META_KEY, nowIso(), { expirationTtl: 86400 * 7 });
-  logInfo('bulk wc2026 recompute finished', { reason, processed: chunk.processed });
+  logInfo('bulk wc2026 recompute finished', { reason, walkId: claimed.walk.walkId, processed: chunk.processed });
   if (env.MODEL_QUEUE) {
-    await env.MODEL_QUEUE.send({ type: 'recompute_wc2026_bulk', reason, phase: 'champion' });
+    await enqueueBulk(env, { reason, phase: 'champion', walkId: claimed.walk.walkId });
     return true;
   }
   try {
@@ -224,7 +358,8 @@ export async function runBulkRecomputeIfPending(
 
 /**
  * Mark probabilities stale after reference/live data changes.
- * Call from ingest, progression, and manual pull scripts (via KV).
+ * Always starts a new walk at the first match and queues one starter.
+ * Does not run a chunk here, even when `immediate` is set.
  */
 export async function scheduleRecomputeAfterDataChange(
   env: AppEnv,
@@ -232,18 +367,14 @@ export async function scheduleRecomputeAfterDataChange(
   options: RecomputeScheduleOptions = {},
 ): Promise<void> {
   const { immediate = false, queue = true } = options;
+  const walkId = crypto.randomUUID();
 
   await env.KV.delete(BULK_RECOMPUTE_CURSOR_KEY);
-  await env.KV.put(BULK_RECOMPUTE_KV_KEY, source, { expirationTtl: 86400 });
+  await saveWalk(env, { walkId, reason: source, leaseUntil: 0 });
   await env.KV.put(LAST_RECOMPUTE_META_KEY, nowIso(), { expirationTtl: 86400 * 7 });
-  logInfo('wc2026 recompute scheduled', { source, immediate, queue });
+  logInfo('wc2026 recompute scheduled', { source, walkId, immediate, queue });
 
-  if (immediate) {
-    await runBulkRecomputeIfPending(env);
-    return;
-  }
-
-  if (queue && env.MODEL_QUEUE) {
-    await env.MODEL_QUEUE.send({ type: 'recompute_wc2026_bulk', reason: source });
+  if ((immediate || queue) && env.MODEL_QUEUE) {
+    await enqueueBulk(env, { reason: source, walkId });
   }
 }
