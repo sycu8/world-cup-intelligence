@@ -186,7 +186,7 @@ probabilityRoutes.get('/:matchId/tactical-briefing', async (c) => {
   const config = parseEnv(c.env);
 
   const cached = await getCachedBriefing(c.env, canonicalId);
-  if (cached) return c.json({ data: cached, generating: false });
+  if (cached) return c.json({ data: cached, generating: false, briefingStatus: 'ready' });
 
   const input = {
     matchId: canonicalId,
@@ -194,9 +194,12 @@ probabilityRoutes.get('/:matchId/tactical-briefing', async (c) => {
     aiFallback: config.aiFallback,
   };
   let generating = false;
+  let briefingStatus: 'ready' | 'generating' | 'failed' = 'ready';
   if (!config.aiFallback) {
     try {
-      generating = await requestBriefingGeneration(c.env, canonicalId);
+      const queued = await requestBriefingGeneration(c.env, canonicalId);
+      generating = queued.generating;
+      briefingStatus = queued.failed ? 'failed' : queued.generating ? 'generating' : 'ready';
     } catch (error) {
       logAiCallFailure('tactical briefing enqueue failed', error, {
         matchId: canonicalId,
@@ -206,5 +209,5 @@ probabilityRoutes.get('/:matchId/tactical-briefing', async (c) => {
     }
   }
 
-  return c.json({ data: fallbackBriefing(input), generating });
+  return c.json({ data: fallbackBriefing(input), generating, briefingStatus });
 });

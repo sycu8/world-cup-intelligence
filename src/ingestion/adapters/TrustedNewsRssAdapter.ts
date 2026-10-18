@@ -192,6 +192,22 @@ export const WC_NEWS_FEEDS = [
   },
 ] as const;
 
+/**
+ * Still listed in `WC_NEWS_FEEDS` so source ids stay stable. Probed 2026-10-18:
+ * each one answers with an HTTP error or an HTML page, not an RSS document.
+ * The crawler does not fetch them.
+ */
+export const DEAD_NEWS_FEED_IDS = [
+  'rss-fifa-news',
+  'rss-ap-soccer',
+  'rss-reuters-soccer',
+  'rss-goal-com',
+  'rss-concacaf',
+  'rss-uefa-news',
+  'rss-ussoccer',
+  'rss-afc-news',
+] as const;
+
 export type NewsFeed =
   | (typeof WC_NEWS_FEEDS)[number]
   | {

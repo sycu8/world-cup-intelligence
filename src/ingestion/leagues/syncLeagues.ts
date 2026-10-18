@@ -427,9 +427,28 @@ export async function queueClubLeagueProbabilities(env: AppEnv, limit = 32): Pro
   return matchIds.length;
 }
 
-export async function syncAllClubLeagues(env: AppEnv): Promise<LeagueSyncResult[]> {
-  const results: LeagueSyncResult[] = [];
-  for (const league of CLUB_LEAGUES) {
+export type LeagueSyncBatch = LeagueSyncResult[] & { done?: boolean; leagueCursor?: number };
+
+export async function syncAllClubLeagues(
+  env: AppEnv,
+  options?: { leagueCursor?: number; budgetMs?: number },
+): Promise<LeagueSyncBatch> {
+  const start = options?.leagueCursor ?? 0;
+  if (start >= CLUB_LEAGUES.length) {
+    const empty: LeagueSyncBatch = [];
+    empty.done = true;
+    return empty;
+  }
+  const chunked = options?.budgetMs != null;
+  const results: LeagueSyncBatch = [];
+  let index = start;
+  for (; index < CLUB_LEAGUES.length; index += 1) {
+    const league = CLUB_LEAGUES[index]!;
+    if (chunked && index > start) {
+      results.done = false;
+      results.leagueCursor = index;
+      return results;
+    }
     try {
       results.push(await syncLeague(env, league));
     } catch (error) {

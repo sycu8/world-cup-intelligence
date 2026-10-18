@@ -164,6 +164,29 @@ describe('coverage-oriented panel renders', () => {
     );
   });
 
+  it('TacticalBriefingPanel shows not-ready when generating has gone stale', async () => {
+    const view = renderPanel(
+      <TacticalBriefingPanel
+        briefing={{
+          summary: {
+            vi: 'Phân tích chiến thuật từ mô hình thống kê.',
+            en: 'Tactical analysis from the statistical model. Probabilities are engine-derived — not betting advice.',
+          },
+          probabilityExplanation: [],
+          uncertaintyNotes: [],
+          citations: [],
+          tacticalThemes: [],
+        }}
+        generating={false}
+        timedOut
+      />,
+    );
+    await waitFor(() =>
+      expect(view.container.textContent).toMatch(/Tải lại trang để thử lại|Reload the page to try again/),
+    );
+    expect(view.container.textContent).not.toContain('Đang tạo phân tích AI');
+  });
+
   it('TeamSystemPanel renders team system payload', async () => {
     const view = renderPanel(
       <TeamSystemPanel

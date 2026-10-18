@@ -1,5 +1,6 @@
 import type { AppEnv } from '../env';
 import {
+  DEAD_NEWS_FEED_IDS,
   WC_NEWS_FEEDS,
   parseRssItems,
   shouldKeepSoccerNews,
@@ -65,35 +66,59 @@ function withTournament(feed: NewsFeed, title: string, description: string): New
   return { ...feed, tournamentId };
 }
 
-/** Crawl worldwide soccer RSS + WC HTML sources into the blog/news feed. */
-export async function crawlWorldCupNews(env: AppEnv): Promise<number> {
-  let inserted = 0;
+export type NewsCrawlChunk = {
+  inserted: number;
+  done: boolean;
+  feedCursor?: number;
+};
 
-  for (const feed of WC_NEWS_FEEDS) {
-    try {
-      const res = await fetch(feed.url, {
-        headers: { 'User-Agent': 'pitchintel-news/1.0 (rss-reader)' },
-        signal: AbortSignal.timeout(12000),
-      });
-      if (!res.ok) {
-        logError('rss fetch failed', { feed: feed.id, status: res.status });
-        continue;
-      }
-      const xml = await res.text();
-      const items = parseRssItems(xml, RSS_PARSE_LIMIT).filter((i) =>
-        shouldKeepSoccerNews(i.title, i.description),
-      );
+export type NewsCrawlOptions = {
+  feedCursor?: number;
+  /** Stop before this many milliseconds and report the next feed index. */
+  budgetMs?: number;
+  now?: () => number;
+  /** Return the chunk cursor instead of only the inserted count. */
+  chunk?: boolean;
+};
 
-      for (const item of items.slice(0, MAX_ITEMS_PER_FEED)) {
-        const tagged = withTournament(feed, item.title, item.description);
-        const docId = await publishNewsArticle(env, tagged, item);
-        if (docId) inserted++;
-      }
-    } catch (e) {
-      logError('rss crawl error', { feed: feed.id, error: String(e) });
-    }
+const THUMB_FEEDS_PER_CHUNK = 4;
+const HTML_PHASE = WC_NEWS_FEEDS.length;
+const THUMB_PHASE = WC_NEWS_FEEDS.length + 1;
+
+const DEAD_NEWS_FEED_ID_SET = new Set<string>(DEAD_NEWS_FEED_IDS);
+
+async function crawlOneFeed(env: AppEnv, feed: NewsFeed): Promise<number> {
+  if (DEAD_NEWS_FEED_ID_SET.has(feed.id)) {
+    logInfo('news feed listed dead', { feed: feed.id });
+    return 0;
   }
+  let inserted = 0;
+  try {
+    const res = await fetch(feed.url, {
+      headers: { 'User-Agent': 'pitchintel-news/1.0 (rss-reader)' },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) {
+      logError('rss fetch failed', { feed: feed.id, status: res.status });
+      return 0;
+    }
+    const xml = await res.text();
+    const items = parseRssItems(xml, RSS_PARSE_LIMIT).filter((i) =>
+      shouldKeepSoccerNews(i.title, i.description),
+    );
+    for (const item of items.slice(0, MAX_ITEMS_PER_FEED)) {
+      const tagged = withTournament(feed, item.title, item.description);
+      const docId = await publishNewsArticle(env, tagged, item);
+      if (docId) inserted++;
+    }
+  } catch (e) {
+    logError('rss crawl error', { feed: feed.id, error: String(e) });
+  }
+  return inserted;
+}
 
+async function crawlHtmlSources(env: AppEnv): Promise<number> {
+  let inserted = 0;
   try {
     const fifaItems = await fetchFifaWc2026NewsItems(12);
     for (const item of fifaItems) {
@@ -119,12 +144,69 @@ export async function crawlWorldCupNews(env: AppEnv): Promise<number> {
   } catch (e) {
     logError('vnexpress wc2026 crawl error', { error: String(e) });
   }
+  return inserted;
+}
 
-  await backfillNewsThumbnails(env, 60);
+/** One slice of the news crawl. Without a budget the whole crawl runs. */
+export async function crawlWorldCupNewsChunk(
+  env: AppEnv,
+  options: NewsCrawlOptions = {},
+): Promise<NewsCrawlChunk> {
+  const budgetMs = options.budgetMs;
+  const now = options.now ?? Date.now;
+  const started = now();
+  let cursor = options.feedCursor ?? 0;
+  let inserted = 0;
+  const expired = () => budgetMs != null && now() - started >= budgetMs;
+
+  while (cursor < WC_NEWS_FEEDS.length) {
+    if (expired()) return { inserted, done: false, feedCursor: cursor };
+    inserted += await crawlOneFeed(env, WC_NEWS_FEEDS[cursor]!);
+    cursor += 1;
+    if (budgetMs != null) return { inserted, done: false, feedCursor: cursor };
+  }
+
+  if (cursor === HTML_PHASE) {
+    if (expired()) return { inserted, done: false, feedCursor: cursor };
+    inserted += await crawlHtmlSources(env);
+    cursor = THUMB_PHASE;
+    if (budgetMs != null) return { inserted, done: false, feedCursor: cursor };
+  }
+
+  if (cursor >= THUMB_PHASE) {
+    if (budgetMs == null) {
+      await backfillNewsThumbnails(env, 60);
+    } else {
+      const feedOffset = cursor - THUMB_PHASE;
+      if (feedOffset < WC_NEWS_FEEDS.length) {
+        if (expired()) return { inserted, done: false, feedCursor: THUMB_PHASE + feedOffset };
+        await backfillNewsThumbnails(env, 15, { feedOffset, feedLimit: THUMB_FEEDS_PER_CHUNK });
+        const nextOffset = feedOffset + THUMB_FEEDS_PER_CHUNK;
+        if (nextOffset < WC_NEWS_FEEDS.length) {
+          return { inserted, done: false, feedCursor: THUMB_PHASE + nextOffset };
+        }
+      }
+    }
+  }
 
   await env.KV.put(NEWS_CRAWL_KV_KEY, nowIso(), { expirationTtl: 86400 });
   logInfo('soccer news crawl complete', { inserted });
-  return inserted;
+  return { inserted, done: true };
+}
+
+/** Crawl worldwide soccer RSS + WC HTML sources into the blog/news feed. */
+export async function crawlWorldCupNews(env: AppEnv): Promise<number>;
+export async function crawlWorldCupNews(
+  env: AppEnv,
+  options: NewsCrawlOptions & { chunk: true },
+): Promise<NewsCrawlChunk>;
+export async function crawlWorldCupNews(
+  env: AppEnv,
+  options?: NewsCrawlOptions,
+): Promise<number | NewsCrawlChunk> {
+  const chunk = await crawlWorldCupNewsChunk(env, options);
+  if (options?.chunk) return chunk;
+  return chunk.inserted;
 }
 
 /** Alias — crawl covers global soccer + World Cup. */

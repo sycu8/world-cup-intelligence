@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
+  DEAD_NEWS_FEED_IDS,
   WC_NEWS_FEEDS,
   newsFeedSourceId,
   parseRssItems,
@@ -89,6 +90,10 @@ describe('ingestion TrustedNewsRssAdapter', () => {
     expect(ids).toContain('rss-guardian-football');
     expect(ids).toContain('rss-vnexpress-thethao');
     expect(WC_NEWS_FEEDS.length).toBeGreaterThanOrEqual(20);
+    const liveIds = new Set(WC_NEWS_FEEDS.map((feed) => feed.id));
+    for (const id of DEAD_NEWS_FEED_IDS) expect(liveIds.has(id)).toBe(true);
+    expect(DEAD_NEWS_FEED_IDS).toContain('rss-goal-com');
+    expect(DEAD_NEWS_FEED_IDS).toContain('rss-concacaf');
   });
 });
 

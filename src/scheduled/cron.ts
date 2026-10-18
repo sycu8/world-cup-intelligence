@@ -1,8 +1,8 @@
 import type { AppEnv } from '../env';
 import type { IngestJob } from '../queues/types';
 import { logInfo } from '../utils/logger';
-import { runBulkRecomputeIfPending } from '../services/bulkRecomputeRunner';
 import { crawlWorldCupNews } from '../ingestion/newsCrawler';
+import { resumeStalledBulkWalk } from '../services/bulkRecomputeRunner';
 import { runProbabilitySnapshotRetention } from '../services/probabilitySnapshotRetention';
 
 export async function handleScheduledCron(
@@ -10,6 +10,10 @@ export async function handleScheduledCron(
   cron: string,
   ctx?: ExecutionContext,
 ): Promise<void> {
+  await resumeStalledBulkWalk(env).catch((error) => {
+    logInfo('bulk wc2026 recompute resume failed', { error: String(error) });
+  });
+
   if (cron === '* * * * *' || cron === 'every-minute') {
     const job: IngestJob = { type: 'refresh_minute', idempotencyKey: crypto.randomUUID() };
     await env.INGEST_QUEUE?.send(job);
@@ -54,8 +58,6 @@ export async function handleScheduledCron(
     );
     if (ctx) ctx.waitUntil(retention);
     else await retention;
-
-    if (await runBulkRecomputeIfPending(env)) return;
 
     const job: IngestJob = {
       type: 'source_ingest',

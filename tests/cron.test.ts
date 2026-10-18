@@ -10,10 +10,6 @@ vi.mock('../src/ingestion/leagues/syncLeagues', () => ({
   syncAllClubLeagues: vi.fn(async () => []),
 }));
 
-vi.mock('../src/services/bulkRecomputeRunner', () => ({
-  runBulkRecomputeIfPending: vi.fn(async () => false),
-}));
-
 vi.mock('../src/services/cacheWarm', () => ({
   warmPayloadCaches: vi.fn(async () => undefined),
 }));
@@ -82,18 +78,7 @@ describe('handleScheduledCron', () => {
     expect(waitUntil).toHaveBeenCalled();
   });
 
-  it('skips statsbomb enqueue when bulk recompute is pending', async () => {
-    const { runBulkRecomputeIfPending } = await import('../src/services/bulkRecomputeRunner');
-    vi.mocked(runBulkRecomputeIfPending).mockResolvedValueOnce(true);
-    const send = vi.fn(async () => undefined);
-    const env = createMockEnv({ INGEST_QUEUE: { send } as never });
-
-    await handleScheduledCron(env, '0 3 * * 1');
-
-    expect(send).not.toHaveBeenCalled();
-  });
-
-  it('enqueues statsbomb ingest on weekly cron', async () => {
+  it('enqueues statsbomb ingest on weekly cron without running a bulk walk', async () => {
     const send = vi.fn(async () => undefined);
     const env = createMockEnv({ INGEST_QUEUE: { send } as never });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);

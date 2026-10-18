@@ -67,7 +67,17 @@
         "queue": "wc-model-queue-uat",
         "max_batch_size": 5,
         "max_retries": 3,
-        "dead_letter_queue": "wc-model-dlq-uat"
+        "dead_letter_queue": "wc-model-dlq-uat",
+        // Approved by Cuong. Default first retry wait. Explicit retries grow 10/30/90/300s.
+        "retry_delay": 10,
+        // Approved by Cuong. Briefing code works with concurrency 1.
+        "max_concurrency": 2
+      },
+      {
+        "queue": "wc-model-dlq-uat",
+        "max_batch_size": 10,
+        "max_retries": 1,
+        "max_concurrency": 1
       }
     ]
   },
@@ -129,7 +139,17 @@
             "queue": "wc-model-queue",
             "max_batch_size": 5,
             "max_retries": 3,
-            "dead_letter_queue": "wc-model-dlq"
+            "dead_letter_queue": "wc-model-dlq",
+            // Approved by Cuong. Default first retry wait. Explicit retries grow 10/30/90/300s.
+            "retry_delay": 10,
+            // Approved by Cuong. Briefing code works with concurrency 1.
+            "max_concurrency": 2
+          },
+          {
+            "queue": "wc-model-dlq",
+            "max_batch_size": 10,
+            "max_retries": 1,
+            "max_concurrency": 1
           }
         ]
       },

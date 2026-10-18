@@ -19,12 +19,39 @@ export type StatsbombIngestResult = {
   matchesInserted: number;
   matchesSkipped: number;
   teamsUpdated: number;
+  /** False when this call stopped before the last season. Absent means the walk finished. */
+  done?: boolean;
+  seasonCursor?: number;
 };
 
-export async function ingestStatsbombWorldCup(env: AppEnv): Promise<StatsbombIngestResult> {
+export type StatsbombIngestOptions = {
+  seasonCursor?: number;
+  budgetMs?: number;
+  now?: () => number;
+};
+
+export async function ingestStatsbombWorldCup(
+  env: AppEnv,
+  options: StatsbombIngestOptions = {},
+): Promise<StatsbombIngestResult> {
   let matchesInserted = 0;
   let matchesSkipped = 0;
   let seasonsProcessed = 0;
+  const budgetMs = options.budgetMs;
+  const now = options.now ?? Date.now;
+  const started = now();
+  const startIndex = options.seasonCursor ?? 0;
+
+  if (budgetMs != null && now() - started >= budgetMs) {
+    return {
+      seasonsProcessed: 0,
+      matchesInserted: 0,
+      matchesSkipped: 0,
+      teamsUpdated: 0,
+      done: false,
+      seasonCursor: startIndex,
+    };
+  }
 
   const seasons = await discoverStatsbombWcSeasons(2006);
   await env.R2_RAW.put(
@@ -33,7 +60,18 @@ export async function ingestStatsbombWorldCup(env: AppEnv): Promise<StatsbombIng
     { httpMetadata: { contentType: 'application/json' } },
   );
 
-  for (const season of seasons) {
+  for (let index = startIndex; index < seasons.length; index += 1) {
+    if (budgetMs != null && (index > startIndex || now() - started >= budgetMs)) {
+      return {
+        seasonsProcessed,
+        matchesInserted,
+        matchesSkipped,
+        teamsUpdated: 0,
+        done: false,
+        seasonCursor: index,
+      };
+    }
+    const season = seasons[index]!;
     await env.DB.prepare(
       `INSERT OR IGNORE INTO tournaments (id, year, name, host_countries_json, teams_count, status)
        VALUES (?, ?, ?, '[]', 32, 'completed')`,
@@ -132,5 +170,5 @@ export async function ingestStatsbombWorldCup(env: AppEnv): Promise<StatsbombIng
     .run();
 
   logInfo('statsbomb wc ingest complete', { matchesInserted, matchesSkipped, seasonsProcessed });
-  return { seasonsProcessed, matchesInserted, matchesSkipped, teamsUpdated };
+  return { seasonsProcessed, matchesInserted, matchesSkipped, teamsUpdated, done: true };
 }
