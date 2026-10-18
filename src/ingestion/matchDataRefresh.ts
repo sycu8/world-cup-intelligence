@@ -1,12 +1,13 @@
 import type { AppEnv } from '../env';
 import { parseEnv } from '../env';
 import { nowIso } from '../utils/time';
-import { logInfo } from '../utils/logger';
+import { logError, logInfo } from '../utils/logger';
 import { mockScoreAtMinute } from '../services/matchLifecycle';
 import { processMatchCompletion, replayKnockoutBracketFromCompleted } from '../services/tournamentProgression';
 import { resolveMatchDataProvider } from './matchDataProvider';
 import { syncFifaWc2026Matches } from './fifa/fifaLiveSync';
 import { syncFifaLineupsForUpcomingMatches } from './fifa/fifaLineupSync';
+import { backfillIncompleteFifaMatchStats, backfillMissingFifaRecaps } from './fifa/fifaLiveBlogSync';
 
 export type RefreshMatchDataResult = {
   updatedIds: string[];
@@ -27,8 +28,17 @@ export async function refreshMatchData(
 ): Promise<RefreshMatchDataResult> {
   if (fifaLiveEnabled(env)) {
     const fifa = await syncFifaWc2026Matches(env, { signal: options?.signal });
-    await syncFifaLineupsForUpcomingMatches(env).catch(() => undefined);
+    // Stamp as soon as the score sync returns. Lineups and the two backfills
+    // used to run before this write and after meta:last_fifa_sync, so
+    // lastFifaSync moved while lastDataRefresh stayed on the previous run.
     await env.KV.put('meta:last_data_refresh', nowIso(), { expirationTtl: 86400 });
+    await syncFifaLineupsForUpcomingMatches(env).catch(() => undefined);
+    await backfillIncompleteFifaMatchStats(env, 4).catch((e) => {
+      logError('fifa stats backfill batch failed', { error: String(e) });
+    });
+    await backfillMissingFifaRecaps(env, 4).catch((e) => {
+      logError('fifa recap backfill batch failed', { error: String(e) });
+    });
     const { warmPayloadCaches } = await import('../services/cacheWarm');
     await warmPayloadCaches(env).catch(() => undefined);
     return {

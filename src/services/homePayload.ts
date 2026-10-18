@@ -95,7 +95,7 @@ export async function buildHomePayloadData(env: AppEnv, tournament = 't-2026'): 
     loadSection('topScorers', empty.topScorers, () => buildTopScorersPayload(env)),
   ]);
 
-  return {
+  const payload: HomePayloadData = {
     schedule: schedule.data,
     scheduleMeta: schedule.meta,
     dashboard,
@@ -104,4 +104,42 @@ export async function buildHomePayloadData(env: AppEnv, tournament = 't-2026'): 
     matchProbabilities: matchProbabilities.data,
     topScorers,
   };
+  await rememberHomeSnapshot(env, tournament, payload);
+  return payload;
+}
+
+/** Last homepage that still had matches. A D1 error must not replace it with an empty body. */
+export const HOME_LAST_GOOD_TTL_SECONDS = 86_400;
+
+export function homeLastGoodKey(tournament: string): string {
+  return `cache:home:last-good:${tournament}`;
+}
+
+export function homeSnapshotHasMatches(data: {
+  schedule?: { matches?: unknown[] };
+  dashboard?: { matchCount?: number };
+}): boolean {
+  return (data.schedule?.matches?.length ?? 0) > 0 || (data.dashboard?.matchCount ?? 0) > 0;
+}
+
+export async function rememberHomeSnapshot(env: AppEnv, tournament: string, data: HomePayloadData): Promise<void> {
+  if (!homeSnapshotHasMatches(data)) return;
+  try {
+    await env.KV.put(homeLastGoodKey(tournament), JSON.stringify(data), {
+      expirationTtl: HOME_LAST_GOOD_TTL_SECONDS,
+    });
+  } catch {
+    // The live response still returns. The previous snapshot stays in KV.
+  }
+}
+
+export async function readLastGoodHome(env: AppEnv, tournament: string): Promise<HomePayloadData | null> {
+  try {
+    const raw = await env.KV.get(homeLastGoodKey(tournament));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as HomePayloadData;
+    return homeSnapshotHasMatches(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 }

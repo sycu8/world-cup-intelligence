@@ -14,6 +14,8 @@ export async function handleScheduledCron(
     logInfo('bulk wc2026 recompute resume failed', { error: String(error) });
   });
 
+  // Enqueue every 60s. The stamp cadence is the sync duration (about 2 minutes)
+  // because the ingest consumer runs one batch at a time. See REFRESH_MAX_HOLD_MS.
   if (cron === '* * * * *' || cron === 'every-minute') {
     const job: IngestJob = { type: 'refresh_minute', idempotencyKey: crypto.randomUUID() };
     await env.INGEST_QUEUE?.send(job);

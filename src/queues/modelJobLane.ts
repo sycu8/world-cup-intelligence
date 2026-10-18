@@ -58,8 +58,10 @@ const INGEST_TIMEOUT_MS: Record<string, number> = {
   sync_leagues: INGEST_LONG_JOB_TIMEOUT_MS,
   source_ingest: INGEST_LONG_JOB_TIMEOUT_MS,
   bulk_ingest: INGEST_LONG_JOB_TIMEOUT_MS,
-  // Was 60s, then the 4 minute batch budget. 3 minutes is enough for the steady
-  // 2–3 minute FIFA sync and short of the 15 minute consumer wall.
+  // Was 60s, then the 4 minute batch budget. The minute cron still enqueues
+  // every 60s, but this consumer has max_concurrency 1, so lastDataRefresh
+  // advances when the FIFA score sync finishes (about 2 minutes). A single
+  // 163s gap is one of those syncs and sits inside this 3 minute hold.
   refresh_minute: REFRESH_MAX_HOLD_MS,
   match_complete: 60_000,
   refresh_live_probabilities: 60_000,

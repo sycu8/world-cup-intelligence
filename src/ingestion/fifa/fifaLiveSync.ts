@@ -19,12 +19,7 @@ import {
   periodLabel,
   resolveFifaPlatformStatus,
 } from './parse';
-import {
-  syncFifaMatchBlogAndStats,
-  shouldSyncFifaBlogAndStats,
-  backfillIncompleteFifaMatchStats,
-  backfillMissingFifaRecaps,
-} from './fifaLiveBlogSync';
+import { syncFifaMatchBlogAndStats, shouldSyncFifaBlogAndStats } from './fifaLiveBlogSync';
 import { syncFifaMatchLineupsFromInfo, shouldSyncFifaLineupForKickoff } from './fifaLineupSync';
 import { FIFA_SOURCE_ID, WC2026_TOURNAMENT_ID } from './constants';
 import {
@@ -544,14 +539,6 @@ export async function syncFifaWc2026Matches(
   if (synced > 0) {
     await env.KV.put('meta:last_fifa_sync', nowIso(), { expirationTtl: 86400 });
   }
-
-  await backfillIncompleteFifaMatchStats(env, 4).catch((e) => {
-    logError('fifa stats backfill batch failed', { error: String(e) });
-  });
-
-  await backfillMissingFifaRecaps(env, 4).catch((e) => {
-    logError('fifa recap backfill batch failed', { error: String(e) });
-  });
 
   logInfo('fifa wc2026 sync complete', {
     calendar: calendar.length,

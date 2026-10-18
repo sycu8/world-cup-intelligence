@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildHomePayloadData } from '../src/services/homePayload';
+import { buildHomePayloadData, homeLastGoodKey } from '../src/services/homePayload';
 import { createMockEnv } from './helpers/mockEnv';
 
 vi.mock('../src/services/schedulePayload', () => ({
@@ -74,5 +74,29 @@ describe('buildHomePayloadData', () => {
     expect(logged).toContain('"section":"schedule"');
     expect(logged).toContain('too many SQL variables');
     warn.mockRestore();
+  });
+
+  it('stores a last-good snapshot only when the payload has matches', async () => {
+    const { buildSchedulePayload } = await import('../src/services/schedulePayload');
+    vi.mocked(buildSchedulePayload).mockResolvedValueOnce({
+      data: {
+        byDate: {},
+        matches: [{ id: 'm-kept' }],
+        tournamentId: 't-2026',
+        total: 1,
+      },
+      meta: { expectedMatches: 104, year: 2026, tournamentId: 't-2026', wc2026Only: true },
+    } as Awaited<ReturnType<typeof buildSchedulePayload>>);
+    const env = createMockEnv();
+    await buildHomePayloadData(env);
+    expect(env.KV.put).toHaveBeenCalledWith(
+      homeLastGoodKey('t-2026'),
+      expect.stringContaining('m-kept'),
+      { expirationTtl: 86400 },
+    );
+
+    vi.mocked(env.KV.put).mockClear();
+    await buildHomePayloadData(env);
+    expect(env.KV.put).not.toHaveBeenCalled();
   });
 });
