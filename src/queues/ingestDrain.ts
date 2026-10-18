@@ -15,7 +15,16 @@
  */
 export const REFRESH_STALE_MS = 10 * 60_000;
 
-/** Cross-batch refresh claim. KV expiration is best-effort, so age is checked in code. */
+/**
+ * Cross-batch refresh claim. KV expiration is best-effort, so age is checked in code.
+ *
+ * Prod on 2026-10-18: wc-ingest-queue was empty by 02:41 ICT and lastDataRefresh
+ * stayed at 02:36:47 until 02:49:43. This claim only blocks for 60s, a stale
+ * skip only drops a tick older than 10 minutes, and in-batch dedupe lasts one
+ * batch, so none of those hold a stamp for the 8.5 minutes after the drain.
+ * An empty backlog still leaves the one in-flight refresh that already wrote
+ * meta:last_fifa_sync and has not yet written meta:last_data_refresh.
+ */
 export const REFRESH_CLAIM_KEY = 'ingest:dedupe:refresh_minute';
 export const REFRESH_CLAIM_MAX_AGE_MS = 60_000;
 
