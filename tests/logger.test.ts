@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { logError, logInfo, logWarn } from '../src/utils/logger';
+import { logError, logInfo, logWarn, summarizeError } from '../src/utils/logger';
 
 describe('logger', () => {
   afterEach(() => {
@@ -37,5 +37,13 @@ describe('logger', () => {
     expect(payload.level).toBe('error');
     expect(payload.message).toBe('boom');
     expect(payload.ts).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('summarizeError drops parse messages that quote model text', () => {
+    expect(summarizeError(new SyntaxError('Unexpected token, "Phân tích bị cắt" is not valid JSON'))).toBe(
+      'SyntaxError',
+    );
+    expect(summarizeError(new Error('workers down'))).toBe('Error: workers down');
+    expect(summarizeError('nope')).toBe('unknown error');
   });
 });

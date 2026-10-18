@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  BRIEFING_PARSE_FAILURE_TTL_SECONDS,
   fallbackBriefing,
   generateTacticalBriefing,
   getCachedBriefing,
@@ -25,7 +26,11 @@ import { createMockEnv, createMockKv } from './helpers/mockEnv';
 import { mockScenario } from './helpers/scenarioFixtures';
 import type { MatchScenarioSet } from '../src/models/scenarios/types';
 import { MARKET_DISCLAIMER } from '../src/market/types';
-import { resolveModel, WORKERS_AI_TEXT_MODEL } from '../src/ai/modelRouter';
+import {
+  resolveModel,
+  WORKERS_AI_BRIEFING_MAX_TOKENS,
+  WORKERS_AI_TEXT_MODEL,
+} from '../src/ai/modelRouter';
 
 vi.mock('../src/ai/gatewayClient', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/ai/gatewayClient')>();
@@ -208,8 +213,10 @@ describe('tacticalBriefing', () => {
     expect(result.matchId).toBe('m-workers');
     expect(run).toHaveBeenCalledWith(
       WORKERS_AI_TEXT_MODEL,
-      expect.objectContaining({ max_tokens: resolveModel('tactical_briefing').maxTokens }),
+      expect.objectContaining({ max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS }),
     );
+    expect(WORKERS_AI_BRIEFING_MAX_TOKENS).toBeGreaterThanOrEqual(4096);
+    expect(WORKERS_AI_BRIEFING_MAX_TOKENS).not.toBe(resolveModel('tactical_briefing').maxTokens);
   });
 
   it('generateTacticalBriefing falls back when Workers AI returns invalid JSON', async () => {
@@ -222,6 +229,40 @@ describe('tacticalBriefing', () => {
       probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
     });
     expect(result.matchId).toBe('m-workers-bad');
+  });
+
+  it('generateTacticalBriefing uses a short cache when Workers AI JSON is truncated', async () => {
+    const truncated = '{"matchId":"m-trunc","summary":{"vi":"Phân tích bị cắt';
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const run = vi.fn(async () => ({ response: truncated }));
+    const env = createMockEnv({
+      AI: { run } as never,
+    });
+    const result = await generateTacticalBriefing(env, {
+      matchId: 'm-trunc',
+      aiFallback: false,
+      probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
+    });
+
+    expect(result.summary.en).toContain('statistical model');
+    expect(run).toHaveBeenCalledWith(
+      WORKERS_AI_TEXT_MODEL,
+      expect.objectContaining({ max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS }),
+    );
+    expect(env.KV.put).toHaveBeenCalledWith(
+      'briefing:vi3:m-trunc',
+      expect.any(String),
+      { expirationTtl: BRIEFING_PARSE_FAILURE_TTL_SECONDS },
+    );
+    expect(BRIEFING_PARSE_FAILURE_TTL_SECONDS).toBeLessThan(3600);
+
+    const logged = spy.mock.calls.map((call) => String(call[0])).join('\n');
+    const payload = JSON.parse(String(spy.mock.calls[0]?.[0]));
+    expect(payload.message).toBe('tactical briefing workers ai failed');
+    expect(payload.error).toBe('SyntaxError');
+    expect(payload.matchId).toBe('m-trunc');
+    expect(logged).not.toContain('Phân tích bị cắt');
+    spy.mockRestore();
   });
 });
 

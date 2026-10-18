@@ -71,6 +71,13 @@ export const WORKERS_AI_FALLBACK = 'workers-ai/@cf/meta/llama-3.3-70b-instruct-f
  */
 export const WORKERS_AI_TEXT_MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8' as const;
 
+/**
+ * Output budget for bilingual briefing JSON on Workers AI.
+ * Independent of the GPT route, whose tactical briefing cap is 2000.
+ * Realistic briefings run about 1.9k–3.0k tokens.
+ */
+export const WORKERS_AI_BRIEFING_MAX_TOKENS = 4096;
+
 export function resolveModel(task: AiTask, preferEconomy = false): GatewayModelConfig {
   const cfg = ROUTING[task];
   if (preferEconomy && cfg.tier !== 'economy') {

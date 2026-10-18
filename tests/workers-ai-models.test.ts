@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { resolveModel, WORKERS_AI_TEXT_MODEL } from '../src/ai/modelRouter';
+import { resolveModel, WORKERS_AI_BRIEFING_MAX_TOKENS, WORKERS_AI_TEXT_MODEL } from '../src/ai/modelRouter';
 import { translateMatchRecapText } from '../src/ai/translateMatchRecap';
 import { createMockEnv } from './helpers/mockEnv';
 
@@ -102,7 +102,8 @@ describe('Workers AI text model', () => {
       if (missing > 0) misses.push(`${rel}: ${missing}`);
     }
     expect(misses).toEqual([]);
-    expect(resolveModel('tactical_briefing').maxTokens).toBeGreaterThan(256);
+    expect(WORKERS_AI_BRIEFING_MAX_TOKENS).toBeGreaterThanOrEqual(4096);
+    expect(WORKERS_AI_BRIEFING_MAX_TOKENS).not.toBe(resolveModel('tactical_briefing').maxTokens);
     expect(resolveModel('entity_extract').maxTokens).toBeGreaterThan(256);
     expect(resolveModel('news_summary').maxTokens).toBeGreaterThan(256);
   });

@@ -2,10 +2,18 @@ import type { AppEnv } from '../env';
 import { TacticalBriefingSchema, type TacticalBriefing } from './schemas';
 import { nowIso } from '../utils/time';
 import { isGatewayConfigured, gatewayChatJson } from './gatewayClient';
-import { resolveModel, WORKERS_AI_TEXT_MODEL } from './modelRouter';
+import { WORKERS_AI_BRIEFING_MAX_TOKENS, WORKERS_AI_TEXT_MODEL } from './modelRouter';
 import { SYSTEM_NO_INVENT_NUMBERS, tacticalBriefingPrompt } from './prompts';
+import { logError, summarizeError } from '../utils/logger';
 
 const BRIEFING_CACHE_PREFIX = 'briefing:vi3:';
+const BRIEFING_CACHE_TTL_SECONDS = 3600;
+/** KV minimum TTL. A parse failure must not pin the statistical fallback for an hour. */
+export const BRIEFING_PARSE_FAILURE_TTL_SECONDS = 60;
+
+function isModelParseError(error: unknown): boolean {
+  return error instanceof SyntaxError || (error instanceof Error && error.name === 'ZodError');
+}
 
 type BriefingInput = {
   matchId: string;
@@ -103,6 +111,8 @@ export async function generateTacticalBriefing(
   const cached = await getCachedBriefing(env, input.matchId);
   if (cached) return cached;
 
+  let parseFailed = false;
+
   if (isGatewayConfigured(env) && !input.aiFallback) {
     try {
       const parsed = await gatewayChatJson<TacticalBriefing>(env, 'tactical_briefing', [
@@ -116,19 +126,23 @@ export async function generateTacticalBriefing(
           generatedAt: parsed.generatedAt || nowIso(),
         });
         await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(briefing), {
-          expirationTtl: 3600,
+          expirationTtl: BRIEFING_CACHE_TTL_SECONDS,
         });
         return briefing;
       }
-    } catch {
-      /* fall through */
+    } catch (error) {
+      if (isModelParseError(error)) parseFailed = true;
+      logError('tactical briefing gateway failed', {
+        matchId: input.matchId,
+        error: summarizeError(error),
+      });
     }
   }
 
   if (env.AI && !input.aiFallback) {
     try {
       const response = await env.AI.run(WORKERS_AI_TEXT_MODEL, {
-        max_tokens: resolveModel('tactical_briefing').maxTokens,
+        max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS,
         messages: [
           { role: 'system', content: SYSTEM_NO_INVENT_NUMBERS },
           {
@@ -143,17 +157,21 @@ export async function generateTacticalBriefing(
           : JSON.stringify(response);
       const briefing = TacticalBriefingSchema.parse(JSON.parse(text));
       await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(briefing), {
-        expirationTtl: 3600,
+        expirationTtl: BRIEFING_CACHE_TTL_SECONDS,
       });
       return briefing;
-    } catch {
-      /* fall through */
+    } catch (error) {
+      if (isModelParseError(error)) parseFailed = true;
+      logError('tactical briefing workers ai failed', {
+        matchId: input.matchId,
+        error: summarizeError(error),
+      });
     }
   }
 
   const fallback = fallbackBriefing(input);
   await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(fallback), {
-    expirationTtl: 3600,
+    expirationTtl: parseFailed ? BRIEFING_PARSE_FAILURE_TTL_SECONDS : BRIEFING_CACHE_TTL_SECONDS,
   });
   return fallback;
 }

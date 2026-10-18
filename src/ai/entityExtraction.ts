@@ -6,6 +6,7 @@ import { SYSTEM_NO_INVENT_NUMBERS, entityExtractPrompt } from './prompts';
 import { getTeamsByTournament } from '../db/repositories/teamsRepo';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import { buildTeamAliasIndex, findTeamIdsInText } from '../services/newsMatchImpact';
+import { logError, summarizeError } from '../utils/logger';
 
 const EntitySchema = z.object({
   teams: z.array(z.string()).default([]),
@@ -65,7 +66,8 @@ async function workersAiExtract(env: AppEnv, articleText: string): Promise<Extra
     const end = text.lastIndexOf('}');
     if (start === -1 || end === -1) return null;
     return EntitySchema.parse(JSON.parse(text.slice(start, end + 1)));
-  } catch {
+  } catch (error) {
+    logError('entity extraction workers ai failed', { error: summarizeError(error) });
     return null;
   }
 }
