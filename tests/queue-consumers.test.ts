@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { handleIngestBatch } from '../src/queues/ingestConsumer';
 import { handleModelBatch } from '../src/queues/modelConsumer';
+import { AI_MESSAGE_TIMEOUT_MS } from '../src/queues/modelJobLane';
 import { createMockDb, createMockEnv } from './helpers/mockEnv';
 import { createMockMessageBatch } from './helpers/mockMessageBatch';
 
@@ -470,6 +471,75 @@ describe('handleModelBatch', () => {
     );
     expect(order[0]).toBe('briefing');
     expect(order).toEqual(['briefing', 'recompute']);
+  });
+
+  it('finishes a briefing before a slow bulk job in the same batch', async () => {
+    const { runBulkRecomputeIfPending } = await import('../src/services/bulkRecomputeRunner');
+    const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+    const order: string[] = [];
+    let releaseBulk: () => void = () => undefined;
+    vi.mocked(generateTacticalBriefing).mockImplementationOnce(async () => {
+      order.push('briefing');
+      return { matchId: 'm-2', summary: 'brief' };
+    });
+    vi.mocked(runBulkRecomputeIfPending).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          order.push('bulk-start');
+          releaseBulk = () => {
+            order.push('bulk-end');
+            resolve(true);
+          };
+        }),
+    );
+    const briefingAck = vi.fn();
+    const started = Date.now();
+    const pending = handleModelBatch(
+      createMockMessageBatch([
+        { body: { type: 'recompute_wc2026_bulk' } },
+        { body: { type: 'ai_briefing', matchId: 'm-2' }, ack: briefingAck },
+      ]),
+      createMockEnv({ AI_FALLBACK_MODE: 'true' }),
+    );
+
+    await vi.waitFor(() => expect(briefingAck).toHaveBeenCalled());
+    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(order[0]).toBe('briefing');
+    expect(order).not.toContain('bulk-end');
+    releaseBulk();
+    await pending;
+    expect(order).toEqual(['briefing', 'bulk-start', 'bulk-end']);
+  });
+
+  it('retries a timed-out briefing and still acks the next message', async () => {
+    vi.useFakeTimers({ now: Date.now() });
+    try {
+      const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+      const { recomputeMatchProbability } = await import('../src/services/recomputeMatch');
+      vi.mocked(recomputeMatchProbability).mockClear();
+      const retry = vi.fn();
+      const ack = vi.fn();
+      vi.mocked(generateTacticalBriefing).mockImplementationOnce(
+        (_env, _input, options) =>
+          new Promise((_resolve, reject) => {
+            options?.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+          }),
+      );
+      const pending = handleModelBatch(
+        createMockMessageBatch([
+          { body: { type: 'ai_briefing', matchId: 'm-slow' }, retry },
+          { body: { type: 'recompute', matchId: 'm-next' }, ack },
+        ]),
+        createMockEnv({ AI_FALLBACK_MODE: 'true' }),
+      );
+      await vi.advanceTimersByTimeAsync(AI_MESSAGE_TIMEOUT_MS);
+      await pending;
+      expect(retry).toHaveBeenCalledTimes(1);
+      expect(ack).toHaveBeenCalled();
+      expect(recomputeMatchProbability).toHaveBeenCalledWith(expect.anything(), 'm-next');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('retries on model job failure', async () => {

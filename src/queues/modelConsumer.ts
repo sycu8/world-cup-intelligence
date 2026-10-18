@@ -18,7 +18,7 @@ import { extractEntitiesFromArticle } from '../ai/entityExtraction';
 import { processNewsDocumentImpact } from '../services/newsMatchImpact';
 import { parseEnv } from '../env';
 import * as probabilityRepo from '../db/repositories/probabilityRepo';
-import { modelJobPriority, modelMessageDisposition } from './modelJobLane';
+import { AI_MESSAGE_TIMEOUT_MS, modelJobPriority, modelMessageDisposition, withMessageTimeout } from './modelJobLane';
 
 export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEnv): Promise<void> {
   const config = parseEnv(env);
@@ -88,11 +88,16 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
           }
           break;
         case 'recompute_wc2026_bulk':
-          await runBulkRecomputeIfPending(env);
+          await runBulkRecomputeIfPending(env, {
+            cursor: msg.body.cursor,
+            phase: msg.body.phase,
+          });
           break;
-        case 'ai_multi_analyze':
-          await runMultiVariableAnalysis(env, msg.body.matchId);
+        case 'ai_multi_analyze': {
+          const matchId = msg.body.matchId;
+          await withMessageTimeout(AI_MESSAGE_TIMEOUT_MS, () => runMultiVariableAnalysis(env, matchId));
           break;
+        }
         case 'ai_briefing': {
           const requestedRef = msg.body.matchId;
           let matchId = requestedRef;
@@ -120,17 +125,23 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
             logWarn('tactical briefing skipped', { matchId });
             break;
           }
-          const briefing = await generateTacticalBriefing(env, {
-            matchId,
-            probability: {
-              homeWinProb: snap.home_win_prob,
-              drawProb: snap.draw_prob,
-              awayWinProb: snap.away_win_prob,
-              expectedHomeGoals: snap.expected_home_goals,
-              expectedAwayGoals: snap.expected_away_goals,
-            },
-            aiFallback: config.aiFallback,
-          });
+          const briefing = await withMessageTimeout(AI_MESSAGE_TIMEOUT_MS, (signal) =>
+            generateTacticalBriefing(
+              env,
+              {
+                matchId,
+                probability: {
+                  homeWinProb: snap.home_win_prob,
+                  drawProb: snap.draw_prob,
+                  awayWinProb: snap.away_win_prob,
+                  expectedHomeGoals: snap.expected_home_goals,
+                  expectedAwayGoals: snap.expected_away_goals,
+                },
+                aiFallback: config.aiFallback,
+              },
+              { signal },
+            ),
+          );
           if (briefingWithheldFromCache(briefing)) {
             logWarn('tactical briefing not cached', { matchId });
             await markBriefingWithheld(env, matchId);
@@ -144,8 +155,11 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
           break;
         }
         case 'ai_extract_news': {
-          if (msg.body.content) {
-            const entities = await extractEntitiesFromArticle(env, msg.body.content);
+          const content = msg.body.content;
+          if (content) {
+            const entities = await withMessageTimeout(AI_MESSAGE_TIMEOUT_MS, () =>
+              extractEntitiesFromArticle(env, content),
+            );
             if (entities) {
               await env.DB.prepare(
                 'UPDATE source_documents SET extracted_entities_json = ? WHERE id = ?',
@@ -153,19 +167,14 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
                 .bind(JSON.stringify(entities), msg.body.documentId)
                 .run();
             }
-            await processNewsDocumentImpact(
-              env,
-              msg.body.documentId,
-              msg.body.content,
-              entities,
-            );
+            await processNewsDocumentImpact(env, msg.body.documentId, content, entities);
           }
           break;
         }
       }
       msg.ack();
     } catch (e) {
-      logError('model job failed', { error: String(e) });
+      logError('model job failed', { error: String(e), type: msg.body.type });
       msg.retry();
     }
   }

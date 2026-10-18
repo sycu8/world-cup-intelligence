@@ -115,6 +115,7 @@ export async function getCachedBriefing(
 export async function generateTacticalBriefing(
   env: AppEnv,
   input: BriefingInput,
+  options?: { signal?: AbortSignal },
 ): Promise<TacticalBriefing> {
   const cached = await getCachedBriefing(env, input.matchId);
   if (cached) return cached;
@@ -177,7 +178,7 @@ export async function generateTacticalBriefing(
             },
           ],
         },
-        { signal: AbortSignal.timeout(BRIEFING_AI_TIMEOUT_MS) },
+        { signal: options?.signal ?? AbortSignal.timeout(BRIEFING_AI_TIMEOUT_MS) },
       );
       const durationMs = Date.now() - started;
       logInfo('tactical briefing workers ai done', {

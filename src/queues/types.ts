@@ -11,7 +11,14 @@ export type IngestJob =
 export type ModelJob =
   | { type: 'recompute'; matchId: string }
   | { type: 'recompute_all'; matchIds: string[] }
-  | { type: 'recompute_wc2026_bulk'; reason?: string }
+  | {
+      type: 'recompute_wc2026_bulk';
+      reason?: string;
+      /** Last match id already finished. The next invocation starts after it. */
+      cursor?: string;
+      /** `champion` only refreshes odds. Match chunks omit it. */
+      phase?: 'matches' | 'champion';
+    }
   | { type: 'PRE_MATCH_RECOMPUTE'; matchId: string }
   | { type: 'LIVE_RECOMPUTE'; matchId: string; eventId?: string }
   | { type: 'SCENARIO_GENERATE'; matchId: string }

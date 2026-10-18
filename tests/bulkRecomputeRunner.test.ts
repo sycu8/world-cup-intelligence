@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BULK_RECOMPUTE_KV_KEY } from '../src/constants/pipeline';
+import { BULK_RECOMPUTE_CURSOR_KEY, BULK_RECOMPUTE_KV_KEY } from '../src/constants/pipeline';
+import { recomputeMatchProbability } from '../src/services/recomputeMatch';
 import {
   runBulkRecomputeIfPending,
   scheduleRecomputeAfterDataChange,
 } from '../src/services/bulkRecomputeRunner';
-import { createMockEnv } from './helpers/mockEnv';
+import { createMockDb, createMockEnv, createMockKv } from './helpers/mockEnv';
 
 vi.mock('../src/services/recomputeMatch', () => ({
   recomputeAllWc2026Matches: vi.fn(async () => ({
@@ -12,6 +13,7 @@ vi.mock('../src/services/recomputeMatch', () => ({
     recomputed: 2,
     failed: [],
   })),
+  recomputeMatchProbability: vi.fn(async () => null),
 }));
 
 describe('bulkRecomputeRunner KV contract', () => {
@@ -59,5 +61,79 @@ describe('bulkRecomputeRunner KV contract', () => {
     });
     await scheduleRecomputeAfterDataChange(env, 'manual', { immediate: true });
     expect(env.KV.delete).toHaveBeenCalledWith(BULK_RECOMPUTE_KV_KEY);
+  });
+
+  it('stops at the time budget and enqueues a continuation with a cursor', async () => {
+    vi.mocked(recomputeMatchProbability).mockClear();
+    const ids = ['m-a', 'm-b', 'm-c', 'm-d'];
+    let clock = 10_000;
+    vi.mocked(recomputeMatchProbability).mockImplementation(async () => {
+      clock += 30_000;
+      return null;
+    });
+    const send = vi.fn(async () => undefined);
+    const env = createMockEnv({
+      DB: createMockDb({ all: () => ({ results: ids.map((id) => ({ id })) }) }),
+      KV: createMockKv({ [BULK_RECOMPUTE_KV_KEY]: 'ingest' }),
+      MODEL_QUEUE: { send } as never,
+    });
+
+    const ran = await runBulkRecomputeIfPending(env, { budgetMs: 60_000, now: () => clock });
+
+    expect(ran).toBe(true);
+    expect(vi.mocked(recomputeMatchProbability).mock.calls.map((call) => call[1])).toEqual(['m-a', 'm-b']);
+    expect(send).toHaveBeenCalledWith({
+      type: 'recompute_wc2026_bulk',
+      reason: 'ingest',
+      cursor: 'm-b',
+    });
+    expect(await env.KV.get(BULK_RECOMPUTE_KV_KEY)).toBe('ingest');
+    expect(await env.KV.get(BULK_RECOMPUTE_CURSOR_KEY)).toBe('m-b');
+  });
+
+  it('resumes after the cursor and does not recompute matches already passed', async () => {
+    vi.mocked(recomputeMatchProbability).mockClear();
+    const ids = ['m-a', 'm-b', 'm-c'];
+    vi.mocked(recomputeMatchProbability).mockResolvedValue(null);
+    const send = vi.fn(async () => undefined);
+    const env = createMockEnv({
+      DB: createMockDb({ all: () => ({ results: ids.map((id) => ({ id })) }) }),
+      KV: createMockKv({
+        [BULK_RECOMPUTE_KV_KEY]: 'ingest',
+        [BULK_RECOMPUTE_CURSOR_KEY]: 'm-b',
+      }),
+      MODEL_QUEUE: { send } as never,
+    });
+
+    await runBulkRecomputeIfPending(env, { cursor: 'm-a' });
+
+    expect(vi.mocked(recomputeMatchProbability).mock.calls.map((call) => call[1])).toEqual(['m-c']);
+    expect(send).toHaveBeenCalledWith({
+      type: 'recompute_wc2026_bulk',
+      reason: 'ingest',
+      phase: 'champion',
+    });
+    expect(await env.KV.get(BULK_RECOMPUTE_KV_KEY)).toBeNull();
+  });
+
+  it('advances past a match that exceeds the budget so the next chunk can continue', async () => {
+    vi.mocked(recomputeMatchProbability).mockClear();
+    vi.mocked(recomputeMatchProbability).mockImplementationOnce(() => new Promise(() => undefined));
+    const send = vi.fn(async () => undefined);
+    const env = createMockEnv({
+      DB: createMockDb({ all: () => ({ results: [{ id: 'm-a' }, { id: 'm-b' }] }) }),
+      KV: createMockKv({ [BULK_RECOMPUTE_KV_KEY]: 'ingest' }),
+      MODEL_QUEUE: { send } as never,
+    });
+
+    await runBulkRecomputeIfPending(env, { budgetMs: 20 });
+
+    expect(recomputeMatchProbability).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({
+      type: 'recompute_wc2026_bulk',
+      reason: 'ingest',
+      cursor: 'm-a',
+    });
+    expect(await env.KV.get(BULK_RECOMPUTE_CURSOR_KEY)).toBe('m-a');
   });
 });

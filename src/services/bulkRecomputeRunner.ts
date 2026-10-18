@@ -1,31 +1,174 @@
 import type { AppEnv } from '../env';
-import { BULK_RECOMPUTE_KV_KEY, LAST_RECOMPUTE_META_KEY } from '../constants/pipeline';
-import { recomputeAllWc2026Matches } from './recomputeMatch';
+import { BULK_RECOMPUTE_CURSOR_KEY, BULK_RECOMPUTE_KV_KEY, LAST_RECOMPUTE_META_KEY } from '../constants/pipeline';
+import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
+import { recomputeMatchProbability } from './recomputeMatch';
 import { refreshChampionOdds } from './tournamentChampionOdds';
-import { logInfo } from '../utils/logger';
+import { logError, logInfo } from '../utils/logger';
 import { nowIso } from '../utils/time';
 
 export type RecomputeScheduleOptions = {
-  /** Run all 104 WC 2026 matches immediately in this Worker invocation. */
+  /** Run one bounded chunk in this invocation, then queue the rest. */
   immediate?: boolean;
   /** Enqueue async bulk job when not running immediately. */
   queue?: boolean;
 };
 
-/** Run bulk recompute if KV flag is set (any non-empty value = pending). */
-export async function runBulkRecomputeIfPending(env: AppEnv): Promise<boolean> {
+export type BulkRecomputeRunOptions = {
+  /** Last match id already finished. Absent means start from the saved cursor, or the first match. */
+  cursor?: string;
+  phase?: 'matches' | 'champion';
+  budgetMs?: number;
+  now?: () => number;
+};
+
+/**
+ * Stay under the 15-minute queue consumer limit. One slice per invocation,
+ * then a continuation message. Recomputing a match again is safe.
+ */
+export const BULK_RECOMPUTE_BUDGET_MS = 60_000;
+
+export type BulkChunkResult = {
+  done: boolean;
+  processed: number;
+  nextCursor?: string;
+};
+
+function resumeIndex(ids: string[], cursors: Array<string | null | undefined>): number {
+  let furthest = -1;
+  for (const cursor of cursors) {
+    if (!cursor) continue;
+    const index = ids.indexOf(cursor);
+    if (index > furthest) furthest = index;
+  }
+  return furthest < 0 ? 0 : furthest + 1;
+}
+
+function awaitWithin<T>(work: Promise<T>, ms: number): Promise<T> {
+  if (ms <= 0) return Promise.reject(new Error('bulk recompute budget exhausted'));
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('bulk recompute budget exhausted')), ms);
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+async function listWc2026MatchIds(env: AppEnv): Promise<string[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT id FROM matches WHERE tournament_id = ? ORDER BY kickoff_utc ASC, id ASC`,
+  )
+    .bind(WC2026_TOURNAMENT_ID)
+    .all<{ id: string }>();
+  return (results ?? []).map((row) => row.id);
+}
+
+/**
+ * Recompute matches until the budget is spent. A match that throws or exceeds
+ * the remaining time is skipped so the same id cannot pin the next invocation.
+ * The cursor is that match id. Running the same cursor twice recomputes only
+ * what is still after the further of the message cursor and the saved cursor.
+ */
+export async function runWc2026BulkChunk(
+  env: AppEnv,
+  options: BulkRecomputeRunOptions = {},
+): Promise<BulkChunkResult> {
+  const budgetMs = options.budgetMs ?? BULK_RECOMPUTE_BUDGET_MS;
+  const now = options.now ?? Date.now;
+  const started = now();
+  const ids = await listWc2026MatchIds(env);
+  const saved = await env.KV.get(BULK_RECOMPUTE_CURSOR_KEY);
+  let index = resumeIndex(ids, [options.cursor, saved]);
+  let processed = 0;
+  let last = index > 0 ? ids[index - 1] : undefined;
+
+  while (index < ids.length) {
+    const elapsed = now() - started;
+    if (elapsed >= budgetMs) break;
+    const matchId = ids[index]!;
+    const outcome = recomputeMatchProbability(env, matchId).then(
+      () => ({ ok: true as const }),
+      (error: unknown) => ({ ok: false as const, error }),
+    );
+    let budgetHit = false;
+    try {
+      const result = await awaitWithin(outcome, budgetMs - elapsed);
+      if (!result.ok) {
+        logError('recompute failed', { match_id: matchId, error: String(result.error) });
+      }
+    } catch (error) {
+      budgetHit = true;
+      logError('recompute failed', { match_id: matchId, error: String(error) });
+    }
+    last = matchId;
+    processed += 1;
+    index += 1;
+    await env.KV.put(BULK_RECOMPUTE_CURSOR_KEY, matchId, { expirationTtl: 86400 });
+    if (budgetHit) break;
+  }
+
+  const done = index >= ids.length;
+  return { done, processed, nextCursor: done ? undefined : last };
+}
+
+async function enqueueBulk(
+  env: AppEnv,
+  body: { reason?: string; cursor?: string; phase?: 'matches' | 'champion' },
+): Promise<void> {
+  if (!env.MODEL_QUEUE) {
+    logInfo('bulk wc2026 recompute paused', {
+      reason: body.reason,
+      cursor: body.cursor,
+      phase: body.phase,
+    });
+    return;
+  }
+  await env.MODEL_QUEUE.send({ type: 'recompute_wc2026_bulk', ...body });
+}
+
+/** Run one bulk slice if the KV flag is set. A continuation carries the cursor. */
+export async function runBulkRecomputeIfPending(
+  env: AppEnv,
+  options: BulkRecomputeRunOptions = {},
+): Promise<boolean> {
+  if (options.phase === 'champion') {
+    try {
+      await awaitWithin(refreshChampionOdds(env), options.budgetMs ?? BULK_RECOMPUTE_BUDGET_MS);
+      logInfo('champion odds refreshed after bulk recompute', {});
+    } catch (err) {
+      logInfo('champion odds refresh failed after bulk recompute', { error: String(err) });
+    }
+    return true;
+  }
+
   const reason = await env.KV.get(BULK_RECOMPUTE_KV_KEY);
   if (!reason) return false;
 
-  const result = await recomputeAllWc2026Matches(env);
+  const chunk = await runWc2026BulkChunk(env, options);
+  if (!chunk.done) {
+    await enqueueBulk(env, { reason, cursor: chunk.nextCursor });
+    logInfo('bulk wc2026 recompute continued', {
+      reason,
+      processed: chunk.processed,
+      cursor: chunk.nextCursor,
+    });
+    return true;
+  }
+
   await env.KV.delete(BULK_RECOMPUTE_KV_KEY);
+  await env.KV.delete(BULK_RECOMPUTE_CURSOR_KEY);
   await env.KV.put(LAST_RECOMPUTE_META_KEY, nowIso(), { expirationTtl: 86400 * 7 });
-  logInfo('bulk wc2026 recompute finished', {
-    reason,
-    total: result.total,
-    recomputed: result.recomputed,
-    failed: result.failed.length,
-  });
+  logInfo('bulk wc2026 recompute finished', { reason, processed: chunk.processed });
+  if (env.MODEL_QUEUE) {
+    await env.MODEL_QUEUE.send({ type: 'recompute_wc2026_bulk', reason, phase: 'champion' });
+    return true;
+  }
   try {
     await refreshChampionOdds(env);
     logInfo('champion odds refreshed after bulk recompute', { reason });

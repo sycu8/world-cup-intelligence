@@ -1,4 +1,6 @@
 export const BULK_RECOMPUTE_KV_KEY = 'bulk_recompute_wc2026';
+/** Last WC 2026 match id finished by the current bulk walk. */
+export const BULK_RECOMPUTE_CURSOR_KEY = 'bulk_recompute_wc2026_cursor';
 export const LAST_RECOMPUTE_META_KEY = 'meta:last_recompute_request';
 export const NEWS_CRAWL_INTERVAL_SEC = 900;
 export const LIVE_PROB_REFRESH_INTERVAL_SEC = 900;
