@@ -14,7 +14,7 @@ import {
 import { runChampionOddsRefreshIfPending } from '../services/tournamentChampionOdds';
 import { deliverWebhook } from '../services/publicApi/webhooks';
 import { syncOfficialLineupsToMatches } from '../services/officialLineupSync';
-import { STATSBOMB_INGEST_DIRTY_KEY } from '../constants/pipeline';
+import { INGEST_LAST_RUN_KEY, INGEST_STALE_DROPS_KEY, STATSBOMB_INGEST_DIRTY_KEY } from '../constants/pipeline';
 import {
   CONSUMER_BATCH_DEADLINE_MS,
   INGEST_CHUNK_BUDGET_MS,
@@ -22,34 +22,56 @@ import {
   deferQueuedMessage,
   ingestMessageTimeoutMs,
   queueRetryDelaySeconds,
+  throwIfMessageAborted,
   withMessageTimeout,
 } from './modelJobLane';
 import {
   ingestDedupeKey,
-  isStaleRefreshMinute,
-  REFRESH_CLAIM_KEY,
-  refreshClaimBlocks,
+  isStaleIngestTick,
+  parseLastRunMs,
   REFRESH_STALE_MS,
+  refreshRunIsDue,
 } from './ingestDrain';
 
-async function claimFreshRefresh(env: AppEnv): Promise<boolean> {
+async function readLastRefreshRunMs(env: AppEnv): Promise<number | null> {
   try {
-    const now = Date.now();
-    const existing = await env.KV.get(REFRESH_CLAIM_KEY);
-    if (refreshClaimBlocks(existing, now)) return false;
-    await env.KV.put(REFRESH_CLAIM_KEY, String(now), { expirationTtl: 60 });
-    return true;
+    return parseLastRunMs(await env.KV.get(INGEST_LAST_RUN_KEY));
   } catch (error) {
-    logInfo('ingest refresh claim failed', { error: String(error) });
-    return true;
+    logInfo('ingest refresh last-run read failed', { error: String(error) });
+    return null;
   }
 }
 
-async function releaseRefreshClaim(env: AppEnv): Promise<void> {
+async function markRefreshStarted(env: AppEnv, now: number): Promise<void> {
   try {
-    await env.KV.delete(REFRESH_CLAIM_KEY);
+    await env.KV.put(INGEST_LAST_RUN_KEY, String(now));
   } catch (error) {
-    logInfo('ingest refresh claim release failed', { error: String(error) });
+    logInfo('ingest refresh last-run write failed', { error: String(error) });
+  }
+}
+
+async function clearRefreshRun(env: AppEnv): Promise<void> {
+  try {
+    await env.KV.delete(INGEST_LAST_RUN_KEY);
+  } catch (error) {
+    logInfo('ingest refresh last-run clear failed', { error: String(error) });
+  }
+}
+
+/** Best-effort. A concurrent batch can overwrite the count; one reread repairs a lost add. */
+async function recordIngestStaleDrops(env: AppEnv, count: number): Promise<void> {
+  try {
+    const raw = await env.KV.get(INGEST_STALE_DROPS_KEY);
+    const base = Number.parseInt(raw ?? '0', 10);
+    const next = String((Number.isFinite(base) ? base : 0) + count);
+    await env.KV.put(INGEST_STALE_DROPS_KEY, next);
+    const seen = await env.KV.get(INGEST_STALE_DROPS_KEY);
+    if (seen === next) return;
+    const again = Number.parseInt(seen ?? '0', 10);
+    const merged = String((Number.isFinite(again) ? again : 0) + count);
+    if (merged !== seen) await env.KV.put(INGEST_STALE_DROPS_KEY, merged);
+  } catch (error) {
+    logInfo('ingest stale drop count failed', { error: String(error) });
   }
 }
 
@@ -69,11 +91,13 @@ export async function handleIngestBatch(
   const batchStarted = Date.now();
   const seen = new Set<string>();
   for (const msg of batch.messages) {
-    if (isStaleRefreshMinute(msg.body, msg.timestamp, Date.now())) {
-      logInfo('ingest refresh skipped stale', {
+    if (isStaleIngestTick(msg.body, msg.timestamp, Date.now())) {
+      logInfo('ingest tick skipped stale', {
+        type: msg.body.type,
         idempotencyKey: msg.body.idempotencyKey,
         staleAfterMs: REFRESH_STALE_MS,
       });
+      await recordIngestStaleDrops(env, 1);
       msg.ack();
       continue;
     }
@@ -83,72 +107,69 @@ export async function handleIngestBatch(
       msg.ack();
       continue;
     }
-    let claimedRefresh = false;
-    try {
-      if (msg.body.type === 'refresh_minute') {
-        claimedRefresh = await claimFreshRefresh(env);
-        if (!claimedRefresh) {
-          logInfo('ingest refresh skipped duplicate', { idempotencyKey: msg.body.idempotencyKey });
-          msg.ack();
-          continue;
-        }
-      }
-      if (dedupeKey) seen.add(dedupeKey);
+    if (dedupeKey) seen.add(dedupeKey);
 
-      const elapsed = Date.now() - batchStarted;
-      if (elapsed >= deadlineMs) {
-        logInfo('ingest batch deferred', { type: msg.body.type });
-        await deferQueuedMessage(env.INGEST_QUEUE, msg);
+    const elapsed = Date.now() - batchStarted;
+    if (elapsed >= deadlineMs) {
+      logInfo('ingest batch deferred', { type: msg.body.type });
+      await deferQueuedMessage(env.INGEST_QUEUE, msg);
+      continue;
+    }
+
+    const starterRefresh = msg.body.type === 'refresh_minute' && !msg.body.step;
+    if (starterRefresh && !refreshRunIsDue(await readLastRefreshRunMs(env), Date.now())) {
+      logInfo('ingest refresh skipped recent', { idempotencyKey: msg.body.idempotencyKey });
+      msg.ack();
+      continue;
+    }
+    if (starterRefresh) await markRefreshStarted(env, Date.now());
+
+    const timeoutMs = Math.max(
+      1,
+      Math.min(
+        ingestMessageTimeoutMs(msg.body.type),
+        options?.messageTimeoutMs ?? Number.POSITIVE_INFINITY,
+        deadlineMs - elapsed,
+      ),
+    );
+    let finished = false;
+    try {
+      await withMessageTimeout(timeoutMs, async (signal) => {
+        await runIngestMessage(msg, env, signal);
+        finished = true;
+      });
+      msg.ack();
+    } catch (e) {
+      if (finished) {
+        msg.ack();
         continue;
       }
-      const timeoutMs = Math.max(
-        1,
-        Math.min(
-          ingestMessageTimeoutMs(msg.body.type),
-          options?.messageTimeoutMs ?? Number.POSITIVE_INFINITY,
-          deadlineMs - elapsed,
-        ),
-      );
-      let finished = false;
-      try {
-        await withMessageTimeout(timeoutMs, async (signal) => {
-          await runIngestMessage(msg, env, signal);
-          finished = true;
-        });
+      const timedOut = e instanceof Error && e.message === 'model message timed out';
+      const callerCapped =
+        options?.messageTimeoutMs != null &&
+        options.messageTimeoutMs < REFRESH_MAX_HOLD_MS &&
+        timeoutMs <= options.messageTimeoutMs;
+      const hitRefreshHold = msg.body.type === 'refresh_minute' && timeoutMs >= REFRESH_MAX_HOLD_MS;
+      const hitBatchDeadline = timeoutMs >= CONSUMER_BATCH_DEADLINE_MS;
+      if (timedOut && !callerCapped && (hitRefreshHold || hitBatchDeadline)) {
+        logInfo('ingest refresh released at hold cap', { timeoutMs });
+        if (starterRefresh) await clearRefreshRun(env);
         msg.ack();
-      } catch (e) {
-        if (finished) {
-          msg.ack();
-          continue;
-        }
-        const timedOut = e instanceof Error && e.message === 'model message timed out';
-        const callerCapped =
-          options?.messageTimeoutMs != null &&
-          options.messageTimeoutMs < REFRESH_MAX_HOLD_MS &&
-          timeoutMs <= options.messageTimeoutMs;
-        if (msg.body.type === 'refresh_minute' && timedOut && !callerCapped) {
-          logInfo('ingest refresh released at hold cap', { timeoutMs });
-          msg.ack();
-          continue;
-        }
-        const delaySeconds =
-          msg.body.type === 'refresh_minute'
-            ? Math.min(15, queueRetryDelaySeconds(msg.attempts))
-            : queueRetryDelaySeconds(msg.attempts);
-        logInfo('ingest retry', { error: String(e) });
-        msg.retry({ delaySeconds });
+        continue;
       }
-    } finally {
-      if (claimedRefresh) await releaseRefreshClaim(env);
+      if (starterRefresh) await clearRefreshRun(env);
+      const delaySeconds =
+        msg.body.type === 'refresh_minute'
+          ? Math.min(15, queueRetryDelaySeconds(msg.attempts))
+          : queueRetryDelaySeconds(msg.attempts);
+      logInfo('ingest retry', { error: String(e) });
+      msg.retry({ delaySeconds });
     }
   }
 }
 
-async function runIngestMessage(
-  msg: Message<IngestJob>,
-  env: AppEnv,
-  signal?: AbortSignal,
-): Promise<void> {
+async function runIngestMessage(msg: Message<IngestJob>, env: AppEnv, signal: AbortSignal): Promise<void> {
+      throwIfMessageAborted(signal);
       switch (msg.body.type) {
         case 'refresh_minute': {
           if (msg.body.step) {
@@ -225,13 +246,14 @@ async function runIngestMessage(
           break;
         }
         case 'crawl_news': {
-          await runNewsCrawl(env, msg.body.feedCursor, 'crawl_news');
+          await runNewsCrawl(env, msg.body.feedCursor, 'crawl_news', signal);
           break;
         }
         case 'sync_leagues': {
           const { syncAllClubLeagues } = await import('../ingestion/leagues/syncLeagues');
           let leagueCursor = msg.body.leagueCursor;
           for (;;) {
+            throwIfMessageAborted(signal);
             const results = await syncAllClubLeagues(env, {
               leagueCursor,
               budgetMs: INGEST_CHUNK_BUDGET_MS,
@@ -251,6 +273,7 @@ async function runIngestMessage(
           break;
         }
         case 'refresh_live_probabilities': {
+          throwIfMessageAborted(signal);
           const { refreshLiveProbabilitiesFromStats } = await import('../services/liveProbabilityRefresh');
           await refreshLiveProbabilitiesFromStats(env);
           break;
@@ -277,7 +300,7 @@ async function runIngestMessage(
               break;
             }
           }
-          await runNewsCrawl(env, msg.body.feedCursor, 'bulk_ingest');
+          await runNewsCrawl(env, msg.body.feedCursor, 'bulk_ingest', signal);
           break;
         }
         case 'webhook_deliver': {
@@ -296,9 +319,11 @@ async function runNewsCrawl(
   env: AppEnv,
   feedCursor: number | undefined,
   kind: 'crawl_news' | 'bulk_ingest',
+  signal?: AbortSignal,
 ): Promise<void> {
   let cursor = feedCursor;
   for (;;) {
+    throwIfMessageAborted(signal);
     const chunk = asNewsChunk(
       await crawlWorldCupNews(env, {
         feedCursor: cursor,

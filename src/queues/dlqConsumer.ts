@@ -1,6 +1,6 @@
 import type { AppEnv } from '../env';
 import { logError } from '../utils/logger';
-import { IDEMPOTENT_INGEST_TYPES, isStaleRefreshMinute } from './ingestDrain';
+import { IDEMPOTENT_INGEST_TYPES, isStaleIngestTick } from './ingestDrain';
 
 type DlqBody = {
   type?: string;
@@ -9,14 +9,18 @@ type DlqBody = {
 } | null;
 
 /**
- * Ingest DLQ drain. Counts are logged by type. Every refresh_minute tick is
- * acked and not replayed: a stale tick is superseded, and a fresh one is
- * already replaced by the next cron tick. Replaying either would start another
- * score sync. Other idempotent jobs are sent to the ingest queue once, with
- * fromDlq set, then acked. A message that already has fromDlq is dropped, so
- * a replay that fails cannot bounce forever. The DLQ consumer has no nested
- * dead-letter queue. Model DLQ messages are counted and acked, not sent back.
- * A stalled bulk walk is re-sent by the cron resumer from the walk record.
+ * Explicit DLQ consumer. wrangler attaches this handler to wc-ingest-dlq and
+ * wc-ingest-dlq-uat (batch 10, max_retries 1, max_concurrency 1, no nested
+ * dead-letter queue). A message that is not acked is discarded after that
+ * retry; it is not written to another queue. Counts are logged by type.
+ *
+ * Every refresh_minute tick is acked and not replayed. Cron replaces it, and
+ * a replay would start another score sync. Stale crawl, league, and
+ * live-probability ticks are acked and not replayed. Other idempotent jobs
+ * are sent once with fromDlq set, then acked. A body that already has fromDlq
+ * is dropped, so a failed replay cannot bounce. Model DLQ messages are
+ * counted and acked, not sent to ingest. A stalled bulk walk is re-sent by
+ * the cron resumer from the walk record.
  */
 export async function handleDlqBatch(batch: MessageBatch<unknown>, env: AppEnv): Promise<void> {
   const counts: Record<string, number> = {};
@@ -34,7 +38,7 @@ export async function handleDlqBatch(batch: MessageBatch<unknown>, env: AppEnv):
       !body ||
       body.fromDlq ||
       type === 'refresh_minute' ||
-      isStaleRefreshMinute(body, msg.timestamp)
+      isStaleIngestTick(body, msg.timestamp)
     ) {
       msg.ack();
       dropped += 1;

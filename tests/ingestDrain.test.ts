@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { handleDlqBatch } from '../src/queues/dlqConsumer';
 import {
-  REFRESH_CLAIM_MAX_AGE_MS,
+  REFRESH_MIN_GAP_MS,
   REFRESH_STALE_MS,
+  estimateIngestDrainSeconds,
   ingestDedupeKey,
+  isStaleIngestTick,
   isStaleRefreshMinute,
-  refreshClaimBlocks,
+  refreshRunIsDue,
 } from '../src/queues/ingestDrain';
 import { createMockEnv } from './helpers/mockEnv';
 
@@ -18,26 +20,30 @@ describe('ingest drain', () => {
     expect(isStaleRefreshMinute({ type: 'refresh_minute' }, new Date(now - 30_000), now)).toBe(false);
     expect(isStaleRefreshMinute({ type: 'refresh_minute' }, undefined, now)).toBe(false);
     expect(isStaleRefreshMinute({ type: 'crawl_news' }, new Date(now - REFRESH_STALE_MS - 1), now)).toBe(false);
+    expect(isStaleIngestTick({ type: 'crawl_news' }, new Date(now - REFRESH_STALE_MS - 1), now)).toBe(true);
+    expect(isStaleIngestTick({ type: 'sync_leagues' }, new Date(now - REFRESH_STALE_MS - 1), now)).toBe(true);
+    expect(isStaleIngestTick({ type: 'refresh_live_probabilities' }, new Date(now - 60_000), now)).toBe(false);
+    expect(isStaleIngestTick({ type: 'source_ingest' }, new Date(now - REFRESH_STALE_MS - 1), now)).toBe(false);
     expect(ingestDedupeKey({ type: 'refresh_minute', idempotencyKey: 'a' })).toBe('refresh_minute');
     expect(ingestDedupeKey({ type: 'refresh_minute', idempotencyKey: 'b' })).toBe('refresh_minute');
-    expect(ingestDedupeKey({ type: 'crawl_news', idempotencyKey: 'news-1' })).toBe('crawl_news:news-1');
-  });
-
-  it('lets a refresh claim block only while it is younger than 60 seconds', () => {
-    const now = 1_700_000_000_000;
-    expect(REFRESH_CLAIM_MAX_AGE_MS).toBe(60_000);
-    expect(refreshClaimBlocks(null, now)).toBe(false);
-    expect(refreshClaimBlocks('', now)).toBe(false);
-    expect(refreshClaimBlocks('not-a-timestamp', now)).toBe(false);
-    expect(refreshClaimBlocks(String(now - 10_000), now)).toBe(true);
-    expect(refreshClaimBlocks(String(now - REFRESH_CLAIM_MAX_AGE_MS), now)).toBe(false);
-    expect(refreshClaimBlocks(String(now - REFRESH_CLAIM_MAX_AGE_MS - 1), now)).toBe(false);
+    expect(ingestDedupeKey({ type: 'refresh_minute', step: 'lineups', idempotencyKey: 'step-1' })).toBe(
+      'refresh_minute:lineups:step-1',
+    );
+    expect(ingestDedupeKey({ type: 'crawl_news', idempotencyKey: 'news-1' })).toBe('crawl_news');
+    expect(ingestDedupeKey({ type: 'crawl_news', idempotencyKey: 'news-2', feedCursor: 4 })).toBe('crawl_news:news-2');
+    expect(REFRESH_MIN_GAP_MS).toBeLessThan(60_000);
+    expect(refreshRunIsDue(null, now)).toBe(true);
+    expect(refreshRunIsDue(now - 60_000, now)).toBe(true);
+    expect(refreshRunIsDue(now - 30_000, now)).toBe(false);
+    expect(estimateIngestDrainSeconds(0, 2)).toBe(0);
+    expect(estimateIngestDrainSeconds(25, 2)).toBe(6);
   });
 
   it('counts DLQ messages, drops stale refresh ticks, and replays an idempotent job once', async () => {
     const send = vi.fn(async () => undefined);
     const ackStale = vi.fn();
     const ackFreshRefresh = vi.fn();
+    const ackOldNews = vi.fn();
     const ackReplay = vi.fn();
     const ackAgain = vi.fn();
     const ackHook = vi.fn();
@@ -62,6 +68,13 @@ describe('ingest drain', () => {
             timestamp: new Date(now),
             body: { type: 'refresh_minute', idempotencyKey: 'fresh' },
             ack: ackFreshRefresh,
+          },
+          {
+            id: 'old-news',
+            attempts: 4,
+            timestamp: new Date(now - 11 * 60_000),
+            body: { type: 'crawl_news', idempotencyKey: 'old-news' },
+            ack: ackOldNews,
           },
           {
             id: 'news',
@@ -91,6 +104,7 @@ describe('ingest drain', () => {
 
     expect(ackStale).toHaveBeenCalledTimes(1);
     expect(ackFreshRefresh).toHaveBeenCalledTimes(1);
+    expect(ackOldNews).toHaveBeenCalledTimes(1);
     expect(ackReplay).toHaveBeenCalledTimes(1);
     expect(ackAgain).toHaveBeenCalledTimes(1);
     expect(ackHook).toHaveBeenCalledTimes(1);

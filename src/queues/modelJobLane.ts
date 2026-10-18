@@ -124,6 +124,10 @@ export function modelJobPriority(type: string): number {
  * Rejects when `ms` elapses and aborts `signal`, even if `work` never settles.
  * The caller acks or retries that message and continues the batch.
  */
+export function throwIfMessageAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw new Error('model message timed out');
+}
+
 export function withMessageTimeout<T>(
   ms: number,
   work: (signal: AbortSignal) => Promise<T>,

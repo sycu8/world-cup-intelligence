@@ -5,6 +5,7 @@ import { logError, logInfo } from '../utils/logger';
 import { mockScoreAtMinute } from '../services/matchLifecycle';
 import { processMatchCompletion, replayKnockoutBracketFromCompleted } from '../services/tournamentProgression';
 import { resolveMatchDataProvider } from './matchDataProvider';
+import { throwIfMessageAborted } from '../queues/modelJobLane';
 import { syncFifaWc2026Matches } from './fifa/fifaLiveSync';
 import { syncFifaLineupsForUpcomingMatches } from './fifa/fifaLineupSync';
 import { backfillIncompleteFifaMatchStats, backfillMissingFifaRecaps } from './fifa/fifaLiveBlogSync';
@@ -42,6 +43,7 @@ export async function refreshMatchData(
   env: AppEnv,
   options: RefreshMatchDataOptions = {},
 ): Promise<RefreshMatchDataResult> {
+  throwIfMessageAborted(options.signal);
   if (fifaLiveEnabled(env)) {
     const fifa = await syncFifaWc2026Matches(env, { signal: options.signal });
     // Stamp as soon as the score sync returns. Backfill used to run after

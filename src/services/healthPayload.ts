@@ -3,10 +3,13 @@ import { isGatewayConfigured } from '../ai/gatewayClient';
 import { parseEnv } from '../env';
 import {
   BULK_BUDGET_SKIPS_KEY,
+  INGEST_LAST_RUN_KEY,
+  INGEST_STALE_DROPS_KEY,
   MODEL_QUEUE_STALE_DROPS_KEY,
   NEWS_CRAWL_INTERVAL_SEC,
   NEWS_CRAWL_KV_KEY,
 } from '../constants/pipeline';
+import { parseLastRunMs } from '../queues/ingestDrain';
 
 /** lastDataRefresh older than this is degraded. Exactly this age stays healthy. */
 export const DATA_REFRESH_DEGRADED_AFTER_MS = 150_000;
@@ -46,6 +49,10 @@ export type HealthPayload = {
     lastNewsCrawl: string | null;
     modelQueueStaleDrops: number;
     bulkRecomputeBudgetSkips: number;
+    /** Ingest ticks acked without running. Cached with the rest of this payload for 15s. */
+    ingestStaleDrops: number;
+    /** Epoch ms of the last accepted minute refresh. Null when none is stored. */
+    ingestLastRefreshRunMs: number | null;
   };
   viewOnly: boolean;
   timestamp: string;
@@ -55,16 +62,20 @@ export async function buildHealthPayload(env: AppEnv): Promise<HealthPayload> {
   const config = parseEnv(env);
   const isProduction = config.environment === 'production';
 
-  const [dbResult, lastRefresh, lastFifaSync, lastNewsCrawl, staleDropsRaw, budgetSkipsRaw] = await Promise.all([
-    env.DB.prepare('SELECT 1 AS ok').first<{ ok: number }>().catch(() => null),
-    env.KV.get('meta:last_data_refresh'),
-    env.KV.get('meta:last_fifa_sync'),
-    env.KV.get(NEWS_CRAWL_KV_KEY),
-    env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY),
-    env.KV.get(BULK_BUDGET_SKIPS_KEY),
-  ]);
+  const [dbResult, lastRefresh, lastFifaSync, lastNewsCrawl, staleDropsRaw, budgetSkipsRaw, ingestDropsRaw, ingestLastRunRaw] =
+    await Promise.all([
+      env.DB.prepare('SELECT 1 AS ok').first<{ ok: number }>().catch(() => null),
+      env.KV.get('meta:last_data_refresh'),
+      env.KV.get('meta:last_fifa_sync'),
+      env.KV.get(NEWS_CRAWL_KV_KEY),
+      env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY),
+      env.KV.get(BULK_BUDGET_SKIPS_KEY),
+      env.KV.get(INGEST_STALE_DROPS_KEY),
+      env.KV.get(INGEST_LAST_RUN_KEY),
+    ]);
   const staleDrops = Number.parseInt(staleDropsRaw ?? '0', 10);
   const budgetSkips = Number.parseInt(budgetSkipsRaw ?? '0', 10);
+  const ingestDrops = Number.parseInt(ingestDropsRaw ?? '0', 10);
 
   const dbOk = dbResult?.ok === 1;
 
@@ -90,6 +101,8 @@ export async function buildHealthPayload(env: AppEnv): Promise<HealthPayload> {
       lastNewsCrawl,
       modelQueueStaleDrops: Number.isFinite(staleDrops) ? staleDrops : 0,
       bulkRecomputeBudgetSkips: Number.isFinite(budgetSkips) ? budgetSkips : 0,
+      ingestStaleDrops: Number.isFinite(ingestDrops) ? ingestDrops : 0,
+      ingestLastRefreshRunMs: parseLastRunMs(ingestLastRunRaw),
     },
     viewOnly: true,
     timestamp: new Date().toISOString(),

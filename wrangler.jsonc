@@ -5,6 +5,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-01-01",
   "compatibility_flags": ["nodejs_compat"],
+  // Observability stays off. Drain progress is ingestStaleDrops on /api/health.
   "workers_dev": false,
   "preview_urls": false,
   "assets": {
@@ -64,6 +65,7 @@
         "max_concurrency": 1,
         "dead_letter_queue": "wc-ingest-dlq-uat"
       },
+      // Explicit DLQ consumer. One retry, then the message is discarded. No nested DLQ.
       {
         "queue": "wc-ingest-dlq-uat",
         "max_batch_size": 10,
@@ -143,6 +145,7 @@
             "max_concurrency": 1,
             "dead_letter_queue": "wc-ingest-dlq"
           },
+          // Explicit DLQ consumer. One retry, then the message is discarded. No nested DLQ.
           {
             "queue": "wc-ingest-dlq",
             "max_batch_size": 10,
