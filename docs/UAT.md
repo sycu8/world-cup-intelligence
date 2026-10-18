@@ -40,6 +40,8 @@ npm run db:migrate:production
 npm run deploy:production   # production — chỉ sau khi UAT pass
 ```
 
+The Access host answers with a login redirect unless the request carries a service token. Do not commit the token. For `npm run test:scenarios` against `https://wcstat-uat.orangecloud.vn`, export `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` in the shell for that run. The script sends them as `CF-Access-Client-Id` and `CF-Access-Client-Secret`.
+
 ## Checklist nghiệm thu UAT
 
 - [ ] Trang UAT mở được (đăng nhập Access nếu đã bật)

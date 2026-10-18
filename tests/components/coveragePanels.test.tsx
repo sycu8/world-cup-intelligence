@@ -145,6 +145,25 @@ describe('coverage-oriented panel renders', () => {
     await waitFor(() => expect(view.container.textContent).toMatch(/Summary|Tóm tắt|FIFA/i));
   });
 
+  it('TacticalBriefingPanel asks the reader to try again after polling ends', async () => {
+    const view = renderPanel(
+      <TacticalBriefingPanel
+        briefing={{
+          summary: { vi: 'Tóm tắt', en: 'Summary' },
+          probabilityExplanation: [],
+          uncertaintyNotes: [],
+          citations: [],
+          tacticalThemes: [],
+        }}
+        generating
+        timedOut
+      />,
+    );
+    await waitFor(() =>
+      expect(view.container.textContent).toMatch(/Tải lại trang để thử lại|Reload the page to try again/),
+    );
+  });
+
   it('TeamSystemPanel renders team system payload', async () => {
     const view = renderPanel(
       <TeamSystemPanel

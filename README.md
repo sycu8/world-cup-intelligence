@@ -507,7 +507,9 @@ npm run test:scenarios:streak
 # Local Worker (8790)
 BASE_URL=http://127.0.0.1:8790 EXPECT_ENV=development npm run test:scenarios:streak
 
-# UAT
+# UAT (Access). Export CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET
+# for this command only — do not commit them. The script sends
+# CF-Access-Client-Id and CF-Access-Client-Secret.
 BASE_URL=https://wcstat-uat.orangecloud.vn EXPECT_ENV=uat npm run test:scenarios:streak
 ```
 

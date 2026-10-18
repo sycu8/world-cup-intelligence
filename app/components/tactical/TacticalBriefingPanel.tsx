@@ -5,7 +5,12 @@ import { useI18n } from '../../lib/i18n/I18nContext';
 import { Bilingual } from '../i18n/Bilingual';
 import { pickLocalized, type LocalizedString } from '../../lib/briefingText';
 
-type Props = { briefing: TacticalBriefing | null; loading?: boolean; generating?: boolean };
+type Props = {
+  briefing: TacticalBriefing | null;
+  loading?: boolean;
+  generating?: boolean;
+  timedOut?: boolean;
+};
 
 function LocalizedBlock({
   value,
@@ -42,7 +47,7 @@ function mapCitation(
   };
 }
 
-export function TacticalBriefingPanel({ briefing, loading, generating }: Props) {
+export function TacticalBriefingPanel({ briefing, loading, generating, timedOut }: Props) {
   const { mode, t } = useI18n();
 
   if (loading) {
@@ -60,7 +65,11 @@ export function TacticalBriefingPanel({ briefing, loading, generating }: Props) 
     <div className="panel-dense space-y-4 border-magenta/15">
       <SectionLabel
         title={t('match.briefingTitle')}
-        subtitle={generating ? t('match.briefingGenerating') : t('match.briefingAiSubtitle')}
+        subtitle={
+          generating
+            ? t(timedOut ? 'match.briefingTryAgain' : 'match.briefingGenerating')
+            : t('match.briefingAiSubtitle')
+        }
         accent="magenta"
       />
 

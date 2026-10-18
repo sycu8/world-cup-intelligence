@@ -63,12 +63,17 @@ import { usePitchMapLive } from '../lib/usePitchMapLive';
 import { matchOgImageUrl } from '../lib/matchThumbnail';
 import { usePageMeta } from '../lib/usePageMeta';
 
+/** 24 waits × 5s keeps the page polling for about 120s. */
+const BRIEFING_POLL_LIMIT = 24;
+const BRIEFING_POLL_INTERVAL_MS = 5000;
+
 export function MatchPage() {
   const { matchId } = useParams();
   const { t, mode } = useI18n();
   const [viewMode, setViewMode] = useState<ViewMode>('tactical');
   const [briefing, setBriefing] = useState<TacticalBriefing | null>(null);
   const [briefingGenerating, setBriefingGenerating] = useState(false);
+  const [briefingTimedOut, setBriefingTimedOut] = useState(false);
   const [events, setEvents] = useState<{ x?: number; y?: number; event_type?: string; xg?: number }[]>([]);
   const [analysis, setAnalysis] = useState<MultiVariableAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
@@ -115,6 +120,7 @@ export function MatchPage() {
     let briefingTimer: ReturnType<typeof setTimeout> | undefined;
     setNotFound(false);
     setBriefingGenerating(false);
+    setBriefingTimedOut(false);
 
     api.matchEvents(matchId).then((r) => setEvents(r.data as typeof events));
     api.matchHistory(matchId).then((r) => {
@@ -143,9 +149,11 @@ export function MatchPage() {
           .then((r) => {
             if (cancelled) return;
             setBriefing(r.data);
-            setBriefingGenerating(Boolean(r.generating));
-            if (r.generating && attempt < 12) {
-              briefingTimer = setTimeout(() => pollBriefing(attempt + 1), 5000);
+            const stillGenerating = Boolean(r.generating);
+            setBriefingGenerating(stillGenerating);
+            setBriefingTimedOut(stillGenerating && attempt >= BRIEFING_POLL_LIMIT);
+            if (stillGenerating && attempt < BRIEFING_POLL_LIMIT) {
+              briefingTimer = setTimeout(() => pollBriefing(attempt + 1), BRIEFING_POLL_INTERVAL_MS);
             }
           })
           .catch(() => {
@@ -363,7 +371,11 @@ export function MatchPage() {
                   live={match.status === 'live'}
                 />
               )}
-              <TacticalBriefingPanel briefing={briefing} generating={briefingGenerating} />
+              <TacticalBriefingPanel
+                briefing={briefing}
+                generating={briefingGenerating}
+                timedOut={briefingTimedOut}
+              />
               {(analysisLoading || analysis) && (
                 <MultiVariablePanel analysis={analysis} loading={analysisLoading} />
               )}
@@ -595,7 +607,11 @@ export function MatchPage() {
           {(analysisLoading || analysis) && (
             <MultiVariablePanel analysis={analysis} loading={analysisLoading} />
           )}
-          <TacticalBriefingPanel briefing={briefing} generating={briefingGenerating} />
+          <TacticalBriefingPanel
+            briefing={briefing}
+            generating={briefingGenerating}
+            timedOut={briefingTimedOut}
+          />
         </aside>
       </div>
     </div>

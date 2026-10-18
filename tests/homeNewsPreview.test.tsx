@@ -69,6 +69,7 @@ describe('HomeNewsPreview', () => {
     });
     renderPreview();
     expect(await screen.findByText('Lời bài hát trận đấu')).toBeTruthy();
+    expect(screen.getByText('Nổi bật')).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: /rerender/i }));
     expect(screen.getByText('Lời bài hát trận đấu')).toBeTruthy();
   });
@@ -88,6 +89,7 @@ describe('HomeNewsPreview', () => {
     });
     renderPreview();
     expect(await screen.findByText('Lời bài hát trận đấu')).toBeTruthy();
+    expect(screen.queryByText('Nổi bật')).toBeNull();
   });
 
   it('shows an empty state when news cannot be loaded', async () => {

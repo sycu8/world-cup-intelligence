@@ -30,12 +30,23 @@ const streakMode = process.argv.includes('--streak');
 const streakGoal = Math.max(1, Number(process.env.STREAK_GOAL ?? 10));
 const startedAt = new Date().toISOString();
 
+/** Access service token. Values stay in the environment; never log them. */
+function accessHeaders() {
+  const id = process.env.CF_ACCESS_CLIENT_ID;
+  const secret = process.env.CF_ACCESS_CLIENT_SECRET;
+  if (!id || !secret) return {};
+  return {
+    'CF-Access-Client-Id': id,
+    'CF-Access-Client-Secret': secret,
+  };
+}
+
 /** @typedef {{ id: string; capability: string; criteria: string[]; run: () => Promise<{ pass: boolean; evidence: Record<string, unknown> }> }} Scenario */
 
 async function fetchJson(path, init) {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
-    headers: { Accept: 'application/json', ...(init?.headers ?? {}) },
+    headers: { Accept: 'application/json', ...accessHeaders(), ...(init?.headers ?? {}) },
   });
   const text = await res.text();
   let body;
@@ -365,8 +376,8 @@ const SCENARIOS = [
     ],
     async run() {
       const [robots, sitemap, catalog] = await Promise.all([
-        fetch(`${BASE_URL}/robots.txt`).then((r) => r.text()),
-        fetch(`${BASE_URL}/sitemap.xml`).then((r) => r.text()),
+        fetch(`${BASE_URL}/robots.txt`, { headers: accessHeaders() }).then((r) => r.text()),
+        fetch(`${BASE_URL}/sitemap.xml`, { headers: accessHeaders() }).then((r) => r.text()),
         fetchJson('/.well-known/api-catalog'),
       ]);
       const pass =
@@ -432,7 +443,7 @@ const SCENARIOS = [
       'Response includes root mount point for React app',
     ],
     async run() {
-      const res = await fetch(`${BASE_URL}/`);
+      const res = await fetch(`${BASE_URL}/`, { headers: accessHeaders() });
       const html = await res.text();
       const pass = res.status === 200 && html.includes('id="root"');
       return { pass, evidence: { status: res.status, hasRoot: html.includes('id="root"') } };
