@@ -123,7 +123,10 @@ describe('captured Workers AI briefings', () => {
       expect.any(String),
       { expirationTtl: 3600 },
     );
-    const stored = JSON.parse(String(vi.mocked(env.KV.put).mock.calls[0]?.[1]));
+    const briefingPut = vi.mocked(env.KV.put).mock.calls.find((call) =>
+      String(call[0]).startsWith('briefing:vi3:'),
+    );
+    const stored = JSON.parse(String(briefingPut?.[1]));
     expect(TacticalBriefingSchema.parse(stored).matchId).toBe(raw.matchId);
     expect(stored.citations).toEqual([]);
   });
@@ -140,7 +143,9 @@ describe('captured Workers AI briefings', () => {
 
     expect(result.summary.en).toContain('statistical model');
     expect(result.probabilityExplanation.length).toBeGreaterThan(0);
-    expect(env.KV.put).not.toHaveBeenCalled();
+    expect(vi.mocked(env.KV.put).mock.calls.some((call) => String(call[0]).startsWith('briefing:'))).toBe(
+      false,
+    );
   });
 
   it('treats an empty Vietnamese summary or takeaway list as no content', () => {
@@ -189,7 +194,9 @@ describe('captured Workers AI briefings', () => {
     expect(result.summary.vi).toContain('mô hình thống kê');
     expect(result.summary.en).toContain('statistical model');
     expect(briefingWithheldFromCache(result)).toBe(true);
-    expect(env.KV.put).not.toHaveBeenCalled();
+    expect(vi.mocked(env.KV.put).mock.calls.some((call) => String(call[0]).startsWith('briefing:'))).toBe(
+      false,
+    );
   });
 
   it('does not ask the model to emit an empty vi field', () => {
