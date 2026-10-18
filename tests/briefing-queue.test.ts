@@ -91,7 +91,7 @@ describe('tactical briefing queue', () => {
       '1',
       { expirationTtl: BRIEFING_INFLIGHT_TTL_SECONDS },
     );
-    expect(BRIEFING_INFLIGHT_TTL_SECONDS).toBeGreaterThanOrEqual(5 * 75);
+    expect(BRIEFING_INFLIGHT_TTL_SECONDS).toBeGreaterThan(5 * 120);
     expect(await env.KV.get(`briefing:inflight:${slug}`)).toBeNull();
 
     const second = await jsonRoute<{ generating: boolean }>(
@@ -101,5 +101,23 @@ describe('tactical briefing queue', () => {
     );
     expect(second.json.generating).toBe(true);
     expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it('serves the statistical draft without generating after a blank reply is withheld', async () => {
+    const send = vi.fn(async () => undefined);
+    const env = createRouteTestEnv({
+      AI_FALLBACK_MODE: 'false',
+      MODEL_QUEUE: { send } as never,
+    });
+    await env.KV.put(`briefing:inflight:${FIXTURE_MATCH.id}`, 'withheld');
+
+    const { json } = await jsonRoute<{
+      data: { summary: { en: string } };
+      generating: boolean;
+    }>(probabilityRoutes, path, { env });
+
+    expect(json.generating).toBe(false);
+    expect(json.data.summary.en).toContain('statistical model');
+    expect(send).not.toHaveBeenCalled();
   });
 });

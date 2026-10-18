@@ -48,13 +48,19 @@ export function parseModelBriefing(raw: unknown, matchId: string): TacticalBrief
   });
 }
 
-/** A briefing needs a summary and at least one takeaway, or it is not cached. */
+/**
+ * A briefing needs a Vietnamese summary and at least one Vietnamese takeaway.
+ * English-only prose (vi: "") is not content and is not cached.
+ * A plain string still counts, so string-shaped output is not rejected.
+ */
 export function briefingHasContent(raw: unknown): boolean {
   const root = asRecord(raw);
   if (!root) return false;
   const summary = localized(root.summary);
-  const takeaways = asArray(root.probabilityExplanation).map((item) => localized(item)).filter(hasText);
-  return hasText(summary) && takeaways.length > 0;
+  const takeaways = asArray(root.probabilityExplanation)
+    .map((item) => localized(item))
+    .filter(hasVietnamese);
+  return hasVietnamese(summary) && takeaways.length > 0;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -80,6 +86,11 @@ function text(value: unknown): string {
 function hasText(value: string | { vi: string; en: string }): boolean {
   if (typeof value === 'string') return value.trim().length > 0;
   return value.vi.trim().length > 0 || value.en.trim().length > 0;
+}
+
+function hasVietnamese(value: string | { vi: string; en: string }): boolean {
+  if (typeof value === 'string') return value.trim().length > 0;
+  return value.vi.trim().length > 0;
 }
 
 function localized(value: unknown): string | { vi: string; en: string } {

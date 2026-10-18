@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import realOutputs from './fixtures/wc55-real-outputs.json';
-import { parseModelBriefing } from '../src/ai/coerceBriefing';
+import { briefingHasContent, parseModelBriefing } from '../src/ai/coerceBriefing';
+import { tacticalBriefingPrompt } from '../src/ai/prompts';
 import { TacticalBriefingSchema } from '../src/ai/schemas';
-import { BRIEFING_AI_TIMEOUT_MS, generateTacticalBriefing } from '../src/ai/tacticalBriefing';
+import {
+  BRIEFING_AI_TIMEOUT_MS,
+  briefingWithheldFromCache,
+  generateTacticalBriefing,
+} from '../src/ai/tacticalBriefing';
 import { extractJsonObject } from '../src/ai/workersAiText';
 import { createMockEnv } from './helpers/mockEnv';
 
@@ -136,5 +141,61 @@ describe('captured Workers AI briefings', () => {
     expect(result.summary.en).toContain('statistical model');
     expect(result.probabilityExplanation.length).toBeGreaterThan(0);
     expect(env.KV.put).not.toHaveBeenCalled();
+  });
+
+  it('treats an empty Vietnamese summary or takeaway list as no content', () => {
+    const englishOnly = {
+      summary: { vi: '', en: 'Home side are favourites.' },
+      probabilityExplanation: [{ vi: '', en: 'Away win chance is 26.2%.' }],
+    };
+    expect(briefingHasContent(englishOnly)).toBe(false);
+    expect(
+      briefingHasContent({
+        summary: { vi: 'Tóm tắt', en: 'Summary' },
+        probabilityExplanation: [{ en: 'English takeaway only' }],
+      }),
+    ).toBe(false);
+    expect(
+      briefingHasContent({
+        summary: 'Plain summary',
+        probabilityExplanation: ['Takeaway'],
+      }),
+    ).toBe(true);
+    expect(
+      briefingHasContent({
+        summary: { vi: 'Tóm tắt', en: 'Summary' },
+        probabilityExplanation: [{ vi: 'Điểm chính', en: 'Takeaway' }],
+      }),
+    ).toBe(true);
+  });
+
+  it('does not cache an English-only briefing and returns the statistical draft', async () => {
+    const env = createMockEnv({
+      AI: {
+        run: vi.fn(async () => ({
+          response: JSON.stringify({
+            summary: { vi: '', en: 'Home side are favourites.' },
+            probabilityExplanation: [{ vi: '', en: 'Away win chance is 26.2%.' }],
+          }),
+        })),
+      } as never,
+    });
+    const result = await generateTacticalBriefing(env, {
+      matchId: 'm-en-only',
+      aiFallback: false,
+      probability: { homeWinProb: 0.4, drawProb: 0.3, awayWinProb: 0.3 },
+    });
+
+    expect(result.summary.vi).toContain('mô hình thống kê');
+    expect(result.summary.en).toContain('statistical model');
+    expect(briefingWithheldFromCache(result)).toBe(true);
+    expect(env.KV.put).not.toHaveBeenCalled();
+  });
+
+  it('does not ask the model to emit an empty vi field', () => {
+    const prompt = tacticalBriefingPrompt('m-1', { awayWinProb: 0.26 });
+    expect(prompt).not.toContain('set vi to');
+    expect(prompt).not.toMatch(/vi:\s*""/);
+    expect(prompt).toContain('Leave neither side empty');
   });
 });

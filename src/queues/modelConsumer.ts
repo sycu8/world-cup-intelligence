@@ -12,7 +12,7 @@ import {
 } from '../services/matchScenarioService';
 import { runScenarioBacktest } from '../models/scenarios/backtesting/scenarioBacktestRunner';
 import { briefingWithheldFromCache, generateTacticalBriefing } from '../ai/tacticalBriefing';
-import { clearBriefingInflight } from '../ai/briefingQueue';
+import { clearBriefingInflight, markBriefingWithheld } from '../ai/briefingQueue';
 import { runMultiVariableAnalysis } from '../ai/multiVariableAnalysis';
 import { extractEntitiesFromArticle } from '../ai/entityExtraction';
 import { processNewsDocumentImpact } from '../services/newsMatchImpact';
@@ -107,6 +107,8 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
           });
           if (briefingWithheldFromCache(briefing)) {
             logWarn('tactical briefing not cached', { matchId });
+            await markBriefingWithheld(env, matchId);
+            if (matchId !== requestedRef) await markBriefingWithheld(env, requestedRef);
             break;
           }
           await env.KV.put(`briefing:${matchId}`, JSON.stringify(briefing), { expirationTtl: 3600 });

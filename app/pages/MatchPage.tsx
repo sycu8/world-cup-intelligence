@@ -45,7 +45,7 @@ import { useMatchProbabilityMovement } from '../lib/useMatchProbabilityMovement'
 import { deferNonCritical } from '../lib/deferNonCritical';
 import { adjustProbabilities } from '../lib/simulator';
 import { pct } from '../lib/format';
-import { pickLocalized } from '../lib/briefingText';
+import { pickLocalized, visibleBriefingLines } from '../lib/briefingText';
 import { useI18n } from '../lib/i18n/I18nContext';
 import { resolveMatchAnalysisHref, matchPagePath } from '../lib/matchPaths';
 import { useLegacyMatchRedirect } from '../lib/useLegacyMatchRedirect';
@@ -346,8 +346,9 @@ export function MatchPage() {
                 : undefined
           }
           takeaways={
-            briefing?.probabilityExplanation.map((line) => pickLocalized(line, mode)) ??
-            hints.map((h) => (mode === 'en' ? h.en : h.vi)).slice(0, 4)
+            briefing
+              ? visibleBriefingLines(briefing.probabilityExplanation, mode)
+              : hints.map((h) => (mode === 'en' ? h.en : h.vi)).slice(0, 4)
           }
           stickyContext={{
             home,
@@ -390,10 +391,13 @@ export function MatchPage() {
               variant="editorial"
             />
           )}
-          {briefing?.summary && !preview && <p>{pickLocalized(briefing.summary, mode)}</p>}
-          {briefing?.probabilityExplanation.map((line, i) => (
-            <p key={i}>{pickLocalized(line, mode)}</p>
-          ))}
+          {briefing?.summary && !preview && pickLocalized(briefing.summary, mode).trim() && (
+            <p>{pickLocalized(briefing.summary, mode).trim()}</p>
+          )}
+          {briefing &&
+            visibleBriefingLines(briefing.probabilityExplanation, mode).map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
           {analysis?.executiveSummary && (
             <>
               <h2>{t('multiVar.analysisHeading')}</h2>

@@ -448,6 +448,7 @@ export type LocaleKey =
   | 'matchAnalysis.notFound'
   | 'matchAnalysis.notFoundBack'
   | 'match.briefingAiSubtitle'
+  | 'match.briefingDraftSubtitle'
   | 'matchHeader.matchLabel'
   | 'news.pagination'
   | 'countdown.day'
@@ -1422,6 +1423,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'match.briefingAiSubtitle': {
     vi: 'Phần phân tích AI — số liệu là chuẩn',
     en: 'AI analysis layer — stats lead',
+  },
+  'match.briefingDraftSubtitle': {
+    vi: 'Bản thống kê — phân tích AI chưa có.',
+    en: 'Statistical draft — no AI analysis yet.',
   },
   'matchHeader.matchLabel': { vi: 'TRẬN ĐẤU', en: 'MATCH' },
   'news.pagination': { vi: 'Phân trang tin', en: 'News pagination' },

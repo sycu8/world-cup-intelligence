@@ -3,10 +3,13 @@ import { logInfo } from '../utils/logger';
 
 export const BRIEFING_INFLIGHT_PREFIX = 'briefing:inflight:';
 /**
- * Covers a full queue batch. QA saw calls of about 35–56s, and a batch can
- * hold 5 messages, so the marker must outlive about 5 × 75s.
+ * A batch can hold 5 messages, and each briefing call may use the full 120s
+ * AI timeout, so the marker must outlive 5 × 120s.
  */
-export const BRIEFING_INFLIGHT_TTL_SECONDS = 420;
+export const BRIEFING_INFLIGHT_TTL_SECONDS = 660;
+
+const INFLIGHT_QUEUED = '1';
+const INFLIGHT_WITHHELD = 'withheld';
 
 function inflightKey(matchId: string) {
   return `${BRIEFING_INFLIGHT_PREFIX}${matchId}`;
@@ -21,9 +24,11 @@ export async function requestBriefingGeneration(env: AppEnv, matchId: string): P
   if (!env.MODEL_QUEUE) return false;
   const key = inflightKey(matchId);
   const existing = await env.KV.get(key);
+  // A blank reply already fell back. Do not report "generating" or enqueue again.
+  if (existing === INFLIGHT_WITHHELD) return false;
   if (existing) return true;
 
-  await env.KV.put(key, '1', { expirationTtl: BRIEFING_INFLIGHT_TTL_SECONDS });
+  await env.KV.put(key, INFLIGHT_QUEUED, { expirationTtl: BRIEFING_INFLIGHT_TTL_SECONDS });
   try {
     await env.MODEL_QUEUE.send({ type: 'ai_briefing', matchId });
   } catch (error) {
@@ -36,4 +41,11 @@ export async function requestBriefingGeneration(env: AppEnv, matchId: string): P
 
 export async function clearBriefingInflight(env: AppEnv, matchId: string): Promise<void> {
   await env.KV.delete(inflightKey(matchId));
+}
+
+/** Keep the marker, but stop the page from showing "generating" after a blank reply. */
+export async function markBriefingWithheld(env: AppEnv, matchId: string): Promise<void> {
+  await env.KV.put(inflightKey(matchId), INFLIGHT_WITHHELD, {
+    expirationTtl: BRIEFING_INFLIGHT_TTL_SECONDS,
+  });
 }

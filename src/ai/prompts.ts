@@ -42,7 +42,7 @@ export const tacticalBriefingPrompt = (matchId: string, probability: Record<stri
 ${JSON.stringify(probability)}
 
 Every prose field must be { "vi": "tiếng Việt", "en": "English" }.
-Write vi in Vietnamese. If you cannot write Vietnamese, set vi to "" and do not copy the English sentence into vi.
+Write vi in Vietnamese and en in English. Leave neither side empty, and do not copy the English sentence into vi.
 homeWinProb is the home team's chance of winning. drawProb is the chance of a draw. awayWinProb is the away team's chance of winning, not of losing.
 Return one JSON object and nothing else. No markdown. At most 2 items in each array.
 Omit citations, source names, source URLs, and supportingSources.
