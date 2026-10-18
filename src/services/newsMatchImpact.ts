@@ -3,6 +3,7 @@ import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import { getTeamsByTournament } from '../db/repositories/teamsRepo';
 import type { TeamRow } from '../db/schema';
 import type { ExtractedEntities } from '../ai/entityExtraction';
+import { requestBriefingGeneration } from '../ai/briefingQueue';
 import { recomputeMatchProbability } from './recomputeMatch';
 import { logInfo, logError } from '../utils/logger';
 
@@ -212,7 +213,8 @@ export async function processNewsDocumentImpact(
         triggeredRecompute = true;
         if (env.MODEL_QUEUE) {
           await env.MODEL_QUEUE.send({ type: 'ai_multi_analyze', matchId });
-          await env.MODEL_QUEUE.send({ type: 'ai_briefing', matchId });
+          // Same gate as the page: a withheld or in-flight marker is not enqueued again.
+          await requestBriefingGeneration(env, matchId);
         }
       } catch (e) {
         logError('news impact recompute failed', { matchId, error: String(e) });

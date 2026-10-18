@@ -12,7 +12,7 @@ import {
 } from '../services/matchScenarioService';
 import { runScenarioBacktest } from '../models/scenarios/backtesting/scenarioBacktestRunner';
 import { briefingWithheldFromCache, generateTacticalBriefing } from '../ai/tacticalBriefing';
-import { clearBriefingInflight, markBriefingWithheld } from '../ai/briefingQueue';
+import { clearBriefingInflight, isBriefingWithheld, markBriefingWithheld } from '../ai/briefingQueue';
 import { runMultiVariableAnalysis } from '../ai/multiVariableAnalysis';
 import { extractEntitiesFromArticle } from '../ai/entityExtraction';
 import { processNewsDocumentImpact } from '../services/newsMatchImpact';
@@ -92,6 +92,14 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
             logWarn('tactical briefing snapshot missing', { matchId });
             await clearBriefingInflight(env, requestedRef);
             if (matchId !== requestedRef) await clearBriefingInflight(env, matchId);
+            break;
+          }
+          // The queued value is '1'. Only 'withheld' means this message must not call the model.
+          if (
+            (await isBriefingWithheld(env, matchId)) ||
+            (matchId !== requestedRef && (await isBriefingWithheld(env, requestedRef)))
+          ) {
+            logWarn('tactical briefing skipped', { matchId });
             break;
           }
           const briefing = await generateTacticalBriefing(env, {

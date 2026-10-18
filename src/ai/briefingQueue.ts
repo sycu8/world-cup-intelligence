@@ -11,6 +11,11 @@ export const BRIEFING_INFLIGHT_TTL_SECONDS = 660;
 const INFLIGHT_QUEUED = '1';
 const INFLIGHT_WITHHELD = 'withheld';
 
+/** A blank reply already stored this value. Do not enqueue or generate again. */
+export async function isBriefingWithheld(env: AppEnv, matchId: string): Promise<boolean> {
+  return (await env.KV.get(inflightKey(matchId))) === INFLIGHT_WITHHELD;
+}
+
 function inflightKey(matchId: string) {
   return `${BRIEFING_INFLIGHT_PREFIX}${matchId}`;
 }

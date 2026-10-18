@@ -330,6 +330,21 @@ describe('handleModelBatch', () => {
     );
   });
 
+  it('ai_briefing does not call the model when the in-flight marker is withheld', async () => {
+    const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+    const env = createMockEnv({ AI_FALLBACK_MODE: 'false' });
+    await env.KV.put('briefing:inflight:m-1', 'withheld');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'ai_briefing', matchId: 'm-1' } }]),
+      env,
+    );
+    expect(generateTacticalBriefing).not.toHaveBeenCalled();
+    expect(warn.mock.calls.map((call) => String(call[0])).join('\n')).toContain('tactical briefing skipped');
+    expect(await env.KV.get('briefing:inflight:m-1')).toBe('withheld');
+    warn.mockRestore();
+  });
+
   it('ai_briefing marks the in-flight key withheld when the briefing is not cached', async () => {
     const { briefingWithheldFromCache } = await import('../src/ai/tacticalBriefing');
     const { BRIEFING_INFLIGHT_TTL_SECONDS } = await import('../src/ai/briefingQueue');

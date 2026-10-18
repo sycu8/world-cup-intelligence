@@ -98,34 +98,42 @@ describe('newsMatchImpact', () => {
   });
 });
 
+function highImpactEnv(
+  queueSend: (message: { type: string; matchId: string }) => Promise<void>,
+  aiRun: () => Promise<unknown> = vi.fn(async () => ({ response: '{}' })),
+) {
+  return createMockEnv({
+    AI: { run: aiRun } as never,
+    DB: createMockDb({
+      all: (sql) => {
+        if (sql.includes("GLOB 'team-w26-")) {
+          return {
+            results: [
+              { id: 'team-w26-a1', name: 'Mexico', short_name: 'MEX', country_code: 'MEX', fifa_ranking: 14, elo_rating: 1800, collective_strength_rating: 0.8 },
+              { id: 'team-w26-a2', name: 'South Africa', short_name: 'RSA', country_code: 'RSA', fifa_ranking: 59, elo_rating: 1650, collective_strength_rating: 0.62 },
+            ],
+          };
+        }
+        if (sql.includes('SELECT id FROM matches') && sql.includes('home_team_id IN')) {
+          return { results: [{ id: FIXTURE_MATCH.id }] };
+        }
+        if (sql.includes('country_code')) return { results: [{ id: 'team-w26-a1' }] };
+        return { results: [] };
+      },
+      first: (sql) => {
+        if (sql.includes('country_code FROM teams')) return { country_code: 'MEX' };
+        return null;
+      },
+      run: () => ({ success: true, meta: { changes: 1 } }),
+    }),
+    MODEL_QUEUE: { send: queueSend } as never,
+  });
+}
+
 describe('processNewsDocumentImpact', () => {
   it('links news to WC2026 matches and triggers recompute for high impact', async () => {
     const queueSend = vi.fn(async () => undefined);
-    const env = createMockEnv({
-      DB: createMockDb({
-        all: (sql) => {
-          if (sql.includes("GLOB 'team-w26-")) {
-            return {
-              results: [
-                { id: 'team-w26-a1', name: 'Mexico', short_name: 'MEX', country_code: 'MEX', fifa_ranking: 14, elo_rating: 1800, collective_strength_rating: 0.8 },
-                { id: 'team-w26-a2', name: 'South Africa', short_name: 'RSA', country_code: 'RSA', fifa_ranking: 59, elo_rating: 1650, collective_strength_rating: 0.62 },
-              ],
-            };
-          }
-          if (sql.includes('SELECT id FROM matches') && sql.includes('home_team_id IN')) {
-            return { results: [{ id: FIXTURE_MATCH.id }] };
-          }
-          if (sql.includes('country_code')) return { results: [{ id: 'team-w26-a1' }] };
-          return { results: [] };
-        },
-        first: (sql) => {
-          if (sql.includes('country_code FROM teams')) return { country_code: 'MEX' };
-          return null;
-        },
-        run: () => ({ success: true, meta: { changes: 1 } }),
-      }),
-      MODEL_QUEUE: { send: queueSend } as never,
-    });
+    const env = highImpactEnv(queueSend);
 
     const result = await processNewsDocumentImpact(
       env,
@@ -137,6 +145,43 @@ describe('processNewsDocumentImpact', () => {
     expect(result.matchIds).toContain(FIXTURE_MATCH.id);
     expect(result.triggeredRecompute).toBe(true);
     expect(queueSend).toHaveBeenCalled();
+    const briefings = queueSend.mock.calls.filter((call) => call[0]?.type === 'ai_briefing');
+    expect(briefings).toEqual([[{ type: 'ai_briefing', matchId: FIXTURE_MATCH.id }]]);
+  });
+
+  it('does not enqueue a briefing when the match marker is withheld', async () => {
+    const queueSend = vi.fn(async () => undefined);
+    const aiRun = vi.fn(async () => ({ response: '{}' }));
+    const env = highImpactEnv(queueSend, aiRun);
+    await env.KV.put(`briefing:inflight:${FIXTURE_MATCH.id}`, 'withheld');
+
+    const result = await processNewsDocumentImpact(
+      env,
+      'doc-withheld',
+      'Mexico striker ruled out with hamstring injury before South Africa clash',
+      { teams: ['Mexico'], players: [], injuries: ['hamstring'], tacticalNotes: [], formations: [] },
+    );
+
+    expect(result.impactLevel).toBe('high');
+    expect(result.triggeredRecompute).toBe(true);
+    expect(queueSend.mock.calls.filter((call) => call[0]?.type === 'ai_briefing')).toEqual([]);
+    expect(aiRun).not.toHaveBeenCalled();
+    expect(await env.KV.get(`briefing:inflight:${FIXTURE_MATCH.id}`)).toBe('withheld');
+  });
+
+  it('does not enqueue a second briefing while one is already in flight', async () => {
+    const queueSend = vi.fn(async () => undefined);
+    const env = highImpactEnv(queueSend);
+    await env.KV.put(`briefing:inflight:${FIXTURE_MATCH.id}`, '1');
+
+    await processNewsDocumentImpact(
+      env,
+      'doc-inflight',
+      'Mexico striker ruled out with hamstring injury before South Africa clash',
+      { teams: ['Mexico'], players: [], injuries: ['hamstring'], tacticalNotes: [], formations: [] },
+    );
+
+    expect(queueSend.mock.calls.filter((call) => call[0]?.type === 'ai_briefing')).toEqual([]);
   });
 
   it('stores null affected matches when no teams can be resolved', async () => {

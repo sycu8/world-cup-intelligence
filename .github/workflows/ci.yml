@@ -1,5 +1,6 @@
 # Tests and typecheck for pull requests and branch pushes.
 # Deploy stays in deploy.yml and runs only on main or a manual dispatch.
+# Needs Cuong's OK before this workflow is merged.
 name: CI
 
 on:
