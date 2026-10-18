@@ -150,8 +150,9 @@ export function MatchPage() {
             if (cancelled) return;
             setBriefing(r.data);
             const stillGenerating = Boolean(r.generating);
+            const failed = r.briefingStatus === 'failed';
             setBriefingGenerating(stillGenerating);
-            setBriefingTimedOut(stillGenerating && attempt >= BRIEFING_POLL_LIMIT);
+            setBriefingTimedOut(failed || (stillGenerating && attempt >= BRIEFING_POLL_LIMIT));
             if (stillGenerating && attempt < BRIEFING_POLL_LIMIT) {
               briefingTimer = setTimeout(() => pollBriefing(attempt + 1), BRIEFING_POLL_INTERVAL_MS);
             }

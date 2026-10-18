@@ -18,11 +18,29 @@ import { extractEntitiesFromArticle } from '../ai/entityExtraction';
 import { processNewsDocumentImpact } from '../services/newsMatchImpact';
 import { parseEnv } from '../env';
 import * as probabilityRepo from '../db/repositories/probabilityRepo';
+import { modelJobPriority, modelMessageDisposition } from './modelJobLane';
 
 export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEnv): Promise<void> {
   const config = parseEnv(env);
-
+  const now = Date.now();
+  const dropped: Message<ModelJob>[] = [];
+  const runnable: Message<ModelJob>[] = [];
   for (const msg of batch.messages) {
+    if (modelMessageDisposition(msg.body, msg.timestamp, now) === 'drop') dropped.push(msg);
+    else runnable.push(msg);
+  }
+  for (const msg of dropped) msg.ack();
+  if (dropped.length > 0) {
+    logInfo('model queue dropped stale', {
+      dropped: dropped.length,
+      types: dropped
+        .map((msg) => (msg.body && typeof msg.body.type === 'string' ? msg.body.type : 'unknown'))
+        .join(','),
+    });
+  }
+  runnable.sort((a, b) => modelJobPriority(a.body.type) - modelJobPriority(b.body.type));
+
+  for (const msg of runnable) {
     try {
       switch (msg.body.type) {
         case 'recompute':

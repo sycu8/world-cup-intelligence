@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { probabilityRoutes } from '../src/routes/probability';
-import { BRIEFING_INFLIGHT_TTL_SECONDS } from '../src/ai/briefingQueue';
+import { BRIEFING_INFLIGHT_TTL_SECONDS, BRIEFING_STALE_MS } from '../src/ai/briefingQueue';
 import { fallbackBriefing } from '../src/ai/tacticalBriefing';
 import { FIXTURE_MATCH } from './helpers/fixtures';
 import { jsonRoute } from './helpers/routeHarness';
@@ -88,9 +88,10 @@ describe('tactical briefing queue', () => {
     expect(send).toHaveBeenCalledWith({ type: 'ai_briefing', matchId: FIXTURE_MATCH.id });
     expect(env.KV.put).toHaveBeenCalledWith(
       `briefing:inflight:${FIXTURE_MATCH.id}`,
-      '1',
+      expect.stringMatching(/^1:\d+$/),
       { expirationTtl: BRIEFING_INFLIGHT_TTL_SECONDS },
     );
+    expect(BRIEFING_STALE_MS).toBe(150_000);
     expect(BRIEFING_INFLIGHT_TTL_SECONDS).toBeGreaterThan(5 * 120);
     expect(await env.KV.get(`briefing:inflight:${slug}`)).toBeNull();
 
@@ -120,4 +121,27 @@ describe('tactical briefing queue', () => {
     expect(json.data.summary.en).toContain('statistical model');
     expect(send).not.toHaveBeenCalled();
   });
+
+  it.each(['1', `1:${Date.now() - BRIEFING_STALE_MS - 1_000}`])(
+    'treats a stuck marker %s as not-ready and queues one retry',
+    async (marker) => {
+      const send = vi.fn(async () => undefined);
+      const env = createRouteTestEnv({
+        AI_FALLBACK_MODE: 'false',
+        MODEL_QUEUE: { send } as never,
+      });
+      await env.KV.put(`briefing:inflight:${FIXTURE_MATCH.id}`, marker);
+
+      const { json } = await jsonRoute<{
+        generating: boolean;
+        briefingStatus: string;
+      }>(probabilityRoutes, path, { env });
+
+      expect(json.generating).toBe(false);
+      expect(json.briefingStatus).toBe('failed');
+      expect(json).not.toMatchObject({ generating: true });
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(send).toHaveBeenCalledWith({ type: 'ai_briefing', matchId: FIXTURE_MATCH.id });
+    },
+  );
 });

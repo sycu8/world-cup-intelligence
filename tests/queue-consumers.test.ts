@@ -412,6 +412,66 @@ describe('handleModelBatch', () => {
     expect(env.DB.prepare).toHaveBeenCalled();
   });
 
+  it('acks a stale ai_briefing without calling the model and counts the drop', async () => {
+    const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+    const ack = vi.fn();
+    const retry = vi.fn();
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    await handleModelBatch(
+      createMockMessageBatch([
+        {
+          body: { type: 'ai_briefing', matchId: 'm-1' },
+          timestamp: new Date(Date.now() - 151_000),
+          ack,
+          retry,
+        },
+      ]),
+      createMockEnv(),
+    );
+    expect(generateTacticalBriefing).not.toHaveBeenCalled();
+    expect(ack).toHaveBeenCalledTimes(1);
+    expect(retry).not.toHaveBeenCalled();
+    const logged = log.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(logged).toContain('model queue dropped stale');
+    expect(logged).toContain('"dropped":1');
+    log.mockRestore();
+  });
+
+  it('acks an unknown job type without calling the model', async () => {
+    const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+    const { recomputeMatchProbability } = await import('../src/services/recomputeMatch');
+    const ack = vi.fn();
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'retired_bulk_score' } as never, ack }]),
+      createMockEnv(),
+    );
+    expect(ack).toHaveBeenCalledTimes(1);
+    expect(generateTacticalBriefing).not.toHaveBeenCalled();
+    expect(recomputeMatchProbability).not.toHaveBeenCalled();
+  });
+
+  it('runs a fresh ai_briefing before other fresh work in the same batch', async () => {
+    const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+    const { recomputeMatchProbability } = await import('../src/services/recomputeMatch');
+    const order: string[] = [];
+    vi.mocked(generateTacticalBriefing).mockImplementationOnce(async () => {
+      order.push('briefing');
+      return { matchId: 'm-1', summary: 'brief' };
+    });
+    vi.mocked(recomputeMatchProbability).mockImplementationOnce(async () => {
+      order.push('recompute');
+    });
+    await handleModelBatch(
+      createMockMessageBatch([
+        { body: { type: 'recompute', matchId: 'm-1' } },
+        { body: { type: 'ai_briefing', matchId: 'm-2' } },
+      ]),
+      createMockEnv({ AI_FALLBACK_MODE: 'true' }),
+    );
+    expect(order[0]).toBe('briefing');
+    expect(order).toEqual(['briefing', 'recompute']);
+  });
+
   it('retries on model job failure', async () => {
     const { recomputeMatchProbability } = await import('../src/services/recomputeMatch');
     vi.mocked(recomputeMatchProbability).mockRejectedValueOnce(new Error('fail'));

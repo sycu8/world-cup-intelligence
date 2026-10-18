@@ -172,7 +172,7 @@ describe('processNewsDocumentImpact', () => {
   it('does not enqueue a second briefing while one is already in flight', async () => {
     const queueSend = vi.fn(async () => undefined);
     const env = highImpactEnv(queueSend);
-    await env.KV.put(`briefing:inflight:${FIXTURE_MATCH.id}`, '1');
+    await env.KV.put(`briefing:inflight:${FIXTURE_MATCH.id}`, `1:${Date.now()}`);
 
     await processNewsDocumentImpact(
       env,

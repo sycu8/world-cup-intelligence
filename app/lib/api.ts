@@ -63,7 +63,11 @@ export const api = {
   matchHints: (id: string) =>
     get<{ data: { hints: ProbabilityHint[] } }>(`/matches/${id}/hints`),
   matchBriefing: (id: string) =>
-    get<{ data: TacticalBriefing; generating?: boolean }>(`/matches/${id}/tactical-briefing`),
+    get<{
+      data: TacticalBriefing;
+      generating?: boolean;
+      briefingStatus?: 'ready' | 'generating' | 'failed';
+    }>(`/matches/${id}/tactical-briefing`),
   matchPreview: (id: string) => get<{ data: MatchPreviewAnalysis }>(`/matches/${id}/preview`),
   matchLineups: (id: string) => get<{ data: MatchLineupsPayload }>(`/matches/${id}/lineups`),
   matchPitchMap: (id: string) => get<{ data: PitchMapPayload }>(`/matches/${id}/pitch-map`),

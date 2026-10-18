@@ -53,11 +53,13 @@ export function TacticalBriefingPanel({ briefing, loading, generating, timedOut 
   const summaryText = pickLocalized(briefing.summary, mode).trim();
   const takeaways = visibleBriefingLines(briefing.probabilityExplanation, mode);
   const notes = visibleBriefingLines(briefing.uncertaintyNotes, mode);
-  const subtitle = generating
-    ? t(timedOut ? 'match.briefingTryAgain' : 'match.briefingGenerating')
-    : isStatisticalDraftSummary(briefing.summary)
-      ? t('match.briefingDraftSubtitle')
-      : t('match.briefingAiSubtitle');
+  const subtitle = timedOut
+    ? t('match.briefingTryAgain')
+    : generating
+      ? t('match.briefingGenerating')
+      : isStatisticalDraftSummary(briefing.summary)
+        ? t('match.briefingDraftSubtitle')
+        : t('match.briefingAiSubtitle');
 
   return (
     <div className="panel-dense space-y-4 border-magenta/15">
