@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PitchIntel</string>
+    <string name="title_activity_main">PitchIntel</string>
+    <string name="package_name">vn.orangecloud.pitchintel</string>
+    <string name="custom_url_scheme">vn.orangecloud.pitchintel</string>
+    <string name="privacy_policy_url">https://wcstat.orangecloud.vn/privacy</string>
+    <string name="store_description">PitchIntel — phân tích chiến thuật và xác suất mô hình cho World Cup 2026. Không phải ứng dụng cá cược.</string>
+</resources>

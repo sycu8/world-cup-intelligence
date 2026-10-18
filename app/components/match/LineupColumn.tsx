@@ -18,6 +18,7 @@ export function LineupColumn({
         hasAccurateLineup: side.hasAccurateLineup,
         hasLineup: (side.fullLineup?.length ?? 0) >= 7,
         source: side.lineupSource,
+        players: side.fullLineup ?? [],
         lineupPlayers: side.lineupPlayers,
         starters: side.lineupPlayers,
       }}

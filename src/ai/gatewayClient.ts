@@ -93,7 +93,7 @@ export async function gatewayChat(
       usage?: GatewayChatResult['usage'];
     };
     const content = data.choices?.[0]?.message?.content ?? '';
-    const provider = model.split('/')[0] ?? 'unknown';
+    const provider = model.split('/')[0]!;
 
     await env.KV.put(
       `ai:usage:${task}:${Date.now()}`,

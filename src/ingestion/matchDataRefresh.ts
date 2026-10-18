@@ -3,7 +3,7 @@ import { parseEnv } from '../env';
 import { nowIso } from '../utils/time';
 import { logInfo } from '../utils/logger';
 import { mockScoreAtMinute } from '../services/matchLifecycle';
-import { processMatchCompletion } from '../services/tournamentProgression';
+import { processMatchCompletion, replayKnockoutBracketFromCompleted } from '../services/tournamentProgression';
 import { resolveMatchDataProvider } from './matchDataProvider';
 import { syncFifaWc2026Matches } from './fifa/fifaLiveSync';
 import { syncFifaLineupsForUpcomingMatches } from './fifa/fifaLineupSync';
@@ -11,6 +11,8 @@ import { syncFifaLineupsForUpcomingMatches } from './fifa/fifaLineupSync';
 export type RefreshMatchDataResult = {
   updatedIds: string[];
   completedIds: string[];
+  teamUpdatedIds: string[];
+  bracketUpdatedIds: string[];
 };
 
 function fifaLiveEnabled(env: AppEnv): boolean {
@@ -24,7 +26,14 @@ export async function refreshMatchData(env: AppEnv): Promise<RefreshMatchDataRes
     const fifa = await syncFifaWc2026Matches(env);
     await syncFifaLineupsForUpcomingMatches(env).catch(() => undefined);
     await env.KV.put('meta:last_data_refresh', nowIso(), { expirationTtl: 86400 });
-    return { updatedIds: fifa.updatedIds, completedIds: fifa.completedIds };
+    const { warmPayloadCaches } = await import('../services/cacheWarm');
+    await warmPayloadCaches(env).catch(() => undefined);
+    return {
+      updatedIds: fifa.updatedIds,
+      completedIds: fifa.completedIds,
+      teamUpdatedIds: fifa.teamUpdatedIds,
+      bracketUpdatedIds: [],
+    };
   }
 
   const updatedIds: string[] = [];
@@ -88,11 +97,23 @@ export async function refreshMatchData(env: AppEnv): Promise<RefreshMatchDataRes
   }
 
   await env.KV.put('meta:last_data_refresh', now, { expirationTtl: 86400 });
+  const { warmPayloadCaches } = await import('../services/cacheWarm');
+  await warmPayloadCaches(env).catch(() => undefined);
   logInfo('minute refresh complete', {
     updated: updatedIds.length,
     completed: completedIds.length,
   });
-  return { updatedIds, completedIds };
+
+  const bracketUpdatedIds = completedIds.length
+    ? await replayKnockoutBracketFromCompleted(env)
+    : [];
+
+  return {
+    updatedIds,
+    completedIds,
+    teamUpdatedIds: [],
+    bracketUpdatedIds,
+  };
 }
 
 /** Finalize scores + advance bracket for matches that just ended. */

@@ -29,5 +29,23 @@ describe('nationFlags', () => {
     expect(resolveTeamFlag({ countryCode: 'JP' })).toBe('🇯🇵');
     expect(resolveTeamFlag({ teamName: 'Brazil' })).toBe('🇧🇷');
     expect(resolveTeamFlag({ countryCode: 'XX' })).toBe('');
+    expect(resolveTeamFlag({ countryCode: 'GB', teamName: 'Scotland' })).toBe('🇬🇧');
+    expect(resolveTeamFlag({ countryCode: 'GB', teamName: 'England' })).toBe('🇬🇧');
+    expect(resolveTeamFlag({ teamName: 'Unknown Nation XYZ' })).toBe('');
+  });
+
+  it('handles invalid ISO and empty slugs', () => {
+    expect(isoToFlagEmoji('TBD')).toBe('');
+    expect(isoToFlagEmoji('X')).toBe('');
+    expect(flagImageUrl('')).toBe('');
+    expect(resolveTeamFlagSlug({ countryCode: 'XX', teamName: 'Brazil' })).toBe('br');
+  });
+
+  it('resolves GB partial names and hyphen slug emoji fallbacks', () => {
+    expect(resolveTeamFlagSlug({ countryCode: 'GB', teamName: 'Scot' })).toBe('gb-sct');
+    expect(resolveTeamFlagSlug({ countryCode: 'GB', teamName: 'English Lions' })).toBe('gb-eng');
+    expect(resolveTeamFlag({ countryCode: 'GB', teamName: 'Scotland' })).toBe('🇬🇧');
+    expect(resolveTeamFlag({ teamName: 'Not A Real Nation ZZZ' })).toBe('');
+    expect(resolveTeamFlagSlug({ teamName: 'Not A Real Nation ZZZ' })).toBe('');
   });
 });

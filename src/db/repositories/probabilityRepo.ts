@@ -11,12 +11,14 @@ export async function listLatestSnapshotsForTournament(
     homeWinProb: number;
     drawProb: number;
     awayWinProb: number;
+    mostLikelyScore: string | null;
   }>
 > {
   const { results } = await db
     .prepare(
       `SELECT ps.match_id AS matchId, ps.home_win_prob AS homeWinProb,
-              ps.draw_prob AS drawProb, ps.away_win_prob AS awayWinProb
+              ps.draw_prob AS drawProb, ps.away_win_prob AS awayWinProb,
+              ps.most_likely_score AS mostLikelyScore
        FROM probability_snapshots ps
        INNER JOIN (
          SELECT match_id, MAX(id) AS latest_id
@@ -31,6 +33,7 @@ export async function listLatestSnapshotsForTournament(
       homeWinProb: number;
       drawProb: number;
       awayWinProb: number;
+      mostLikelyScore: string | null;
     }>();
   return results ?? [];
 }
@@ -61,6 +64,23 @@ export async function getPreMatchSnapshot(
     )
     .bind(matchId)
     .first<ProbabilitySnapshotRow>();
+}
+
+/** Snapshot for public API — live uses latest minute; completed uses kickoff (minute 0) only. */
+export async function getDisplaySnapshot(
+  db: D1Database,
+  matchId: string,
+  status: string,
+): Promise<ProbabilitySnapshotRow | null> {
+  if (status === 'live') {
+    return getLatestSnapshot(db, matchId);
+  }
+  if (status === 'completed') {
+    const pre = await getPreMatchSnapshot(db, matchId);
+    if (pre && (pre.minute ?? 0) === 0) return pre;
+    return null;
+  }
+  return getLatestSnapshot(db, matchId);
 }
 
 export async function saveSnapshot(db: D1Database, result: ProbabilityResult, r2Key?: string): Promise<string> {

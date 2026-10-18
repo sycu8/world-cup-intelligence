@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { parseGamedayTeamStats, parseGamedayTeamsPayload } from '../src/ingestion/fifa/parseFifaGamedayStats';
 import {
   deriveShotsFromTimeline,
+  eventTypeKey,
   parseFifaTimelineCommentary,
   timelinePeriodLabel,
 } from '../src/ingestion/fifa/parseFifaTimeline';
@@ -131,5 +132,10 @@ describe('parseFifaTimeline', () => {
     expect(counts.homeSot).toBe(1);
     expect(counts.awayShots).toBe(1);
     expect(counts.awaySot).toBe(1);
+  });
+
+  it('normalizes unknown commentary labels to snake_case keys', () => {
+    expect(eventTypeKey('Highlight Moment')).toBe('highlight_moment');
+    expect(eventTypeKey('!!!')).toBe('event');
   });
 });

@@ -96,25 +96,15 @@ function pickStartingEleven(players: SquadPlayerRow[], matchId: string, teamId: 
   return players.slice(offset, offset + 11);
 }
 
-function shouldReplaceLineup(
-  existing: { is_official: number; source_type: string | null } | null,
-  sourceType: string,
-): boolean {
+function shouldReplaceLineup(existing: { is_official: number; source_type: string | null } | null): boolean {
   if (!existing) return true;
-  if (existing.source_type === 'match_official') return sourceType === 'match_official';
-  if (sourceType === 'match_official') return true;
-  return existing.source_type !== 'squad_official' || sourceType === 'squad_official';
+  return existing.source_type !== 'match_official';
 }
 
 export async function applyOfficialLineupToMatch(
   env: AppEnv,
   input: SetOfficialMatchLineupInput,
 ): Promise<{ lineupId: string; updated: boolean }> {
-  const existing = await lineupsRepo.getMatchLineupRow(env.DB, input.matchId, input.teamId);
-  if (!shouldReplaceLineup(existing, 'match_official')) {
-    return { lineupId: existing!.id, updated: false };
-  }
-
   const starters = input.players.filter((p) => p.isStarter !== false).slice(0, 11);
   const lineupId = await lineupsRepo.upsertMatchLineup(env.DB, {
     matchId: input.matchId,
@@ -144,14 +134,12 @@ export async function syncOfficialSquadToMatch(
   if (!squadData) return false;
 
   const existing = await lineupsRepo.getMatchLineupRow(env.DB, matchId, teamId);
-  if (!shouldReplaceLineup(existing, 'squad_official')) return false;
+  if (!shouldReplaceLineup(existing)) return false;
 
   const starters = pickStartingEleven(squadData.players, matchId, teamId);
   const starterIds = new Set(starters.map((p) => p.player_id));
   const bench = squadData.players.filter((p) => !starterIds.has(p.player_id)).slice(0, 7);
-  const formation =
-    inferFormationFromPlayers(starters) ||
-    FORMATIONS[hashString(`${matchId}:${teamId}`) % FORMATIONS.length];
+  const formation = inferFormationFromPlayers(starters);
 
   await lineupsRepo.upsertMatchLineup(env.DB, {
     matchId,

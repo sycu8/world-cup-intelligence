@@ -5,6 +5,7 @@ import { compressAndStoreNewsImage, newsAssetPublicPath } from './newsImagePipel
 import { normalizeFeedImageUrl } from './newsImageUrls';
 import { registerNewsFeedSource } from './newsSourceBackfill';
 import { translateNewsHeadline } from '../ai/translateNews';
+import { isLikelyVietnamese } from './newsTranslationUtils';
 import { newId } from '../utils/ids';
 import { nowIso } from '../utils/time';
 import { logError } from '../utils/logger';
@@ -23,13 +24,22 @@ export async function publishNewsArticle(
   const docId = newId('doc');
   const summaryEn = item.description.slice(0, 800);
 
-  const translation = await translateNewsHeadline(env, item.title, summaryEn);
-  const titleVi = translation?.titleVi?.trim() || null;
-  const summaryVi = translation?.summaryVi?.trim() || null;
-  if (!titleVi || !summaryVi) {
-    logError('news translation deferred — will backfill on read', {
-      title: item.title.slice(0, 80),
-    });
+  const nativeVi =
+    ('contentLocale' in feed && feed.contentLocale === 'vi') || isLikelyVietnamese(item.title, '');
+  let titleVi: string | null = null;
+  let summaryVi: string | null = null;
+  if (nativeVi) {
+    titleVi = item.title.trim().slice(0, 320);
+    summaryVi = summaryEn.trim().slice(0, 520) || titleVi;
+  } else {
+    const translation = await translateNewsHeadline(env, item.title, summaryEn);
+    titleVi = translation?.titleVi?.trim() || null;
+    summaryVi = translation?.summaryVi?.trim() || null;
+    if (!titleVi || !summaryVi) {
+      logError('news translation deferred — will backfill on read', {
+        title: item.title.slice(0, 80),
+      });
+    }
   }
 
   const feedImage = normalizeFeedImageUrl(item.imageUrl);
@@ -55,8 +65,9 @@ export async function publishNewsArticle(
   await env.DB.prepare(
     `INSERT INTO source_documents (
       id, source_id, source_url, title, title_vi, published_at, retrieved_at,
-      summary, summary_vi, reliability_score, content_r2_key, thumbnail_url, thumbnail_r2_key, hot_score
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      summary, summary_vi, reliability_score, content_r2_key, thumbnail_url, thumbnail_r2_key, hot_score,
+      tournament_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       docId,
@@ -73,6 +84,7 @@ export async function publishNewsArticle(
       thumbnailUrl,
       thumbnailR2Key,
       hotScore,
+      'tournamentId' in feed ? (feed.tournamentId ?? null) : null,
     )
     .run();
 

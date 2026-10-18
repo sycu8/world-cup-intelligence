@@ -1,3 +1,5 @@
+import { MatchScoreBreakdown } from '../match/MatchScoreBreakdown';
+import type { MatchScoreDetail } from '../../lib/api';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { TeamNameWithFlag } from '../team/TeamNameWithFlag';
 
@@ -10,6 +12,7 @@ type Props = {
   awayScore: number;
   status: string;
   minute?: number | null;
+  scoreDetail?: MatchScoreDetail | null;
   visible: boolean;
 };
 
@@ -22,6 +25,7 @@ export function MatchStickyScoreBar({
   awayScore,
   status,
   minute,
+  scoreDetail,
   visible,
 }: Props) {
   const { t } = useI18n();
@@ -40,7 +44,7 @@ export function MatchStickyScoreBar({
 
   return (
     <div
-      className="sticky top-0 z-30 -mx-4 border-b border-cyan/20 bg-background/95 px-4 py-2 backdrop-blur-md md:hidden"
+      className="mobile-sticky-score -mx-4 border-b border-cyan/20 bg-background/95 px-4 py-2.5 backdrop-blur-md md:hidden"
       role="status"
       aria-live="polite"
     >
@@ -49,11 +53,11 @@ export function MatchStickyScoreBar({
           name={home}
           flagName={home}
           countryCode={homeCountryCode}
-          className="min-w-0 flex-1 justify-end text-xs font-medium"
+          className="min-w-0 flex-1 justify-end text-xs font-medium sm:text-sm"
           flagClassName="h-4 w-6 rounded-sm object-cover"
         />
         <div className="shrink-0 text-center">
-          <p className="font-display text-lg tabular-nums leading-none">
+          <p className="font-display text-lg tabular-nums leading-none sm:text-xl">
             {homeScore}
             <span className="mx-0.5 text-cyan/60">–</span>
             {awayScore}
@@ -65,12 +69,18 @@ export function MatchStickyScoreBar({
           >
             {statusLabel}
           </p>
+          <MatchScoreBreakdown
+            detail={scoreDetail}
+            variant="stacked"
+            compact
+            className="mt-0.5 max-w-[11rem] justify-center"
+          />
         </div>
         <TeamNameWithFlag
           name={away}
           flagName={away}
           countryCode={awayCountryCode}
-          className="min-w-0 flex-1 text-xs font-medium"
+          className="min-w-0 flex-1 text-xs font-medium sm:text-sm"
           flagClassName="h-4 w-6 rounded-sm object-cover"
         />
       </div>

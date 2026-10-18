@@ -2,10 +2,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { cloudflare } from '@cloudflare/vite-plugin';
 import path from 'node:path';
+import { injectApiBase } from './vite-plugin-inject-api-base';
 import { inlineAppCss } from './vite-plugin-inline-app-css';
 
 export default defineConfig({
-  plugins: [react(), cloudflare(), inlineAppCss()],
+  plugins: [react(), cloudflare(), injectApiBase(), inlineAppCss()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),

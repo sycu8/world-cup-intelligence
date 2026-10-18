@@ -13,7 +13,7 @@ function fillOrigin(text: string, origin: string) {
   return text.replaceAll('{origin}', origin);
 }
 
-function renderInlineMarkdown(text: string, origin: string) {
+export function renderInlineMarkdown(text: string, origin: string) {
   const filled = fillOrigin(text, origin);
   const parts = filled.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
   return parts.map((part, i) => {
@@ -50,8 +50,12 @@ function renderInlineMarkdown(text: string, origin: string) {
   });
 }
 
+export function resolveApiDocsOrigin(): string {
+  return typeof window !== 'undefined' ? window.location.origin : 'https://wcstat.orangecloud.vn';
+}
+
 export function ApiDocsPage() {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://wcstat.orangecloud.vn';
+  const origin = resolveApiDocsOrigin();
   const [activeId, setActiveId] = useState(API_DOC_NAV[0]?.id ?? 'introduction');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 

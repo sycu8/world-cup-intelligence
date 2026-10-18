@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { buildScorelineMatrix, aggregateWdl } from '../src/models/probability/scoreline';
+import {
+  buildScorelineMatrix,
+  aggregateWdl,
+  roundedLambdaScore,
+  secondaryExpectedScore,
+} from '../src/models/probability/scoreline';
 
 describe('scoreline matrix', () => {
   it('sums to 1 after normalization', () => {
@@ -12,5 +17,12 @@ describe('scoreline matrix', () => {
     const m = buildScorelineMatrix(1.5, 1.5);
     const wdl = aggregateWdl(m);
     expect(wdl.homeWin + wdl.draw + wdl.awayWin).toBeCloseTo(1, 5);
+  });
+
+  it('exposes rounded λ score only when it disagrees with matrix argmax', () => {
+    const matrix = buildScorelineMatrix(1.85, 0.55);
+    expect(roundedLambdaScore(1.85, 0.55)).toBe('2-1');
+    const hint = secondaryExpectedScore(matrix, 1.85, 0.55);
+    expect(hint === null || hint === '2-1').toBe(true);
   });
 });

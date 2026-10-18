@@ -27,24 +27,29 @@ export async function getTeamFormSnapshot(
   teamId: string,
   limit = 6,
   tournamentId?: string,
+  beforeKickoffUtc?: string,
 ): Promise<TeamFormSnapshot | null> {
+  const beforeClause = beforeKickoffUtc ? ' AND kickoff_utc < ?' : '';
   const baseSql = `SELECT home_team_id, away_team_id, home_score, away_score, home_xg, away_xg
        FROM matches
-       WHERE status = 'completed' AND (home_team_id = ? OR away_team_id = ?)`;
+       WHERE status IN ('completed', 'finished') AND (home_team_id = ? OR away_team_id = ?)${beforeClause}`;
   const orderLimit = ` ORDER BY kickoff_utc DESC LIMIT ?`;
+
+  const binds: (string | number)[] = [teamId, teamId];
+  if (beforeKickoffUtc) binds.push(beforeKickoffUtc);
 
   const { results } = tournamentId
     ? await db
         .prepare(`${baseSql} AND tournament_id = ?${orderLimit}`)
-        .bind(teamId, teamId, tournamentId, limit)
+        .bind(...binds, tournamentId, limit)
         .all<MatchRow>()
     : await db
         .prepare(`${baseSql}${orderLimit}`)
-        .bind(teamId, teamId, limit)
+        .bind(...binds, limit)
         .all<MatchRow>();
 
   if (!results?.length && tournamentId) {
-    return getTeamFormSnapshot(db, teamId, limit);
+    return getTeamFormSnapshot(db, teamId, limit, undefined, beforeKickoffUtc);
   }
 
   return buildFormSnapshotFromRows(results ?? [], teamId);

@@ -74,6 +74,8 @@ type FifaPlayer = {
   IdPlayer?: string;
   ShirtNumber?: number;
   PlayerName?: { Locale?: string; Description?: string }[];
+  ShortName?: { Locale?: string; Description?: string }[];
+  Position?: number;
   Status?: number;
 };
 

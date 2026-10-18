@@ -11,5 +11,5 @@ export function parseMatchPageSlug(pathname: string): string | null {
 }
 
 export function isMatchPagePath(pathname: string): boolean {
-  return parseMatchPageSlug(pathname) !== null || isLegacyMatchId(pathname.split('/').pop() ?? '');
+  return parseMatchPageSlug(pathname) !== null || isLegacyMatchId(pathname.split('/').pop()!);
 }

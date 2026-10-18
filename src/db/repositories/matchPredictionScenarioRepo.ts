@@ -146,7 +146,7 @@ export async function replaceMatchScenarioSet(
         JSON.stringify({ featureSelection: s.featureSelection }),
         s.modelVersion,
         s.inputHash,
-        s.featureSnapshotR2Key || null,
+        s.featureSnapshotR2Key,
         s.status,
         s.updatedAt,
       )

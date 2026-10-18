@@ -12,9 +12,11 @@ describe('WC2026 tournament scope', () => {
     expect(isWc2026Tournament('t-2022')).toBe(false);
   });
 
-  it('always resolves schedule to WC 2026', () => {
+  it('resolves unknown ids to WC 2026 and keeps club league ids', () => {
     expect(resolveScheduleTournamentId(undefined)).toBe(WC2026_TOURNAMENT_ID);
     expect(resolveScheduleTournamentId('t-2022')).toBe(WC2026_TOURNAMENT_ID);
+    expect(resolveScheduleTournamentId('t-la-liga')).toBe('t-la-liga');
+    expect(resolveScheduleTournamentId('t-vleague')).toBe('t-vleague');
   });
 
   it('expects 104 tournament matches', () => {

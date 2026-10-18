@@ -120,13 +120,13 @@ publicApiRoutes.get('/stream', async (c) => {
 
   const stream = new ReadableStream({
     async pull(controller) {
-      if (closed) return;
       try {
         const { events, nextCursor } = await queryFeed(c.env, {
           cursor,
           limit: 20,
           matchId,
         });
+        if (closed) return;
         if (events.length) {
           for (const event of events) {
             controller.enqueue(

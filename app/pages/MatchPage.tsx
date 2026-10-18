@@ -178,14 +178,47 @@ export function MatchPage() {
 
   useEffect(() => {
     const el = headerRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setStickyVisible(!entry.isIntersecting),
-      { threshold: 0, rootMargin: '-48px 0px 0px 0px' },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    let observer: IntersectionObserver | null = null;
+    try {
+      observer = new IntersectionObserver(
+        ([entry]) => setStickyVisible(!entry.isIntersecting),
+        { threshold: 0, rootMargin: '-52px 0px 0px 0px' },
+      );
+      observer.observe(el);
+    } catch {
+      return undefined;
+    }
+    return () => observer?.disconnect();
   }, [match]);
+
+  useEffect(() => {
+    if (!match || viewMode !== 'tactical') return;
+    if (typeof IntersectionObserver === 'undefined') return;
+    const ids = Object.keys(sectionRefs) as MatchSectionId[];
+    let observer: IntersectionObserver | null = null;
+    try {
+      observer = new IntersectionObserver(
+        (entries) => {
+          const visible = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+          const hit = visible[0];
+          if (!hit) return;
+          const matched = ids.find((id) => sectionRefs[id].current === hit.target);
+          if (matched) setActiveSection(matched);
+        },
+        { rootMargin: '-42% 0px -48% 0px', threshold: 0 },
+      );
+      for (const id of ids) {
+        const node = sectionRefs[id].current;
+        if (node) observer.observe(node);
+      }
+    } catch {
+      return undefined;
+    }
+    return () => observer?.disconnect();
+  }, [match, viewMode]);
 
   const home = teamNames.home || match?.home_name || '';
   const away = teamNames.away || match?.away_name || '';
@@ -357,6 +390,7 @@ export function MatchPage() {
         awayScore={match.away_score}
         status={match.status}
         minute={match.minute}
+        scoreDetail={match.scoreDetail}
         visible={stickyVisible}
       />
 
@@ -364,6 +398,7 @@ export function MatchPage() {
         active={activeSection}
         onSelect={setActiveSection}
         sectionRefs={sectionRefs}
+        scoreBarVisible={stickyVisible}
       />
 
       <section ref={headerRef}>
@@ -380,10 +415,11 @@ export function MatchPage() {
           draw={displayProb?.draw}
           awayWin={displayProb?.awayWin}
           mostLikelyScore={prob?.mostLikelyScore}
+          scoreDetail={match.scoreDetail}
         />
       </section>
 
-      <section ref={sectionRefs.overview} id="match-overview" className="scroll-mt-28 space-y-4 md:scroll-mt-20">
+      <section ref={sectionRefs.overview} id="match-overview" className="mobile-scroll-mt space-y-4">
         {matchId && <MatchStaffPanel matchId={matchId} homeLabel={home} awayLabel={away} />}
         <MatchPredictionSummary
           prob={prob}
@@ -417,7 +453,7 @@ export function MatchPage() {
         </div>
       </section>
 
-      <section ref={sectionRefs.stats} id="match-stats" className="scroll-mt-28 md:scroll-mt-20">
+      <section ref={sectionRefs.stats} id="match-stats" className="mobile-scroll-mt">
         {matchId && (
           <MatchLiveStatsPanel
             matchId={matchId}
@@ -428,7 +464,7 @@ export function MatchPage() {
         )}
       </section>
 
-      <section ref={sectionRefs.prediction} id="match-prediction" className="scroll-mt-28 space-y-4 md:scroll-mt-20">
+      <section ref={sectionRefs.prediction} id="match-prediction" className="mobile-scroll-mt space-y-4">
         {displayProb && (
           <ProbabilityStrip
             homeWin={displayProb.homeWin}
@@ -465,7 +501,7 @@ export function MatchPage() {
         )}
       </section>
 
-      <section ref={sectionRefs.momentum} id="match-momentum" className="scroll-mt-28 md:scroll-mt-20">
+      <section ref={sectionRefs.momentum} id="match-momentum" className="mobile-scroll-mt">
         {matchId && (
           <MatchAnalyticsPanel
             matchId={matchId}
@@ -477,7 +513,7 @@ export function MatchPage() {
         )}
       </section>
 
-      <section ref={sectionRefs.tactical} id="match-tactical" className="scroll-mt-28 space-y-4 md:scroll-mt-20">
+      <section ref={sectionRefs.tactical} id="match-tactical" className="mobile-scroll-mt space-y-4">
         <TeamSystemPanel
           home={teamSystem?.home ?? null}
           away={teamSystem?.away ?? null}
@@ -486,7 +522,7 @@ export function MatchPage() {
         <MarketSignalPanel payload={marketSignals} loading={intelLoading} />
       </section>
 
-      <section ref={sectionRefs.scenarios} id="match-scenarios" className="scroll-mt-28 space-y-4 md:scroll-mt-20">
+      <section ref={sectionRefs.scenarios} id="match-scenarios" className="mobile-scroll-mt space-y-4">
         <ScenarioPredictionPanel
           data={scenarioPredictions}
           loading={intelLoading}

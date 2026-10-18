@@ -68,7 +68,7 @@ async function toUpcomingMatch(db: D1Database, row: UpcomingRow): Promise<Upcomi
     draw: snap?.draw_prob,
     awayWin: snap?.away_win_prob,
     modelVersion: snap?.model_version,
-    snapshotAt: snap?.created_at,
+    snapshotAt: snap?.created_at ?? undefined,
   };
 }
 

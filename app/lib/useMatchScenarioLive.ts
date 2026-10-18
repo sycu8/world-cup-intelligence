@@ -24,7 +24,6 @@ export function useMatchScenarioLive(
     let retryMs = 2000;
 
     const connect = () => {
-      if (closed) return;
       ws = new WebSocket(liveWebSocketUrl(matchRef));
 
       ws.onopen = () => {

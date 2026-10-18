@@ -1,4 +1,6 @@
 import type { LiveMatchStatsInput } from './liveMatchStatsModifier';
+import type { H2hFeatures } from './h2hModifier';
+import type { GroupPointsPressureSnapshot } from './groupPointsPressure';
 
 export type IntervalProbability = {
   homeWinProb: number;
@@ -90,7 +92,16 @@ export type MatchFeatureInput = {
   isHomeHost?: boolean;
   homeCountryCode?: string;
   awayCountryCode?: string;
+  /** Completed matches in current tournament form window. */
+  homeFormMatchesPlayed?: number;
+  awayFormMatchesPlayed?: number;
+  /** Historical WC head-to-head summary for this fixture orientation. */
+  h2h?: H2hFeatures;
+  /** Group-stage table context — boosts attack lambda as points pressure rises. */
+  groupPointsPressure?: GroupPointsPressureSnapshot;
 };
+
+export type IntervalKey = '15' | '30' | '45' | '60' | '75' | '90';
 
 export type ProbabilityResult = {
   matchId: string;
@@ -105,6 +116,8 @@ export type ProbabilityResult = {
   expectedHomeGoals: number;
   expectedAwayGoals: number;
   mostLikelyScore: string;
+  /** Rounded λ hint when it differs from mostLikelyScore (not used as primary prediction). */
+  expectedScore?: string | null;
   scorelineDistribution: Record<string, number>;
   intervalDistribution: Record<IntervalKey, IntervalProbability>;
   confidence: number;

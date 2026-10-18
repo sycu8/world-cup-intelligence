@@ -4,7 +4,9 @@ import { matchStageLabel } from '../../lib/i18n/stageLabels';
 import { pct } from '../../lib/format';
 import { TeamNameWithFlag } from '../team/TeamNameWithFlag';
 import { PredictedActualScores } from '../match/PredictedActualScores';
+import { MatchScoreBreakdown } from '../match/MatchScoreBreakdown';
 import { DataKindBadge, DataKindMark } from '../ui/DataKindBadge';
+import type { MatchScoreDetail } from '../../lib/api';
 
 type Props = {
   home: string;
@@ -20,6 +22,7 @@ type Props = {
   draw?: number;
   awayWin?: number;
   mostLikelyScore?: string;
+  scoreDetail?: MatchScoreDetail | null;
 };
 
 function statusKey(status: string): 'common.live' | 'match.scheduled' | 'common.ft' | null {
@@ -43,6 +46,7 @@ export function MatchHeader({
   draw,
   awayWin,
   mostLikelyScore,
+  scoreDetail,
 }: Props) {
   const { t } = useI18n();
   const statusText = statusKey(status) ? t(statusKey(status)!) : status.toUpperCase();
@@ -92,7 +96,7 @@ export function MatchHeader({
               </span>
             </span>
           </div>
-          {mostLikelyScore && (
+          {mostLikelyScore && status !== 'completed' && status !== 'finished' && (
             <PredictedActualScores
               predicted={mostLikelyScore}
               homeScore={homeScore}
@@ -127,6 +131,9 @@ export function MatchHeader({
             <span className="mx-0.5 text-cyan/60 md:mx-1">–</span>
             {awayScore}
           </p>
+          {(isLive || status === 'completed') && (
+            <MatchScoreBreakdown detail={scoreDetail} className="mt-1.5 md:mt-2" />
+          )}
         </div>
         <h1 className="font-display text-left text-base leading-tight tracking-wide text-foreground sm:text-xl md:text-4xl lg:text-5xl">
           <TeamNameWithFlag

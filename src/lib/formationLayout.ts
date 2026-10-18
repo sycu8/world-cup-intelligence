@@ -52,6 +52,9 @@ function spreadY(index: number, count: number): number {
   return margin + (index / (count - 1)) * span;
 }
 
+/** @internal exported for unit tests */
+export { spreadY };
+
 /** Normalized pitch coords: home attacks right (x↑), y top→bottom. */
 export function assignFormationCoords(
   formation: string | null,
@@ -77,11 +80,9 @@ export function assignFormationCoords(
     const line = grouped[group];
     const expected = lines[group];
     line.sort((a, b) => {
-      const la = lateralBias(a.position);
-      const lb = lateralBias(b.position);
-      if (la != null && lb != null) return la - lb;
-      if (la != null) return -1;
-      if (lb != null) return 1;
+      const la = lateralBias(a.position) ?? 0.5;
+      const lb = lateralBias(b.position) ?? 0.5;
+      if (la !== 0.5 || lb !== 0.5) return la - lb;
       return a.position.localeCompare(b.position);
     });
 

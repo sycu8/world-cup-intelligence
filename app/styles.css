@@ -3,6 +3,13 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --mobile-top-nav-h: 3.25rem;
+    --mobile-score-bar-h: 2.75rem;
+    --mobile-section-nav-h: 2.75rem;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   html {
     font-size: 17px;
     -webkit-text-size-adjust: 100%;
@@ -40,7 +47,10 @@
   }
 
   /* Never render copy below ~13px */
-  .text-\[10px\] {
+  .text-\[8px\],
+  .text-\[9px\],
+  .text-\[10px\],
+  .text-\[11px\] {
     font-size: 0.8125rem;
     line-height: 1.45;
   }
@@ -189,6 +199,343 @@
   .api-endpoint-card {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
   }
+
+  .mobile-main-pad {
+    padding-bottom: calc(7rem + var(--safe-bottom));
+  }
+
+  @media (min-width: 768px) {
+    .mobile-main-pad {
+      padding-bottom: 2.5rem;
+    }
+  }
+
+  .mobile-sticky-score {
+    position: sticky;
+    top: var(--mobile-top-nav-h);
+    z-index: 30;
+  }
+
+  .mobile-sticky-section-nav {
+    position: sticky;
+    top: var(--mobile-top-nav-h);
+    z-index: 20;
+  }
+
+  .mobile-sticky-section-nav--with-score {
+    top: calc(var(--mobile-top-nav-h) + var(--mobile-score-bar-h));
+  }
+
+  .mobile-scroll-mt {
+    scroll-margin-top: calc(
+      var(--mobile-top-nav-h) + var(--mobile-section-nav-h) + 0.5rem
+    );
+  }
+
+  @media (min-width: 768px) {
+    .mobile-scroll-mt {
+      scroll-margin-top: 5rem;
+    }
+  }
+
+  .mobile-touch-target {
+    min-height: 2.75rem;
+  }
+
+  .section-title {
+    @apply font-heading text-lg font-bold tracking-tight text-foreground sm:text-xl;
+  }
+
+  .section-subtitle {
+    @apply mt-1 text-sm leading-relaxed text-muted;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl border border-cyan/45 bg-cyan/15 px-5 py-2.5 text-sm font-semibold text-cyan transition duration-200;
+  }
+
+  .btn-primary:hover {
+    @apply border-cyan/60 bg-cyan/25 text-foreground;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-xl border border-border/60 bg-panel2/30 px-4 py-2 text-sm font-medium text-foreground/85 transition duration-200;
+  }
+
+  .btn-ghost:hover {
+    @apply border-cyan/35 bg-panel2/55 text-foreground;
+  }
+
+  .surface-interactive {
+    @apply transition duration-200;
+  }
+
+  .surface-interactive:hover {
+    @apply border-cyan/25 bg-panel2/45;
+  }
+
+  .progress-bar-fill {
+    transform-origin: left center;
+    animation: bar-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .qualify-badge {
+    @apply ml-1 inline-flex rounded px-1 py-px text-[0.65rem] font-bold uppercase leading-none;
+  }
+
+  .qualify-badge--direct {
+    @apply bg-defending/15 text-defending ring-1 ring-defending/30;
+  }
+
+  .qualify-badge--third {
+    @apply bg-yellow/15 text-yellow ring-1 ring-yellow/30;
+  }
+
+  .live-dot {
+    @apply inline-block h-2 w-2 shrink-0 rounded-full bg-live;
+    animation: live-pulse 1.4s ease-in-out infinite;
+  }
+
+  .page-hero-glow {
+    @apply relative overflow-hidden rounded-panel border border-cyan/20 bg-panel2/40 p-1;
+    box-shadow:
+      0 0 48px rgba(0, 229, 255, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .home-pulse {
+    @apply min-w-0 max-w-full rounded-card border border-border/50 bg-panel2/35 px-4 py-3 sm:px-5 sm:py-4;
+  }
+
+  .home-section {
+    @apply min-w-0 max-w-full overflow-hidden rounded-card border border-border/50 bg-panel/80 p-4 sm:p-5;
+  }
+
+  .home-sidebar {
+    @apply min-w-0 max-w-full rounded-card border border-border/50 bg-panel2/30 p-4 sm:p-5;
+  }
+
+  .home-dashboard {
+    @apply grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start;
+  }
+
+  .home-match-chip {
+    @apply w-[min(11.5rem,78vw)] shrink-0 rounded-xl border border-border/50 bg-panel2/40 p-3 transition duration-200;
+  }
+
+  .home-match-chip:hover {
+    @apply border-cyan/30 bg-panel2/60;
+  }
+
+  .home-match-chip--live {
+    @apply border-live/35 bg-live/5;
+  }
+
+  .home-insights-panel {
+    @apply min-w-0 max-w-full overflow-hidden rounded-card border border-border/40 bg-panel2/20;
+  }
+
+  .scroll-strip {
+    @apply -mx-1 flex gap-2 overflow-x-auto overscroll-x-contain pb-1 scrollbar-thin sm:mx-0;
+  }
+
+  .layout-contained {
+    @apply min-w-0 max-w-full overflow-x-hidden;
+  }
+
+  /* —— Club-leagues landing —— */
+  .home-landing {
+    @apply min-w-0;
+  }
+
+  .home-landing-hero {
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    width: 100vw;
+    min-height: min(78vh, 40rem);
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(61, 79, 102, 0.55);
+  }
+
+  .home-landing-hero__atmosphere {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 85% 70% at 15% 20%, rgba(34, 212, 107, 0.16), transparent 55%),
+      radial-gradient(ellipse 70% 55% at 90% 10%, rgba(0, 229, 255, 0.12), transparent 50%),
+      linear-gradient(165deg, #061018 0%, #0a1620 42%, #071410 100%);
+  }
+
+  .home-landing-hero__pitch {
+    position: absolute;
+    inset: 0;
+    opacity: 0.35;
+    background-image:
+      linear-gradient(90deg, transparent 0%, rgba(34, 212, 107, 0.07) 48%, transparent 52%),
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 47px,
+        rgba(255, 255, 255, 0.03) 47px,
+        rgba(255, 255, 255, 0.03) 48px
+      );
+    animation: home-pitch-drift 18s ease-in-out infinite alternate;
+  }
+
+  .home-landing-hero__inner {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 4.5rem 1rem 3rem;
+  }
+
+  @media (min-width: 768px) {
+    .home-landing-hero__inner {
+      padding: 6rem 1.5rem 4rem;
+    }
+  }
+
+  .home-landing-hero__brand {
+    font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+    font-weight: 800;
+    font-size: clamp(2.75rem, 9vw, 5.5rem);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    color: #f8fafc;
+    text-shadow: 0 0 80px rgba(34, 212, 107, 0.25);
+  }
+
+  .home-landing-hero__headline {
+    margin-top: 1.25rem;
+    max-width: 22ch;
+    font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.35rem, 3.5vw, 2rem);
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: #e8f0f7;
+  }
+
+  .home-landing-hero__lede {
+    margin-top: 0.85rem;
+    max-width: 36rem;
+    font-size: 1rem;
+    line-height: 1.65;
+    color: #9aaec4;
+  }
+
+  .home-landing-hero__cta {
+    margin-top: 1.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .home-landing-hero__meta {
+    margin-top: 1.25rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #7ee8ff;
+  }
+
+  .home-landing-body {
+    padding-top: 2.5rem;
+  }
+
+  .home-landing-section {
+    @apply min-w-0 max-w-full;
+  }
+
+  .home-landing-value-list {
+    @apply grid gap-8 sm:grid-cols-3 sm:gap-6;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .home-landing-value-item {
+    @apply flex gap-3 sm:flex-col sm:gap-2;
+  }
+
+  .home-landing-value-index {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #22d46b;
+    opacity: 0.9;
+  }
+
+  .home-landing-wc {
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    width: 100vw;
+    border-block: 1px solid rgba(255, 212, 0, 0.18);
+    background:
+      linear-gradient(90deg, rgba(255, 212, 0, 0.06), transparent 55%),
+      rgba(20, 28, 43, 0.55);
+  }
+
+  .home-landing-wc__inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 1.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .home-landing-wc__inner {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2rem 1.5rem;
+    }
+  }
+
+  .home-landing-anim-1 {
+    animation: home-rise 0.7s ease-out both;
+  }
+  .home-landing-anim-2 {
+    animation: home-rise 0.75s ease-out 0.08s both;
+  }
+  .home-landing-anim-3 {
+    animation: home-rise 0.8s ease-out 0.14s both;
+  }
+  .home-landing-anim-4 {
+    animation: home-rise 0.85s ease-out 0.2s both;
+  }
+}
+
+@keyframes home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes home-pitch-drift {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-12px);
+  }
 }
 
 @keyframes pulse-glow {
@@ -198,5 +545,28 @@
   }
   50% {
     box-shadow: 0 0 28px rgba(0, 229, 255, 0.16);
+  }
+}
+
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+    opacity: 0.5;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.85);
   }
 }

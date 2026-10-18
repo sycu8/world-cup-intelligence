@@ -28,11 +28,9 @@ export type GroupStandingsPayload = {
 
 const GROUP_CODES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as const;
 
-function compareStandings(a: GroupStanding, b: GroupStanding): number {
+export function compareStandings(a: GroupStanding, b: GroupStanding): number {
   if (b.points !== a.points) return b.points - a.points;
-  if (b.gd !== a.gd) return b.gd - a.gd;
-  if (b.gf !== a.gf) return b.gf - a.gf;
-  return a.teamId.localeCompare(b.teamId);
+  return b.gd - a.gd || b.gf - a.gf || a.teamId.localeCompare(b.teamId);
 }
 
 export function sortStandingRows(rows: StandingRow[]): StandingRow[] {
@@ -96,7 +94,7 @@ export async function buildGroupStandingsPayload(env: AppEnv): Promise<GroupStan
 
   for (const code of GROUP_CODES) {
     const raw = computeGroupStandingsFromMatchRows(allMatches, code);
-    const complete = completionMap.get(code) ?? false;
+    const complete = completionMap.get(code) === true;
 
     const rows: StandingRow[] = raw.map((row) => {
       const names = nameMap.get(row.teamId);

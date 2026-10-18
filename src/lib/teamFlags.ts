@@ -34,8 +34,6 @@ export function resolveTeamFlagSlug(opts: {
 
   const name = opts.teamName?.trim();
   if (!name) return '';
-  const override = FLAG_SLUG_OVERRIDES[normalizeFlagKey(name)];
-  if (override) return override;
   try {
     return nationMeta(name).iso.toLowerCase();
   } catch {

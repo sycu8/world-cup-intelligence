@@ -1,9 +1,9 @@
 import {
-  BEST_THIRD_R32_SLOTS,
   computeGroupStandingsFromMatchRows,
   type GroupStageMatchRow,
   type GroupStanding,
 } from '../../services/tournamentProgression';
+import { assignThirdPlaceToR32Slots } from '../../services/wc2026ThirdPlaceBracket';
 import { resolveLoserTeamId, resolveWinnerTeamId, type MatchOutcome } from '../../services/matchLifecycle';
 import { blendTriples, pairKey, type MatchProbabilityTriple as H2hTriple } from '../../services/tournamentMcSignals';
 import type { TeamStrengthProfile } from '../../services/tournamentTeamStrength';
@@ -44,6 +44,12 @@ export type McBracketLink = {
 export type McKnockoutMatch = {
   id: string;
   stage: string;
+  homeTeamId?: string;
+  awayTeamId?: string;
+  homeScore?: number;
+  awayScore?: number;
+  status?: string;
+  minute?: number;
 };
 
 export type TournamentMonteCarloInput = {
@@ -205,15 +211,32 @@ function sampleKnockoutScores(
   return sampleScoreForOutcome(lambdas.home, lambdas.away, 'away', rng);
 }
 
-function compareThird(a: GroupStanding & { group: string }, b: GroupStanding & { group: string }): number {
-  if (b.points !== a.points) return b.points - a.points;
-  if (b.gd !== a.gd) return b.gd - a.gd;
-  if (b.gf !== a.gf) return b.gf - a.gf;
-  return a.teamId.localeCompare(b.teamId);
-}
 
 function isFinished(status: string): boolean {
   return status === 'completed' || status === 'finished';
+}
+
+/** Knockout bracket placeholders (team-w26-ko-*) are not real nations. */
+export function isKnockoutPlaceholderTeamId(teamId: string | undefined): boolean {
+  if (!teamId) return true;
+  return teamId.includes('-ko-');
+}
+
+export function hasConfirmedKnockoutPairing(match: McKnockoutMatch): boolean {
+  return (
+    !isKnockoutPlaceholderTeamId(match.homeTeamId) && !isKnockoutPlaceholderTeamId(match.awayTeamId)
+  );
+}
+
+function resolveKnockoutPairing(
+  match: McKnockoutMatch,
+  slots: Map<string, { home?: string; away?: string }>,
+): { homeTeamId?: string; awayTeamId?: string } {
+  if (hasConfirmedKnockoutPairing(match)) {
+    return { homeTeamId: match.homeTeamId, awayTeamId: match.awayTeamId };
+  }
+  const slot = slots.get(match.id);
+  return { homeTeamId: slot?.home, awayTeamId: slot?.away };
 }
 
 export function simulateTournamentOnce(input: TournamentMonteCarloInput, rng: () => number): string | null {
@@ -263,16 +286,15 @@ export function simulateTournamentOnce(input: TournamentMonteCarloInput, rng: ()
     slots.set(link.targetMatchId, slot);
   }
 
-  const thirdCandidates: (GroupStanding & { group: string })[] = [];
+  const thirdPlaceByGroup = new Map<string, GroupStanding & { group: string }>();
   for (const code of GROUP_CODES) {
     const third = standingsByGroup.get(code)?.[2];
-    if (third) thirdCandidates.push({ ...third, group: code });
+    if (third) thirdPlaceByGroup.set(code, { ...third, group: code });
   }
-  thirdCandidates.sort(compareThird);
-  for (let i = 0; i < Math.min(8, thirdCandidates.length); i += 1) {
-    const { matchId, slot } = BEST_THIRD_R32_SLOTS[i];
+
+  for (const { matchId, slot, teamId } of assignThirdPlaceToR32Slots(thirdPlaceByGroup)) {
     const entry = slots.get(matchId) ?? {};
-    entry[slot] = thirdCandidates[i].teamId;
+    entry[slot] = teamId;
     slots.set(matchId, entry);
   }
 
@@ -281,22 +303,35 @@ export function simulateTournamentOnce(input: TournamentMonteCarloInput, rng: ()
   for (const stage of KNOCKOUT_STAGE_ORDER) {
     const stageMatches = input.knockoutMatches.filter((m) => m.stage === stage);
     for (const match of stageMatches) {
-      const pairing = slots.get(match.id);
-      const homeTeamId = pairing?.home;
-      const awayTeamId = pairing?.away;
+      const { homeTeamId, awayTeamId } = resolveKnockoutPairing(match, slots);
       if (!homeTeamId || !awayTeamId) continue;
 
-      const home = input.teamStrength[homeTeamId] ?? defaultStrength(homeTeamId);
-      const away = input.teamStrength[awayTeamId] ?? defaultStrength(awayTeamId);
-      const triple = resolveTriple(homeTeamId, awayTeamId, true, input.teamStrength, input.h2hTriples);
-      const score = sampleKnockoutScores(triple, home, away, rng);
-      const outcome: MatchOutcome = {
-        home_team_id: homeTeamId,
-        away_team_id: awayTeamId,
-        home_score: score.home,
-        away_score: score.away,
-        stage: match.stage,
-      };
+      if (hasConfirmedKnockoutPairing(match)) {
+        slots.set(match.id, { home: homeTeamId, away: awayTeamId });
+      }
+
+      let outcome: MatchOutcome;
+      if (isFinished(match.status ?? '')) {
+        outcome = {
+          home_team_id: homeTeamId,
+          away_team_id: awayTeamId,
+          home_score: match.homeScore ?? 0,
+          away_score: match.awayScore ?? 0,
+          stage: match.stage,
+        };
+      } else {
+        const home = input.teamStrength[homeTeamId] ?? defaultStrength(homeTeamId);
+        const away = input.teamStrength[awayTeamId] ?? defaultStrength(awayTeamId);
+        const triple = resolveTriple(homeTeamId, awayTeamId, true, input.teamStrength, input.h2hTriples);
+        const score = sampleKnockoutScores(triple, home, away, rng);
+        outcome = {
+          home_team_id: homeTeamId,
+          away_team_id: awayTeamId,
+          home_score: score.home,
+          away_score: score.away,
+          stage: match.stage,
+        };
+      }
       outcomes.set(match.id, outcome);
 
       for (const link of input.winnerLinks) {
@@ -315,7 +350,10 @@ export function simulateTournamentOnce(input: TournamentMonteCarloInput, rng: ()
     }
   }
 
-  const final = outcomes.get('m-w26-final-01');
+  const finalMatch =
+    input.knockoutMatches.find((m) => m.id === 'm-w26-final-01') ??
+    input.knockoutMatches.find((m) => m.stage === 'Final');
+  const final = finalMatch ? outcomes.get(finalMatch.id) : outcomes.get('m-w26-final-01');
   if (!final) return null;
   return resolveWinnerTeamId(final);
 }

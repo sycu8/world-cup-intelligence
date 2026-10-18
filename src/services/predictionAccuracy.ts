@@ -2,6 +2,12 @@ import type { AppEnv } from '../env';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import { brierScore } from '../models/backtesting/metrics';
+import {
+  actualScoreProbability,
+  scorelineTop1Hit,
+  scorelineTopKHit,
+} from '../models/backtesting/scorelineMetrics';
+import type { ProbabilitySnapshotRow } from '../db/schema';
 
 export type PredictionOutcome = 'home' | 'draw' | 'away';
 
@@ -16,6 +22,8 @@ export type MatchPredictionEvaluation = {
   favoriteHit: boolean;
   predictedScore: string | null;
   scorelineHit: boolean;
+  scorelineTop3Hit: boolean;
+  actualScoreProb: number;
   brierScore: number;
   modelVersion: string;
   predictedProbs: { home: number; draw: number; away: number };
@@ -32,7 +40,10 @@ export type PredictionAccuracyReport = {
   drawHits: number;
   scorelineHits: number;
   scorelineHitRate: number | null;
+  scorelineTop3Hits: number;
+  scorelineTop3HitRate: number | null;
   avgBrier: number | null;
+  avgActualScoreProb: number | null;
   modelVersions: Record<string, number>;
   recent: MatchPredictionEvaluation[];
 };
@@ -70,6 +81,15 @@ function normalizeScoreline(score: string | null | undefined): string | null {
   return score.replace(/\s+/g, '').replace(':', '-');
 }
 
+function parseScorelineJson(snap: ProbabilitySnapshotRow): Record<string, number> {
+  if (!snap.scoreline_json) return {};
+  try {
+    return JSON.parse(snap.scoreline_json) as Record<string, number>;
+  } catch {
+    return {};
+  }
+}
+
 export async function evaluateCompletedMatch(
   db: D1Database,
   match: MatchRow,
@@ -83,6 +103,7 @@ export async function evaluateCompletedMatch(
   const actual = outcomeVector(actualOutcome);
   const predictedScore = normalizeScoreline(snap.most_likely_score);
   const actualScore = `${match.home_score}-${match.away_score}`;
+  const matrix = parseScorelineJson(snap);
 
   return {
     matchId: match.id,
@@ -95,6 +116,8 @@ export async function evaluateCompletedMatch(
     favoriteHit: predictedOutcome === actualOutcome,
     predictedScore,
     scorelineHit: predictedScore === actualScore,
+    scorelineTop3Hit: scorelineTopKHit(matrix, actualScore, 3),
+    actualScoreProb: actualScoreProbability(matrix, actualScore),
     brierScore: brierScore(predicted, actual),
     modelVersion: snap.model_version,
     predictedProbs: {
@@ -131,6 +154,7 @@ export async function buildPredictionAccuracyReport(env: AppEnv): Promise<Predic
   const drawPredictions = evaluations.filter((e) => e.predictedOutcome === 'draw').length;
   const drawHits = evaluations.filter((e) => e.predictedOutcome === 'draw' && e.actualOutcome === 'draw').length;
   const scorelineHits = evaluations.filter((e) => e.scorelineHit).length;
+  const scorelineTop3Hits = evaluations.filter((e) => e.scorelineTop3Hit).length;
   const modelVersions: Record<string, number> = {};
 
   for (const e of evaluations) {
@@ -139,6 +163,7 @@ export async function buildPredictionAccuracyReport(env: AppEnv): Promise<Predic
 
   const withSnapshot = evaluations.length;
   const brierSum = evaluations.reduce((sum, e) => sum + e.brierScore, 0);
+  const probSum = evaluations.reduce((sum, e) => sum + e.actualScoreProb, 0);
 
   return {
     tournamentYear: 2026,
@@ -151,7 +176,10 @@ export async function buildPredictionAccuracyReport(env: AppEnv): Promise<Predic
     drawHits,
     scorelineHits,
     scorelineHitRate: withSnapshot ? scorelineHits / withSnapshot : null,
+    scorelineTop3Hits,
+    scorelineTop3HitRate: withSnapshot ? scorelineTop3Hits / withSnapshot : null,
     avgBrier: withSnapshot ? brierSum / withSnapshot : null,
+    avgActualScoreProb: withSnapshot ? probSum / withSnapshot : null,
     modelVersions,
     recent: evaluations.slice(0, 10),
   };

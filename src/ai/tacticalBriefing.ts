@@ -112,7 +112,7 @@ export async function generateTacticalBriefing(
         const briefing = TacticalBriefingSchema.parse({
           ...parsed,
           matchId: input.matchId,
-          generatedAt: parsed.generatedAt ?? nowIso(),
+          generatedAt: parsed.generatedAt || nowIso(),
         });
         await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(briefing), {
           expirationTtl: 3600,
