@@ -57,7 +57,8 @@
   "queues": {
     "producers": [
       { "binding": "INGEST_QUEUE", "queue": "wc-ingest-queue-uat" },
-      { "binding": "MODEL_QUEUE", "queue": "wc-model-queue-uat" }
+      { "binding": "MODEL_QUEUE", "queue": "wc-model-queue-uat" },
+      { "binding": "RECAP_QUEUE", "queue": "wc-recap-queue-uat" }
     ],
     "consumers": [
       {
@@ -86,6 +87,20 @@
       },
       {
         "queue": "wc-model-dlq-uat",
+        "max_batch_size": 10,
+        "max_retries": 1,
+        "max_concurrency": 1
+      },
+      {
+        "queue": "wc-recap-queue-uat",
+        "max_batch_size": 1,
+        "max_retries": 3,
+        "max_concurrency": 1,
+        "retry_delay": 10,
+        "dead_letter_queue": "wc-recap-dlq-uat"
+      },
+      {
+        "queue": "wc-recap-dlq-uat",
         "max_batch_size": 10,
         "max_retries": 1,
         "max_concurrency": 1
@@ -142,7 +157,8 @@
       "queues": {
         "producers": [
           { "binding": "INGEST_QUEUE", "queue": "wc-ingest-queue" },
-          { "binding": "MODEL_QUEUE", "queue": "wc-model-queue" }
+          { "binding": "MODEL_QUEUE", "queue": "wc-model-queue" },
+          { "binding": "RECAP_QUEUE", "queue": "wc-recap-queue" }
         ],
         "consumers": [
           {
@@ -171,6 +187,20 @@
           },
           {
             "queue": "wc-model-dlq",
+            "max_batch_size": 10,
+            "max_retries": 1,
+            "max_concurrency": 1
+          },
+          {
+            "queue": "wc-recap-queue",
+            "max_batch_size": 1,
+            "max_retries": 3,
+            "max_concurrency": 1,
+            "retry_delay": 10,
+            "dead_letter_queue": "wc-recap-dlq"
+          },
+          {
+            "queue": "wc-recap-dlq",
             "max_batch_size": 10,
             "max_retries": 1,
             "max_concurrency": 1

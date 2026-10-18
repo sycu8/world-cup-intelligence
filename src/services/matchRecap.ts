@@ -1,5 +1,6 @@
 import type { AppEnv } from '../env';
 import { parseEnv } from '../env';
+import { markRecapSynced } from './recapSync';
 import { logError } from '../utils/logger';
 import { resolveMatchRef, type MatchWithSlug } from './matchRef';
 import { syncFifaMatchByRef } from '../ingestion/fifa/fifaLiveSync';
@@ -187,6 +188,7 @@ export async function syncQueuedMatchRecap(env: AppEnv, matchRef: string): Promi
     return;
   }
   await refreshFifaRecapIfNeeded(env, resolved);
+  await markRecapSynced(env, resolved.id);
 }
 
 export async function getMatchRecap(

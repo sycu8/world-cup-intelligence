@@ -1,9 +1,8 @@
 import type { IngestJob } from './types';
 import type { AppEnv } from '../env';
 import { aiEnqueueBlocked, aiRunFlagsFromDelivery, isAiCapacityError, noteAiCapacity, withAiRun } from '../ai/aiCallGuard';
-import { logInfo } from '../utils/logger';
+import { logError, logInfo } from '../utils/logger';
 import { refreshMatchData, handleCompletedMatches, runRefreshFollowUp } from '../ingestion/matchDataRefresh';
-import { syncQueuedMatchRecap } from '../services/matchRecap';
 import { crawlWorldCupNews, type NewsCrawlChunk } from '../ingestion/newsCrawler';
 import { ingestStatsbombWorldCup } from '../ingestion/statsbombIngest';
 import { getIngestHandler } from '../ingestion/sourceRegistry';
@@ -337,7 +336,9 @@ async function runIngestMessage(msg: Message<IngestJob>, env: AppEnv, signal: Ab
           break;
         }
         case 'sync_match_recap': {
-          await syncQueuedMatchRecap(env, msg.body.matchRef);
+          // Never run the sync here. A 120s recap job on this consumer blocks refresh_minute.
+          if (env.RECAP_QUEUE) await env.RECAP_QUEUE.send(msg.body);
+          else logError('recap sync queue missing', { matchRef: msg.body.matchRef });
           break;
         }
       }

@@ -11,6 +11,7 @@ import { getLineupDisplayForMatch, ensureMatchLineups } from '../services/lineup
 import { resolveMatchRef, listMatchesWithSlug } from '../services/matchRef';
 import { getMatchStats } from '../services/matchStats';
 import { getMatchRecap } from '../services/matchRecap';
+import { claimRecapSync, recapNeedsSync } from '../services/recapSync';
 import { getMatchStaff } from '../services/matchStaff';
 import { parseEnv } from '../env';
 import { shouldSyncFifaMatch, syncFifaMatchByRef } from '../ingestion/fifa/fifaLiveSync';
@@ -214,22 +215,26 @@ matchRoutes.get('/:matchId/stats', async (c) => {
 
 matchRoutes.get('/:matchId/recap', async (c) => {
   const matchRef = c.req.param('matchId');
-  const cfg = parseEnv(c.env);
-  // The stored recap is loaded before any FIFA sync, and the sync result is not
-  // part of this response. waitUntil is cancelled 30s after the response, which
-  // cut measured syncs of 34–48s. The sync is a queue job with a 120s budget.
-  if (c.env.INGEST_QUEUE && (cfg.fifaLiveEnabled || !cfg.mockSources)) {
-    const send = c.env.INGEST_QUEUE.send({
-      type: 'sync_match_recap',
-      matchRef,
-      idempotencyKey: `sync_match_recap:${matchRef}`,
-    }).catch((error) => {
-      logError('recap sync enqueue failed', { matchRef, error: String(error) });
-    });
-    c.executionCtx.waitUntil(send);
-  }
+  const resolved = await resolveMatchRef(c.env.DB, matchRef, c.env.KV);
+  if (!resolved) return c.json({ error: 'Not found' }, 404);
   const data = await getMatchRecap(c.env, matchRef, { syncFifa: false });
   if (!data) return c.json({ error: 'Not found' }, 404);
+  const cfg = parseEnv(c.env);
+  // Queue after the 200 is known. A 404 never queues. The sync runs on
+  // RECAP_QUEUE so it does not sit in front of refresh_minute.
+  if (c.env.RECAP_QUEUE && (cfg.fifaLiveEnabled || !cfg.mockSources) && (await recapNeedsSync(c.env, resolved))) {
+    const claimed = await claimRecapSync(c.env, resolved.id);
+    if (claimed) {
+      const send = c.env.RECAP_QUEUE.send({
+        type: 'sync_match_recap',
+        matchRef: resolved.id,
+        idempotencyKey: `sync_match_recap:${resolved.id}`,
+      }).catch((error) => {
+        logError('recap sync enqueue failed', { matchRef: resolved.id, error: String(error) });
+      });
+      c.executionCtx.waitUntil(send);
+    }
+  }
   return c.json({ data });
 });
 

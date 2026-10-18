@@ -21,6 +21,7 @@ import { analysisRoutes } from './routes/analysis';
 import { handleDlqBatch } from './queues/dlqConsumer';
 import { handleIngestBatch } from './queues/ingestConsumer';
 import { handleModelBatch } from './queues/modelConsumer';
+import { handleRecapBatch } from './queues/recapConsumer';
 import type { IngestJob } from './queues/types';
 import type { ModelJob } from './queues/types';
 import { MatchRoom } from './durable-objects/MatchRoom';
@@ -171,6 +172,10 @@ export default {
   async queue(batch: MessageBatch<IngestJob | ModelJob>, env: AppEnv): Promise<void> {
     if (typeof batch.queue === 'string' && batch.queue.includes('dlq')) {
       await handleDlqBatch(batch, env);
+      return;
+    }
+    if (typeof batch.queue === 'string' && batch.queue.includes('recap')) {
+      await handleRecapBatch(batch, env);
       return;
     }
     const first = batch.messages[0]?.body;
