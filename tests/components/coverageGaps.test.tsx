@@ -619,6 +619,14 @@ describe('coverage gaps — components and pages', () => {
 
   it('AnalystSimulatorPage queues recompute and handles auth failure', async () => {
     const user = userEvent.setup();
+    // happy-dom does not implement window.alert, so spyOn has nothing to wrap.
+    if (typeof window.alert !== 'function') {
+      Object.defineProperty(window, 'alert', {
+        configurable: true,
+        writable: true,
+        value: () => undefined,
+      });
+    }
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
     vi.stubGlobal(
       'fetch',

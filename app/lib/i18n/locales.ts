@@ -167,6 +167,8 @@ export type LocaleKey =
   | 'match.previewTactical'
   | 'match.previewLoading'
   | 'match.briefingTitle'
+  | 'match.briefingGenerating'
+  | 'match.briefingTryAgain'
   | 'match.briefingLoading'
   | 'match.briefingTakeaways'
   | 'tournaments.title'
@@ -446,6 +448,7 @@ export type LocaleKey =
   | 'matchAnalysis.notFound'
   | 'matchAnalysis.notFoundBack'
   | 'match.briefingAiSubtitle'
+  | 'match.briefingDraftSubtitle'
   | 'matchHeader.matchLabel'
   | 'news.pagination'
   | 'countdown.day'
@@ -899,6 +902,14 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'match.previewTactical': { vi: 'Góc chiến thuật', en: 'Tactical angle' },
   'match.previewLoading': { vi: 'Đang tạo phân tích riêng cho trận này…', en: 'Building match-specific analysis…' },
   'match.briefingTitle': { vi: 'Phân tích chiến thuật', en: 'Tactical briefing' },
+  'match.briefingGenerating': {
+    vi: 'Đang tạo phân tích AI — bản thống kê tạm thời.',
+    en: 'AI briefing is generating — showing the statistical draft.',
+  },
+  'match.briefingTryAgain': {
+    vi: 'Phân tích AI chưa sẵn sàng. Tải lại trang để thử lại — bản thống kê vẫn ở đây.',
+    en: 'The AI briefing is not ready yet. Reload the page to try again — the statistical draft stays here.',
+  },
   'match.briefingLoading': { vi: 'Đang tải phân tích chiến thuật…', en: 'Loading tactical briefing…' },
   'match.briefingTakeaways': { vi: 'Điểm chính', en: 'Key takeaways' },
   'tournaments.title': { vi: 'Giải đấu', en: 'Tournaments' },
@@ -1412,6 +1423,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'match.briefingAiSubtitle': {
     vi: 'Phần phân tích AI — số liệu là chuẩn',
     en: 'AI analysis layer — stats lead',
+  },
+  'match.briefingDraftSubtitle': {
+    vi: 'Bản thống kê — phân tích AI chưa có.',
+    en: 'Statistical draft — no AI analysis yet.',
   },
   'matchHeader.matchLabel': { vi: 'TRẬN ĐẤU', en: 'MATCH' },
   'news.pagination': { vi: 'Phân trang tin', en: 'News pagination' },

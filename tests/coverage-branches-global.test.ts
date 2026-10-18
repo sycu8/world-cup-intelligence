@@ -88,6 +88,7 @@ vi.mock('../src/models/scenarios/backtesting/scenarioBacktestRunner', () => ({
 
 vi.mock('../src/ai/tacticalBriefing', () => ({
   generateTacticalBriefing: vi.fn(async () => ({ matchId: 'm-1', summary: { vi: 'x', en: 'y' } })),
+  briefingWithheldFromCache: () => false,
 }));
 
 vi.mock('../src/ai/multiVariableAnalysis', () => ({

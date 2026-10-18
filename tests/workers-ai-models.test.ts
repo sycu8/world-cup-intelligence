@@ -102,7 +102,8 @@ describe('Workers AI text model', () => {
       if (missing > 0) misses.push(`${rel}: ${missing}`);
     }
     expect(misses).toEqual([]);
-    expect(WORKERS_AI_BRIEFING_MAX_TOKENS).toBeGreaterThanOrEqual(4096);
+    expect(WORKERS_AI_BRIEFING_MAX_TOKENS).toBeGreaterThanOrEqual(800);
+    expect(WORKERS_AI_BRIEFING_MAX_TOKENS).toBeLessThanOrEqual(1200);
     expect(WORKERS_AI_BRIEFING_MAX_TOKENS).not.toBe(resolveModel('tactical_briefing').maxTokens);
     expect(resolveModel('entity_extract').maxTokens).toBeGreaterThan(256);
     expect(resolveModel('news_summary').maxTokens).toBeGreaterThan(256);

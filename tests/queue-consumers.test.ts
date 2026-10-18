@@ -70,6 +70,7 @@ vi.mock('../src/models/scenarios/backtesting/scenarioBacktestRunner', () => ({
 
 vi.mock('../src/ai/tacticalBriefing', () => ({
   generateTacticalBriefing: vi.fn(async () => ({ matchId: 'm-1', summary: 'brief' })),
+  briefingWithheldFromCache: vi.fn(() => false),
 }));
 
 vi.mock('../src/ai/multiVariableAnalysis', () => ({
@@ -327,6 +328,69 @@ describe('handleModelBatch', () => {
       expect.any(String),
       expect.objectContaining({ expirationTtl: 3600 }),
     );
+  });
+
+  it('ai_briefing does not call the model when the in-flight marker is withheld', async () => {
+    const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+    const env = createMockEnv({ AI_FALLBACK_MODE: 'false' });
+    await env.KV.put('briefing:inflight:m-1', 'withheld');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'ai_briefing', matchId: 'm-1' } }]),
+      env,
+    );
+    expect(generateTacticalBriefing).not.toHaveBeenCalled();
+    expect(warn.mock.calls.map((call) => String(call[0])).join('\n')).toContain('tactical briefing skipped');
+    expect(await env.KV.get('briefing:inflight:m-1')).toBe('withheld');
+    warn.mockRestore();
+  });
+
+  it('ai_briefing marks the in-flight key withheld when the briefing is not cached', async () => {
+    const { briefingWithheldFromCache } = await import('../src/ai/tacticalBriefing');
+    const { BRIEFING_INFLIGHT_TTL_SECONDS } = await import('../src/ai/briefingQueue');
+    vi.mocked(briefingWithheldFromCache).mockReturnValueOnce(true);
+    const env = createMockEnv({ AI_FALLBACK_MODE: 'true' });
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'ai_briefing', matchId: 'm-1' } }]),
+      env,
+    );
+    expect(env.KV.put).toHaveBeenCalledWith(
+      'briefing:inflight:m-1',
+      'withheld',
+      { expirationTtl: BRIEFING_INFLIGHT_TTL_SECONDS },
+    );
+    expect(env.KV.put).not.toHaveBeenCalledWith('briefing:m-1', expect.any(String), expect.anything());
+    expect(env.KV.delete).not.toHaveBeenCalled();
+  });
+
+  it('ai_briefing warns when the snapshot is missing', async () => {
+    const { getLatestSnapshot } = await import('../src/db/repositories/probabilityRepo');
+    const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+    vi.mocked(getLatestSnapshot).mockResolvedValueOnce(null as never);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'ai_briefing', matchId: 'm-missing' } }]),
+      createMockEnv(),
+    );
+    const logged = warn.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(logged).toContain('tactical briefing snapshot missing');
+    expect(logged).toContain('m-missing');
+    expect(generateTacticalBriefing).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('ai_briefing warns when a slug cannot be resolved', async () => {
+    const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'ai_briefing', matchId: 'vong-bang-c-brazil-vs-haiti' } }]),
+      createMockEnv(),
+    );
+    const logged = warn.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(logged).toContain('tactical briefing match ref unresolved');
+    expect(logged).toContain('vong-bang-c-brazil-vs-haiti');
+    expect(generateTacticalBriefing).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it('ai_extract_news updates document entities', async () => {

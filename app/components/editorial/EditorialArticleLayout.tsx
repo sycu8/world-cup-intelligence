@@ -77,6 +77,7 @@ export function EditorialArticleLayout({
   kicker,
 }: Props) {
   const { t } = useI18n();
+  const lines = (takeaways ?? []).map((line) => line.trim()).filter((line) => line.length > 0);
 
   return (
     <div className="editorial-layout mx-auto max-w-[1200px]">
@@ -99,11 +100,11 @@ export function EditorialArticleLayout({
             )}
           </header>
 
-          {takeaways && takeaways.length > 0 && (
+          {lines.length > 0 && (
             <aside className="takeaway-card mb-6 sm:mb-8">
               <p className="label-tactical mb-3 text-lime">{t('editorial.takeaways')}</p>
               <ul className="space-y-2 text-sm leading-relaxed text-foreground/90 sm:text-editorial">
-                {takeaways.map((line, i) => (
+                {lines.map((line, i) => (
                   <li key={i} className="flex gap-2">
                     <span className="shrink-0 text-lime/80">•</span>
                     <span>{line}</span>

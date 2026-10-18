@@ -3,23 +3,18 @@ import { SourceConfidencePanel } from '../intelligence/SourceConfidencePanel';
 import { SectionLabel } from './SectionLabel';
 import { useI18n } from '../../lib/i18n/I18nContext';
 import { Bilingual } from '../i18n/Bilingual';
-import { pickLocalized, type LocalizedString } from '../../lib/briefingText';
+import {
+  isStatisticalDraftSummary,
+  pickLocalized,
+  visibleBriefingLines,
+} from '../../lib/briefingText';
 
-type Props = { briefing: TacticalBriefing | null; loading?: boolean };
-
-function LocalizedBlock({
-  value,
-  as = 'p',
-  className = '',
-}: {
-  value: LocalizedString;
-  as?: 'p' | 'li';
-  className?: string;
-}) {
-  const { mode } = useI18n();
-  const Tag = as;
-  return <Tag className={className}>{pickLocalized(value, mode)}</Tag>;
-}
+type Props = {
+  briefing: TacticalBriefing | null;
+  loading?: boolean;
+  generating?: boolean;
+  timedOut?: boolean;
+};
 
 function mapCitation(
   c: TacticalBriefing['citations'][number] & { reliabilityScore?: number; sourceUrl?: string; sourceDocumentId?: string },
@@ -42,7 +37,7 @@ function mapCitation(
   };
 }
 
-export function TacticalBriefingPanel({ briefing, loading }: Props) {
+export function TacticalBriefingPanel({ briefing, loading, generating, timedOut }: Props) {
   const { mode, t } = useI18n();
 
   if (loading) {
@@ -55,36 +50,46 @@ export function TacticalBriefingPanel({ briefing, loading }: Props) {
   if (!briefing) return null;
 
   const citations = briefing.citations.map((c) => mapCitation(c, t));
+  const summaryText = pickLocalized(briefing.summary, mode).trim();
+  const takeaways = visibleBriefingLines(briefing.probabilityExplanation, mode);
+  const notes = visibleBriefingLines(briefing.uncertaintyNotes, mode);
+  const subtitle = generating
+    ? t(timedOut ? 'match.briefingTryAgain' : 'match.briefingGenerating')
+    : isStatisticalDraftSummary(briefing.summary)
+      ? t('match.briefingDraftSubtitle')
+      : t('match.briefingAiSubtitle');
 
   return (
     <div className="panel-dense space-y-4 border-magenta/15">
       <SectionLabel
         title={t('match.briefingTitle')}
-        subtitle={t('match.briefingAiSubtitle')}
+        subtitle={subtitle}
         accent="magenta"
       />
 
-      <LocalizedBlock value={briefing.summary} className="text-sm leading-relaxed text-foreground/90" />
+      {summaryText && (
+        <p className="text-sm leading-relaxed text-foreground/90">{summaryText}</p>
+      )}
 
-      {briefing.probabilityExplanation.length > 0 && (
+      {takeaways.length > 0 && (
         <div className="takeaway-card">
           <Bilingual k="match.briefingTakeaways" as="p" className="label-tactical mb-2 text-cyan" />
           <ul className="list-disc space-y-2 pl-5 text-sm text-foreground/85">
-            {briefing.probabilityExplanation.map((line, i) => (
-              <LocalizedBlock key={i} value={line} as="li" />
+            {takeaways.map((line, i) => (
+              <li key={i}>{line}</li>
             ))}
           </ul>
         </div>
       )}
 
-      {briefing.uncertaintyNotes.length > 0 && (
+      {notes.length > 0 && (
         <div
           className="rounded-xl border border-yellow/25 bg-yellow/5 px-4 py-3 text-sm leading-relaxed text-yellow/95"
           role="note"
         >
-          {briefing.uncertaintyNotes.map((note, i) => (
+          {notes.map((note, i) => (
             <p key={i} className={i > 0 ? 'mt-2' : undefined}>
-              {pickLocalized(note, mode)}
+              {note}
             </p>
           ))}
         </div>

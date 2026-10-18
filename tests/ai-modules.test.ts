@@ -32,6 +32,21 @@ import {
   WORKERS_AI_TEXT_MODEL,
 } from '../src/ai/modelRouter';
 
+function sampleBriefing(matchId: string) {
+  return {
+    matchId,
+    generatedAt: '2026-10-18T00:00:00.000Z',
+    summary: { vi: 'Tom tat', en: 'Model summary' },
+    tacticalThemes: [],
+    collectiveTeamFactors: [],
+    lineupRisks: [],
+    keyPlayers: [],
+    probabilityExplanation: [{ vi: 'Xac suat', en: 'Probability' }],
+    uncertaintyNotes: [],
+    citations: [{ sourceDocumentId: 'doc-1', sourceName: 'PitchIntel', reliabilityScore: 0.8 }],
+  };
+}
+
 vi.mock('../src/ai/gatewayClient', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/ai/gatewayClient')>();
   return {
@@ -219,8 +234,10 @@ describe('tacticalBriefing', () => {
     expect(run).toHaveBeenCalledWith(
       WORKERS_AI_TEXT_MODEL,
       expect.objectContaining({ max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
-    expect(WORKERS_AI_BRIEFING_MAX_TOKENS).toBeGreaterThanOrEqual(4096);
+    expect(WORKERS_AI_BRIEFING_MAX_TOKENS).toBeGreaterThanOrEqual(800);
+    expect(WORKERS_AI_BRIEFING_MAX_TOKENS).toBeLessThanOrEqual(1200);
     expect(WORKERS_AI_BRIEFING_MAX_TOKENS).not.toBe(resolveModel('tactical_briefing').maxTokens);
   });
 
@@ -253,6 +270,7 @@ describe('tacticalBriefing', () => {
     expect(run).toHaveBeenCalledWith(
       WORKERS_AI_TEXT_MODEL,
       expect.objectContaining({ max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(env.KV.put).toHaveBeenCalledWith(
       'briefing:vi3:m-trunc',
@@ -262,12 +280,66 @@ describe('tacticalBriefing', () => {
     expect(BRIEFING_AI_FAILURE_TTL_SECONDS).toBeLessThan(3600);
 
     const logged = spy.mock.calls.map((call) => String(call[0])).join('\n');
-    const payload = JSON.parse(String(spy.mock.calls[0]?.[0]));
+    const payload = JSON.parse(String(spy.mock.calls.at(-1)?.[0]));
     expect(payload.message).toBe('tactical briefing workers ai failed');
-    expect(payload.error).toBe('SyntaxError');
-    expect(payload.matchId).toBe('m-trunc');
+    expect(payload.errorName).toBe('SyntaxError');
+    expect(payload.errorMessage).toBe('invalid JSON');
     expect(logged).not.toContain('Phân tích bị cắt');
+    expect(payload.model).toBe(WORKERS_AI_TEXT_MODEL);
+    expect(payload.durationMs).toBeGreaterThanOrEqual(0);
+    expect(payload.matchId).toBe('m-trunc');
+    expect(logged.length).toBeLessThan(2000);
     spy.mockRestore();
+  });
+
+  it.each([
+    ['string', (body: string) => ({ response: body })],
+    ['object', (body: string) => ({ response: JSON.parse(body) as unknown })],
+    [
+      'prose',
+      (body: string) => ({
+        response: `Here is the tactical briefing JSON:\n\n\`\`\`\n${body}\n\`\`\`\n`,
+      }),
+    ],
+  ])('parses a Workers AI %s response', async (_label, wrap) => {
+    const body = JSON.stringify(sampleBriefing('m-shape'));
+    const logs = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const env = createMockEnv({
+      AI: { run: vi.fn(async () => wrap(body)) } as never,
+    });
+    const result = await generateTacticalBriefing(env, {
+      matchId: 'm-shape',
+      aiFallback: false,
+      probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
+    });
+    expect(result.summary.en).toBe('Model summary');
+    const lines = logs.mock.calls.map((call) => String(call[0]));
+    expect(lines.some((line) => line.includes('tactical briefing workers ai start'))).toBe(true);
+    expect(lines.some((line) => line.includes('tactical briefing workers ai done'))).toBe(true);
+    expect(lines.some((line) => line.includes('"durationMs"'))).toBe(true);
+    logs.mockRestore();
+  });
+
+  it('parses a streamed Workers AI response', async () => {
+    const body = JSON.stringify(sampleBriefing('m-stream'));
+    const mid = Math.floor(body.length / 2);
+    const sse = `data: ${JSON.stringify({ response: body.slice(0, mid) })}\n\ndata: ${JSON.stringify({ response: body.slice(mid) })}\n\n`;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(sse));
+        controller.close();
+      },
+    });
+    const env = createMockEnv({
+      AI: { run: vi.fn(async () => stream) } as never,
+    });
+    const result = await generateTacticalBriefing(env, {
+      matchId: 'm-stream',
+      aiFallback: false,
+      probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
+    });
+    expect(result.matchId).toBe('m-stream');
+    expect(result.summary.en).toBe('Model summary');
   });
 
   it('caches the fallback for 60s when Workers AI fails without a parse error', async () => {

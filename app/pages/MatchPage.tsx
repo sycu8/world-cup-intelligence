@@ -45,7 +45,7 @@ import { useMatchProbabilityMovement } from '../lib/useMatchProbabilityMovement'
 import { deferNonCritical } from '../lib/deferNonCritical';
 import { adjustProbabilities } from '../lib/simulator';
 import { pct } from '../lib/format';
-import { pickLocalized } from '../lib/briefingText';
+import { pickLocalized, visibleBriefingLines } from '../lib/briefingText';
 import { useI18n } from '../lib/i18n/I18nContext';
 import { resolveMatchAnalysisHref, matchPagePath } from '../lib/matchPaths';
 import { useLegacyMatchRedirect } from '../lib/useLegacyMatchRedirect';
@@ -63,11 +63,17 @@ import { usePitchMapLive } from '../lib/usePitchMapLive';
 import { matchOgImageUrl } from '../lib/matchThumbnail';
 import { usePageMeta } from '../lib/usePageMeta';
 
+/** 24 waits × 5s keeps the page polling for about 120s. */
+const BRIEFING_POLL_LIMIT = 24;
+const BRIEFING_POLL_INTERVAL_MS = 5000;
+
 export function MatchPage() {
   const { matchId } = useParams();
   const { t, mode } = useI18n();
   const [viewMode, setViewMode] = useState<ViewMode>('tactical');
   const [briefing, setBriefing] = useState<TacticalBriefing | null>(null);
+  const [briefingGenerating, setBriefingGenerating] = useState(false);
+  const [briefingTimedOut, setBriefingTimedOut] = useState(false);
   const [events, setEvents] = useState<{ x?: number; y?: number; event_type?: string; xg?: number }[]>([]);
   const [analysis, setAnalysis] = useState<MultiVariableAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
@@ -110,7 +116,11 @@ export function MatchPage() {
 
   useEffect(() => {
     if (!matchId) return;
+    let cancelled = false;
+    let briefingTimer: ReturnType<typeof setTimeout> | undefined;
     setNotFound(false);
+    setBriefingGenerating(false);
+    setBriefingTimedOut(false);
 
     api.matchEvents(matchId).then((r) => setEvents(r.data as typeof events));
     api.matchHistory(matchId).then((r) => {
@@ -133,7 +143,24 @@ export function MatchPage() {
       .finally(() => setPreviewLoading(false));
 
     deferNonCritical(() => {
-      api.matchBriefing(matchId).then((r) => setBriefing(r.data)).catch(() => setBriefing(null));
+      const pollBriefing = (attempt = 0) => {
+        api
+          .matchBriefing(matchId)
+          .then((r) => {
+            if (cancelled) return;
+            setBriefing(r.data);
+            const stillGenerating = Boolean(r.generating);
+            setBriefingGenerating(stillGenerating);
+            setBriefingTimedOut(stillGenerating && attempt >= BRIEFING_POLL_LIMIT);
+            if (stillGenerating && attempt < BRIEFING_POLL_LIMIT) {
+              briefingTimer = setTimeout(() => pollBriefing(attempt + 1), BRIEFING_POLL_INTERVAL_MS);
+            }
+          })
+          .catch(() => {
+            if (!cancelled) setBriefing(null);
+          });
+      };
+      pollBriefing();
 
       const pollAnalysis = (attempt = 0) => {
         api
@@ -170,6 +197,10 @@ export function MatchPage() {
         api.matchMarketSignals(matchId).then((r) => setMarketSignals(r.data)).catch(() => setMarketSignals(null)),
       ]).finally(() => setIntelLoading(false));
     });
+    return () => {
+      cancelled = true;
+      if (briefingTimer) clearTimeout(briefingTimer);
+    };
   }, [matchId]);
 
   useEffect(() => {
@@ -315,8 +346,9 @@ export function MatchPage() {
                 : undefined
           }
           takeaways={
-            briefing?.probabilityExplanation.map((line) => pickLocalized(line, mode)) ??
-            hints.map((h) => (mode === 'en' ? h.en : h.vi)).slice(0, 4)
+            briefing
+              ? visibleBriefingLines(briefing.probabilityExplanation, mode)
+              : hints.map((h) => (mode === 'en' ? h.en : h.vi)).slice(0, 4)
           }
           stickyContext={{
             home,
@@ -340,7 +372,11 @@ export function MatchPage() {
                   live={match.status === 'live'}
                 />
               )}
-              <TacticalBriefingPanel briefing={briefing} />
+              <TacticalBriefingPanel
+                briefing={briefing}
+                generating={briefingGenerating}
+                timedOut={briefingTimedOut}
+              />
               {(analysisLoading || analysis) && (
                 <MultiVariablePanel analysis={analysis} loading={analysisLoading} />
               )}
@@ -355,10 +391,13 @@ export function MatchPage() {
               variant="editorial"
             />
           )}
-          {briefing?.summary && !preview && <p>{pickLocalized(briefing.summary, mode)}</p>}
-          {briefing?.probabilityExplanation.map((line, i) => (
-            <p key={i}>{pickLocalized(line, mode)}</p>
-          ))}
+          {briefing?.summary && !preview && pickLocalized(briefing.summary, mode).trim() && (
+            <p>{pickLocalized(briefing.summary, mode).trim()}</p>
+          )}
+          {briefing &&
+            visibleBriefingLines(briefing.probabilityExplanation, mode).map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
           {analysis?.executiveSummary && (
             <>
               <h2>{t('multiVar.analysisHeading')}</h2>
@@ -572,7 +611,11 @@ export function MatchPage() {
           {(analysisLoading || analysis) && (
             <MultiVariablePanel analysis={analysis} loading={analysisLoading} />
           )}
-          <TacticalBriefingPanel briefing={briefing} />
+          <TacticalBriefingPanel
+            briefing={briefing}
+            generating={briefingGenerating}
+            timedOut={briefingTimedOut}
+          />
         </aside>
       </div>
     </div>

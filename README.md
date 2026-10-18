@@ -2,7 +2,7 @@
 
 **PitchIntel** — nền tảng phân tích chiến thuật & xác suất cho **FIFA World Cup 2026**, chạy trên Cloudflare Workers.
 
-🌐 **Production:** [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) · **UAT:** [wc-tactical-uat.sycu-lee.workers.dev](https://wc-tactical-uat.sycu-lee.workers.dev)
+🌐 **Production:** [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) · **UAT:** [wcstat-uat.orangecloud.vn](https://wcstat-uat.orangecloud.vn) (Cloudflare Access)
 
 ---
 
@@ -507,8 +507,10 @@ npm run test:scenarios:streak
 # Local Worker (8790)
 BASE_URL=http://127.0.0.1:8790 EXPECT_ENV=development npm run test:scenarios:streak
 
-# UAT
-BASE_URL=https://wc-tactical-uat.sycu-lee.workers.dev EXPECT_ENV=uat npm run test:scenarios:streak
+# UAT (Access). Export CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET
+# for this command only — do not commit them. The script sends
+# CF-Access-Client-Id and CF-Access-Client-Secret.
+BASE_URL=https://wcstat-uat.orangecloud.vn EXPECT_ENV=uat npm run test:scenarios:streak
 ```
 
 **Deploy (GitHub Actions):** workflow `Deploy Cloudflare` — push `main` deploy cả UAT + production; migrations D1 chạy trước deploy.
@@ -516,7 +518,7 @@ BASE_URL=https://wc-tactical-uat.sycu-lee.workers.dev EXPECT_ENV=uat npm run tes
 | Môi trường | URL |
 |------------|-----|
 | Production | [wcstat.orangecloud.vn](https://wcstat.orangecloud.vn) |
-| UAT | [wc-tactical-uat.sycu-lee.workers.dev](https://wc-tactical-uat.sycu-lee.workers.dev) |
+| UAT | [wcstat-uat.orangecloud.vn](https://wcstat-uat.orangecloud.vn) |
 
 **Đã kiểm tra (unit + scenarios):**
 - Xác suất & snapshot engine

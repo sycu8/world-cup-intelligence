@@ -61,6 +61,9 @@ describe('briefingText', () => {
     });
     expect(pickLocalized({ vi: 'vi', en: 'en' }, 'en')).toBe('en');
     expect(pickLocalized('same', 'vi')).toBe('same');
+    expect(pickLocalized({ vi: '', en: 'English only' }, 'vi')).toBe('English only');
+    expect(pickLocalized({ vi: 'Chỉ tiếng Việt', en: '' }, 'en')).toBe('Chỉ tiếng Việt');
+    expect(pickLocalized({ vi: '  ', en: '  ' }, 'vi')).toBe('  ');
   });
 });
 

@@ -6,7 +6,8 @@ import { SYSTEM_NO_INVENT_NUMBERS, entityExtractPrompt } from './prompts';
 import { getTeamsByTournament } from '../db/repositories/teamsRepo';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
 import { buildTeamAliasIndex, findTeamIdsInText } from '../services/newsMatchImpact';
-import { logError, summarizeError } from '../utils/logger';
+import { logAiCallFailure } from '../utils/logger';
+import { extractJsonObject, workersAiResultText } from './workersAiText';
 
 const EntitySchema = z.object({
   teams: z.array(z.string()).default([]),
@@ -50,6 +51,7 @@ export function extractEntitiesRuleBased(
 
 async function workersAiExtract(env: AppEnv, articleText: string): Promise<ExtractedEntities | null> {
   if (!env.AI) return null;
+  const started = Date.now();
   try {
     const response = await env.AI.run(WORKERS_AI_TEXT_MODEL, {
       max_tokens: resolveModel('entity_extract').maxTokens,
@@ -58,16 +60,14 @@ async function workersAiExtract(env: AppEnv, articleText: string): Promise<Extra
         { role: 'user', content: entityExtractPrompt(articleText) },
       ],
     });
-    const text =
-      typeof response === 'object' && response && 'response' in response
-        ? String((response as { response: string }).response)
-        : JSON.stringify(response);
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start === -1 || end === -1) return null;
-    return EntitySchema.parse(JSON.parse(text.slice(start, end + 1)));
+    const text = extractJsonObject(await workersAiResultText(response));
+    if (!text.includes('{')) return null;
+    return EntitySchema.parse(JSON.parse(text));
   } catch (error) {
-    logError('entity extraction workers ai failed', { error: summarizeError(error) });
+    logAiCallFailure('entity extraction workers ai failed', error, {
+      model: WORKERS_AI_TEXT_MODEL,
+      durationMs: Date.now() - started,
+    });
     return null;
   }
 }

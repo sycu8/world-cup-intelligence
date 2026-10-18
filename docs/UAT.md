@@ -11,7 +11,7 @@
 
 | Môi trường | Địa chỉ |
 |------------|---------|
-| UAT | `https://wc-tactical-uat.sycu-lee.workers.dev` |
+| UAT | `https://wcstat-uat.orangecloud.vn` (Access) |
 | Production | `https://wcstat.orangecloud.vn` (không đổi khi chỉ deploy UAT) |
 
 ## Cloudflare Access (chặn UAT)
@@ -20,7 +20,7 @@ Chỉ cho phép email admin (thay `<your-email>` bằng địa chỉ thật — 
 
 1. Cloudflare Dashboard → **Zero Trust** → **Access** → **Applications**
 2. **Add application** → Self-hosted
-3. Domain: `wc-tactical-uat.sycu-lee.workers.dev` (hoặc `uat.wcstat.orangecloud.vn`)
+3. Domain: `wcstat-uat.orangecloud.vn` (Workers domain behind Access). `workers.dev` is disabled.
 4. Policy: **Allow** → Email → `<your-email>`
 5. Lưu và thử trên cửa sổ ẩn danh
 
@@ -32,13 +32,15 @@ Chỉ cho phép email admin (thay `<your-email>` bằng địa chỉ thật — 
 npm run typecheck
 npm test
 npm run test:scenarios    # 22 capability checks (default: production URL)
-BASE_URL=https://wc-tactical-uat.sycu-lee.workers.dev npm run test:scenarios
+BASE_URL=https://wcstat-uat.orangecloud.vn npm run test:scenarios
 npm run build
 npm run db:migrate:uat      # migration D1 UAT
 npm run deploy:uat          # deploy Worker + assets lên UAT
 npm run db:migrate:production
 npm run deploy:production   # production — chỉ sau khi UAT pass
 ```
+
+The Access host answers with a login redirect unless the request carries a service token. Do not commit the token. For `npm run test:scenarios` against `https://wcstat-uat.orangecloud.vn`, export `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` in the shell for that run. The script sends them as `CF-Access-Client-Id` and `CF-Access-Client-Secret`.
 
 ## Checklist nghiệm thu UAT
 

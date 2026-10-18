@@ -1,0 +1,33 @@
+# Tests and typecheck for pull requests and branch pushes.
+# Deploy stays in deploy.yml and runs only on main or a manual dispatch.
+# Needs Cuong's OK before this workflow is merged.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096

@@ -3,8 +3,20 @@ import { TacticalBriefingSchema, type TacticalBriefing } from './schemas';
 import { nowIso } from '../utils/time';
 import { isGatewayConfigured, gatewayChatJson } from './gatewayClient';
 import { WORKERS_AI_BRIEFING_MAX_TOKENS, WORKERS_AI_TEXT_MODEL } from './modelRouter';
-import { SYSTEM_NO_INVENT_NUMBERS, tacticalBriefingPrompt } from './prompts';
-import { logError, summarizeError } from '../utils/logger';
+import { SYSTEM_NO_INVENT_NUMBERS, TACTICAL_BRIEFING_RESPONSE_FORMAT, tacticalBriefingPrompt } from './prompts';
+import { logAiCallFailure, logInfo } from '../utils/logger';
+import { extractJsonObject, workersAiResultText } from './workersAiText';
+import { briefingHasContent, parseModelBriefing } from './coerceBriefing';
+
+/** One observed call finished at 60.1s, so the cap sits above that. */
+export const BRIEFING_AI_TIMEOUT_MS = 120_000;
+
+const withheldFromCache = new WeakSet<object>();
+
+/** Incomplete model output is returned as the statistical draft and not stored. */
+export function briefingWithheldFromCache(briefing: object): boolean {
+  return withheldFromCache.has(briefing);
+}
 
 const BRIEFING_CACHE_PREFIX = 'briefing:vi3:';
 const BRIEFING_CACHE_TTL_SECONDS = 3600;
@@ -108,19 +120,28 @@ export async function generateTacticalBriefing(
   if (cached) return cached;
 
   let aiFailed = false;
+  let withholdCache = false;
 
   if (isGatewayConfigured(env) && !input.aiFallback) {
+    const started = Date.now();
+    logInfo('tactical briefing gateway start', { matchId: input.matchId, model: 'gateway' });
     try {
       const parsed = await gatewayChatJson<TacticalBriefing>(env, 'tactical_briefing', [
         { role: 'system', content: SYSTEM_NO_INVENT_NUMBERS },
         { role: 'user', content: tacticalBriefingPrompt(input.matchId, input.probability) },
       ]);
+      logInfo('tactical briefing gateway done', {
+        matchId: input.matchId,
+        model: 'gateway',
+        durationMs: Date.now() - started,
+      });
       if (parsed) {
-        const briefing = TacticalBriefingSchema.parse({
-          ...parsed,
-          matchId: input.matchId,
-          generatedAt: parsed.generatedAt || nowIso(),
-        });
+        if (!briefingHasContent(parsed)) {
+          withholdCache = true;
+          throw new Error('briefing missing summary or takeaway');
+        }
+        withholdCache = false;
+        const briefing = parseModelBriefing(parsed, input.matchId);
         await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(briefing), {
           expirationTtl: BRIEFING_CACHE_TTL_SECONDS,
         });
@@ -128,44 +149,69 @@ export async function generateTacticalBriefing(
       }
     } catch (error) {
       aiFailed = true;
-      logError('tactical briefing gateway failed', {
+      logAiCallFailure('tactical briefing gateway failed', error, {
         matchId: input.matchId,
-        error: summarizeError(error),
+        model: 'gateway',
+        durationMs: Date.now() - started,
       });
     }
   }
 
   if (env.AI && !input.aiFallback) {
+    const started = Date.now();
+    logInfo('tactical briefing workers ai start', {
+      matchId: input.matchId,
+      model: WORKERS_AI_TEXT_MODEL,
+    });
     try {
-      const response = await env.AI.run(WORKERS_AI_TEXT_MODEL, {
-        max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS,
-        messages: [
-          { role: 'system', content: SYSTEM_NO_INVENT_NUMBERS },
-          {
-            role: 'user',
-            content: tacticalBriefingPrompt(input.matchId, input.probability),
-          },
-        ],
+      const response = await env.AI.run(
+        WORKERS_AI_TEXT_MODEL,
+        {
+          max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS,
+          response_format: TACTICAL_BRIEFING_RESPONSE_FORMAT,
+          messages: [
+            { role: 'system', content: SYSTEM_NO_INVENT_NUMBERS },
+            {
+              role: 'user',
+              content: tacticalBriefingPrompt(input.matchId, input.probability),
+            },
+          ],
+        },
+        { signal: AbortSignal.timeout(BRIEFING_AI_TIMEOUT_MS) },
+      );
+      const durationMs = Date.now() - started;
+      logInfo('tactical briefing workers ai done', {
+        matchId: input.matchId,
+        model: WORKERS_AI_TEXT_MODEL,
+        durationMs,
       });
-      const text =
-        typeof response === 'object' && response && 'response' in response
-          ? String((response as { response: string }).response)
-          : JSON.stringify(response);
-      const briefing = TacticalBriefingSchema.parse(JSON.parse(text));
+      const text = extractJsonObject(await workersAiResultText(response));
+      const parsed: unknown = JSON.parse(text);
+      if (!briefingHasContent(parsed)) {
+        withholdCache = true;
+        throw new Error('briefing missing summary or takeaway');
+      }
+      withholdCache = false;
+      const briefing = parseModelBriefing(parsed, input.matchId);
       await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(briefing), {
         expirationTtl: BRIEFING_CACHE_TTL_SECONDS,
       });
       return briefing;
     } catch (error) {
       aiFailed = true;
-      logError('tactical briefing workers ai failed', {
+      logAiCallFailure('tactical briefing workers ai failed', error, {
         matchId: input.matchId,
-        error: summarizeError(error),
+        model: WORKERS_AI_TEXT_MODEL,
+        durationMs: Date.now() - started,
       });
     }
   }
 
   const fallback = fallbackBriefing(input);
+  if (withholdCache) {
+    withheldFromCache.add(fallback);
+    return fallback;
+  }
   await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(fallback), {
     expirationTtl: aiFailed ? BRIEFING_AI_FAILURE_TTL_SECONDS : BRIEFING_CACHE_TTL_SECONDS,
   });

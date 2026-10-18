@@ -6,7 +6,9 @@ import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import * as tournamentsRepo from '../db/repositories/tournamentsRepo';
 import { computeProbability } from '../models/probability/engine';
 import { buildMatchFeaturesWithForm } from '../services/matchFeatures';
-import { generateTacticalBriefing, getCachedBriefing, fallbackBriefing } from '../ai/tacticalBriefing';
+import { getCachedBriefing, fallbackBriefing } from '../ai/tacticalBriefing';
+import { requestBriefingGeneration } from '../ai/briefingQueue';
+import { logAiCallFailure } from '../utils/logger';
 import { parseEnv } from '../env';
 import { getCachedJson } from '../services/payloadCache';
 import { withPathCache } from '../services/workersPathCache';
@@ -174,22 +176,35 @@ probabilityRoutes.get('/:matchId/intervals', async (c) => {
 });
 
 probabilityRoutes.get('/:matchId/tactical-briefing', async (c) => {
-  const matchId = c.req.param('matchId');
+  const matchRef = c.req.param('matchId');
   const recompute = c.req.query('recompute') === '1';
-  const resolved = await resolveProbability(c, matchId, recompute);
+  const resolved = await resolveProbability(c, matchRef, recompute);
   if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const payload = resolved.data as Record<string, unknown>;
+  const canonicalId = typeof payload.matchId === 'string' ? payload.matchId : '';
+  if (!canonicalId) return c.json({ error: 'Not found' }, 404);
   const config = parseEnv(c.env);
 
-  const cached = await getCachedBriefing(c.env, matchId);
-  if (cached) return c.json({ data: cached });
+  const cached = await getCachedBriefing(c.env, canonicalId);
+  if (cached) return c.json({ data: cached, generating: false });
 
   const input = {
-    matchId,
+    matchId: canonicalId,
     probability: resolved.data,
     aiFallback: config.aiFallback,
   };
-  const instant = fallbackBriefing(input);
-  c.executionCtx.waitUntil(generateTacticalBriefing(c.env, input).catch(() => undefined));
+  let generating = false;
+  if (!config.aiFallback) {
+    try {
+      generating = await requestBriefingGeneration(c.env, canonicalId);
+    } catch (error) {
+      logAiCallFailure('tactical briefing enqueue failed', error, {
+        matchId: canonicalId,
+        model: 'model-queue',
+        durationMs: 0,
+      });
+    }
+  }
 
-  return c.json({ data: instant });
+  return c.json({ data: fallbackBriefing(input), generating });
 });

@@ -1,6 +1,8 @@
 import type { ModelJob } from './types';
 import type { AppEnv } from '../env';
-import { logInfo, logError } from '../utils/logger';
+import { logInfo, logError, logWarn } from '../utils/logger';
+import { resolveMatchRef } from '../services/matchRef';
+import { isLegacyMatchId } from '../utils/matchSlug';
 import { recomputeMatchProbability } from '../services/recomputeMatch';
 import { runBulkRecomputeIfPending } from '../services/bulkRecomputeRunner';
 import {
@@ -9,7 +11,8 @@ import {
   broadcastScenarioUpdate,
 } from '../services/matchScenarioService';
 import { runScenarioBacktest } from '../models/scenarios/backtesting/scenarioBacktestRunner';
-import { generateTacticalBriefing } from '../ai/tacticalBriefing';
+import { briefingWithheldFromCache, generateTacticalBriefing } from '../ai/tacticalBriefing';
+import { clearBriefingInflight, isBriefingWithheld, markBriefingWithheld } from '../ai/briefingQueue';
 import { runMultiVariableAnalysis } from '../ai/multiVariableAnalysis';
 import { extractEntitiesFromArticle } from '../ai/entityExtraction';
 import { processNewsDocumentImpact } from '../services/newsMatchImpact';
@@ -73,10 +76,34 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
           await runMultiVariableAnalysis(env, msg.body.matchId);
           break;
         case 'ai_briefing': {
-          const snap = await probabilityRepo.getLatestSnapshot(env.DB, msg.body.matchId);
-          if (!snap) break;
+          const requestedRef = msg.body.matchId;
+          let matchId = requestedRef;
+          if (!isLegacyMatchId(requestedRef)) {
+            const resolved = await resolveMatchRef(env.DB, requestedRef, env.KV);
+            if (!resolved) {
+              logWarn('tactical briefing match ref unresolved', { matchId: requestedRef });
+              await clearBriefingInflight(env, requestedRef);
+              break;
+            }
+            matchId = resolved.id;
+          }
+          const snap = await probabilityRepo.getLatestSnapshot(env.DB, matchId);
+          if (!snap) {
+            logWarn('tactical briefing snapshot missing', { matchId });
+            await clearBriefingInflight(env, requestedRef);
+            if (matchId !== requestedRef) await clearBriefingInflight(env, matchId);
+            break;
+          }
+          // The queued value is '1'. Only 'withheld' means this message must not call the model.
+          if (
+            (await isBriefingWithheld(env, matchId)) ||
+            (matchId !== requestedRef && (await isBriefingWithheld(env, requestedRef)))
+          ) {
+            logWarn('tactical briefing skipped', { matchId });
+            break;
+          }
           const briefing = await generateTacticalBriefing(env, {
-            matchId: msg.body.matchId,
+            matchId,
             probability: {
               homeWinProb: snap.home_win_prob,
               drawProb: snap.draw_prob,
@@ -86,12 +113,16 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
             },
             aiFallback: config.aiFallback,
           });
-          await env.KV.put(
-            `briefing:${msg.body.matchId}`,
-            JSON.stringify(briefing),
-            { expirationTtl: 3600 },
-          );
-          logInfo('ai briefing cached', { match_id: msg.body.matchId });
+          if (briefingWithheldFromCache(briefing)) {
+            logWarn('tactical briefing not cached', { matchId });
+            await markBriefingWithheld(env, matchId);
+            if (matchId !== requestedRef) await markBriefingWithheld(env, requestedRef);
+            break;
+          }
+          await env.KV.put(`briefing:${matchId}`, JSON.stringify(briefing), { expirationTtl: 3600 });
+          await clearBriefingInflight(env, matchId);
+          if (matchId !== requestedRef) await clearBriefingInflight(env, requestedRef);
+          logInfo('ai briefing cached', { match_id: matchId });
           break;
         }
         case 'ai_extract_news': {
