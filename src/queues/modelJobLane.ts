@@ -14,6 +14,13 @@ export const AI_BRIEFING_QUEUE_MAX_AGE_MS = 12 * 60_000;
  */
 /** One AI message cannot hold the rest of the batch past the briefing call cap. */
 export const AI_MESSAGE_TIMEOUT_MS = 120_000;
+/**
+ * Whole queue-consumer invocation. The platform wall is 15 minutes;
+ * staying at 4 minutes leaves room for the runtime to ack and return.
+ */
+export const CONSUMER_BATCH_DEADLINE_MS = 240_000;
+/** Non-AI messages, including a bulk chunk, stay inside the batch deadline. */
+export const MODEL_MESSAGE_TIMEOUT_MS = 90_000;
 export const MODEL_JOB_MAX_AGE_MS: Record<string, number> = {
   ai_briefing: AI_BRIEFING_QUEUE_MAX_AGE_MS,
   ai_multi_analyze: 30 * 60_000,
@@ -27,6 +34,14 @@ export const MODEL_JOB_MAX_AGE_MS: Record<string, number> = {
   SCENARIO_BACKTEST: 6 * 60 * 60_000,
   recompute_wc2026_bulk: 6 * 60 * 60_000,
 };
+
+/** Cap for one message. The batch loop also clamps this to the time still left. */
+export function modelMessageTimeoutMs(type: string): number {
+  if (type === 'ai_briefing' || type === 'ai_multi_analyze' || type === 'ai_extract_news') {
+    return AI_MESSAGE_TIMEOUT_MS;
+  }
+  return MODEL_MESSAGE_TIMEOUT_MS;
+}
 
 export function modelJobPriority(type: string): number {
   if (type === 'ai_briefing') return 0;

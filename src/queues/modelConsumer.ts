@@ -24,9 +24,19 @@ import { extractEntitiesFromArticle } from '../ai/entityExtraction';
 import { processNewsDocumentImpact } from '../services/newsMatchImpact';
 import { parseEnv } from '../env';
 import * as probabilityRepo from '../db/repositories/probabilityRepo';
-import { AI_MESSAGE_TIMEOUT_MS, modelJobPriority, modelMessageDisposition, withMessageTimeout } from './modelJobLane';
+import {
+  CONSUMER_BATCH_DEADLINE_MS,
+  modelJobPriority,
+  modelMessageDisposition,
+  modelMessageTimeoutMs,
+  withMessageTimeout,
+} from './modelJobLane';
 
-export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEnv): Promise<void> {
+export async function handleModelBatch(
+  batch: MessageBatch<ModelJob>,
+  env: AppEnv,
+  options?: { deadlineMs?: number; messageTimeoutMs?: number },
+): Promise<void> {
   const config = parseEnv(env);
   const now = Date.now();
   const dropped: Message<ModelJob>[] = [];
@@ -53,8 +63,36 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
   }
   runnable.sort((a, b) => modelJobPriority(a.body.type) - modelJobPriority(b.body.type));
 
+  const deadlineMs = options?.deadlineMs ?? CONSUMER_BATCH_DEADLINE_MS;
+  const batchStarted = Date.now();
   for (const msg of runnable) {
+    const elapsed = Date.now() - batchStarted;
+    if (elapsed >= deadlineMs) {
+      logInfo('model batch deferred', { type: msg.body.type });
+      msg.retry();
+      continue;
+    }
+    const timeoutMs = Math.max(
+      1,
+      Math.min(modelMessageTimeoutMs(msg.body.type), options?.messageTimeoutMs ?? Number.POSITIVE_INFINITY, deadlineMs - elapsed),
+    );
     try {
+      await withMessageTimeout(timeoutMs, (signal) => runModelMessage(msg, env, config, signal));
+      msg.ack();
+    } catch (e) {
+      logError('model job failed', { error: String(e), type: msg.body.type });
+      msg.retry();
+    }
+  }
+}
+
+async function runModelMessage(
+  msg: Message<ModelJob>,
+  env: AppEnv,
+  config: ReturnType<typeof parseEnv>,
+  signal: AbortSignal,
+): Promise<void> {
+  if (signal.aborted) throw new Error('model message timed out');
       switch (msg.body.type) {
         case 'recompute':
           await recomputeMatchProbability(env, msg.body.matchId);
@@ -95,6 +133,7 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
           break;
         case 'recompute_all':
           for (const matchId of msg.body.matchIds) {
+            if (signal.aborted) throw new Error('model message timed out');
             await recomputeMatchProbability(env, matchId);
             await requestBriefingGeneration(env, matchId);
             await env.MODEL_QUEUE?.send({ type: 'ai_multi_analyze', matchId });
@@ -106,11 +145,9 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
             phase: msg.body.phase,
           });
           break;
-        case 'ai_multi_analyze': {
-          const matchId = msg.body.matchId;
-          await withMessageTimeout(AI_MESSAGE_TIMEOUT_MS, () => runMultiVariableAnalysis(env, matchId));
+        case 'ai_multi_analyze':
+          await runMultiVariableAnalysis(env, msg.body.matchId);
           break;
-        }
         case 'ai_briefing': {
           const requestedRef = msg.body.matchId;
           let matchId = requestedRef;
@@ -138,22 +175,20 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
             logWarn('tactical briefing skipped', { matchId });
             break;
           }
-          const briefing = await withMessageTimeout(AI_MESSAGE_TIMEOUT_MS, (signal) =>
-            generateTacticalBriefing(
-              env,
-              {
-                matchId,
-                probability: {
-                  homeWinProb: snap.home_win_prob,
-                  drawProb: snap.draw_prob,
-                  awayWinProb: snap.away_win_prob,
-                  expectedHomeGoals: snap.expected_home_goals,
-                  expectedAwayGoals: snap.expected_away_goals,
-                },
-                aiFallback: config.aiFallback,
+          const briefing = await generateTacticalBriefing(
+            env,
+            {
+              matchId,
+              probability: {
+                homeWinProb: snap.home_win_prob,
+                drawProb: snap.draw_prob,
+                awayWinProb: snap.away_win_prob,
+                expectedHomeGoals: snap.expected_home_goals,
+                expectedAwayGoals: snap.expected_away_goals,
               },
-              { signal },
-            ),
+              aiFallback: config.aiFallback,
+            },
+            { signal },
           );
           if (briefingWithheldFromCache(briefing)) {
             logWarn('tactical briefing not cached', { matchId });
@@ -170,9 +205,7 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
         case 'ai_extract_news': {
           const content = msg.body.content;
           if (content) {
-            const entities = await withMessageTimeout(AI_MESSAGE_TIMEOUT_MS, () =>
-              extractEntitiesFromArticle(env, content),
-            );
+            const entities = await extractEntitiesFromArticle(env, content);
             if (entities) {
               await env.DB.prepare(
                 'UPDATE source_documents SET extracted_entities_json = ? WHERE id = ?',
@@ -185,10 +218,4 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
           break;
         }
       }
-      msg.ack();
-    } catch (e) {
-      logError('model job failed', { error: String(e), type: msg.body.type });
-      msg.retry();
-    }
-  }
 }

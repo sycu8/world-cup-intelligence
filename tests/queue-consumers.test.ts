@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { handleIngestBatch } from '../src/queues/ingestConsumer';
 import { handleModelBatch } from '../src/queues/modelConsumer';
-import { AI_BRIEFING_QUEUE_MAX_AGE_MS, AI_MESSAGE_TIMEOUT_MS } from '../src/queues/modelJobLane';
+import { AI_BRIEFING_QUEUE_MAX_AGE_MS, AI_MESSAGE_TIMEOUT_MS, CONSUMER_BATCH_DEADLINE_MS } from '../src/queues/modelJobLane';
 import { MODEL_QUEUE_STALE_DROPS_KEY } from '../src/constants/pipeline';
 import { createMockDb, createMockEnv } from './helpers/mockEnv';
 import { createMockMessageBatch } from './helpers/mockMessageBatch';
@@ -246,6 +246,25 @@ describe('handleIngestBatch', () => {
       createMockEnv(),
     );
     expect(retry).toHaveBeenCalled();
+  });
+
+  it('a slow ingest message does not hold the rest of the batch', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    const { deliverWebhook } = await import('../src/services/publicApi/webhooks');
+    vi.mocked(refreshMatchData).mockImplementationOnce(() => new Promise(() => undefined));
+    const retry = vi.fn();
+    const ack = vi.fn();
+    await handleIngestBatch(
+      createMockMessageBatch([
+        { body: { type: 'refresh_minute', idempotencyKey: 'slow' }, retry },
+        { body: { type: 'webhook_deliver', subscriptionId: 'wh-1', eventId: 3 }, ack },
+      ]),
+      createMockEnv(),
+      { deadlineMs: 500, messageTimeoutMs: 30 },
+    );
+    expect(retry).toHaveBeenCalled();
+    expect(deliverWebhook).toHaveBeenCalled();
+    expect(ack).toHaveBeenCalled();
   });
 });
 
@@ -606,5 +625,48 @@ describe('handleModelBatch', () => {
       createMockEnv(),
     );
     expect(retry).toHaveBeenCalled();
+  });
+
+  it('retries a message that does not finish and still runs the next one', async () => {
+    const { recomputeMatchProbability } = await import('../src/services/recomputeMatch');
+    const { generateMatchScenarios } = await import('../src/services/matchScenarioService');
+    vi.mocked(recomputeMatchProbability).mockImplementationOnce(() => new Promise(() => undefined));
+    const retry = vi.fn();
+    const ack = vi.fn();
+    await handleModelBatch(
+      createMockMessageBatch([
+        { body: { type: 'recompute', matchId: 'm-slow' }, retry },
+        { body: { type: 'PRE_MATCH_RECOMPUTE', matchId: 'm-next' }, ack },
+      ]),
+      createMockEnv(),
+      { deadlineMs: 500, messageTimeoutMs: 30 },
+    );
+    expect(retry).toHaveBeenCalled();
+    expect(generateMatchScenarios).toHaveBeenCalled();
+    expect(ack).toHaveBeenCalled();
+  });
+
+  it('defers the rest of the batch once the 4 minute deadline is spent', async () => {
+    const { recomputeMatchProbability } = await import('../src/services/recomputeMatch');
+    const { generateMatchScenarios } = await import('../src/services/matchScenarioService');
+    let clock = Date.now();
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => clock);
+    vi.mocked(recomputeMatchProbability).mockImplementationOnce(async () => {
+      clock += CONSUMER_BATCH_DEADLINE_MS;
+    });
+    const retry = vi.fn();
+    try {
+      await handleModelBatch(
+        createMockMessageBatch([
+          { body: { type: 'recompute', matchId: 'm-1' } },
+          { body: { type: 'PRE_MATCH_RECOMPUTE', matchId: 'm-2' }, retry },
+        ]),
+        createMockEnv(),
+      );
+    } finally {
+      now.mockRestore();
+    }
+    expect(retry).toHaveBeenCalled();
+    expect(generateMatchScenarios).not.toHaveBeenCalled();
   });
 });

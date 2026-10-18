@@ -14,6 +14,7 @@ import {
 import { runChampionOddsRefreshIfPending } from '../services/tournamentChampionOdds';
 import { deliverWebhook } from '../services/publicApi/webhooks';
 import { syncOfficialLineupsToMatches } from '../services/officialLineupSync';
+import { CONSUMER_BATCH_DEADLINE_MS, MODEL_MESSAGE_TIMEOUT_MS, withMessageTimeout } from './modelJobLane';
 
 function statsbombDataChanged(result: {
   matchesInserted: number;
@@ -25,9 +26,32 @@ function statsbombDataChanged(result: {
 export async function handleIngestBatch(
   batch: MessageBatch<IngestJob>,
   env: AppEnv,
+  options?: { deadlineMs?: number; messageTimeoutMs?: number },
 ): Promise<void> {
+  const deadlineMs = options?.deadlineMs ?? CONSUMER_BATCH_DEADLINE_MS;
+  const batchStarted = Date.now();
   for (const msg of batch.messages) {
+    const elapsed = Date.now() - batchStarted;
+    if (elapsed >= deadlineMs) {
+      logInfo('ingest batch deferred', { type: msg.body.type });
+      msg.retry();
+      continue;
+    }
+    const timeoutMs = Math.max(
+      1,
+      Math.min(MODEL_MESSAGE_TIMEOUT_MS, options?.messageTimeoutMs ?? Number.POSITIVE_INFINITY, deadlineMs - elapsed),
+    );
     try {
+      await withMessageTimeout(timeoutMs, () => runIngestMessage(msg, env));
+      msg.ack();
+    } catch (e) {
+      logInfo('ingest retry', { error: String(e) });
+      msg.retry();
+    }
+  }
+}
+
+async function runIngestMessage(msg: Message<IngestJob>, env: AppEnv): Promise<void> {
       switch (msg.body.type) {
         case 'refresh_minute': {
           const { updatedIds, completedIds, teamUpdatedIds } = await refreshMatchData(env);
@@ -110,10 +134,4 @@ export async function handleIngestBatch(
           break;
         }
       }
-      msg.ack();
-    } catch (e) {
-      logInfo('ingest retry', { error: String(e) });
-      msg.retry();
-    }
-  }
 }
