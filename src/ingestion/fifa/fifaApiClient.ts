@@ -95,10 +95,26 @@ const DEFAULT_HEADERS = {
   'User-Agent': 'wc-tactical-platform/1.0 (FIFA Match Centre sync)',
 };
 
-async function fifaFetch<T>(path: string): Promise<T | null> {
+/** Per-call cap, also cancelled when the refresh hold aborts. */
+function fifaRequestSignal(parent?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(20_000);
+  if (!parent) return timeout;
+  if (typeof AbortSignal.any === 'function') return AbortSignal.any([parent, timeout]);
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (parent.aborted || timeout.aborted) {
+    controller.abort();
+    return controller.signal;
+  }
+  parent.addEventListener('abort', abort, { once: true });
+  timeout.addEventListener('abort', abort, { once: true });
+  return controller.signal;
+}
+
+async function fifaFetch<T>(path: string, parent?: AbortSignal): Promise<T | null> {
   const res = await fetch(`${FIFA_API_BASE}/${path}`, {
     headers: DEFAULT_HEADERS,
-    signal: AbortSignal.timeout(20_000),
+    signal: fifaRequestSignal(parent),
   });
   if (!res.ok) return null;
   const text = await res.text();
@@ -123,7 +139,7 @@ export async function fetchFifaCalendarMatches(fromIso: string, toIso: string): 
 }
 
 /** Full WC2026 scores & fixtures window (same feed as FIFA scores-fixtures page). */
-export async function fetchFifaWc2026FixturesCalendar(): Promise<FifaCalendarMatch[]> {
+export async function fetchFifaWc2026FixturesCalendar(signal?: AbortSignal): Promise<FifaCalendarMatch[]> {
   const params = new URLSearchParams({
     from: WC2026_FIXTURES_FROM_ISO,
     to: WC2026_FIXTURES_TO_ISO,
@@ -131,13 +147,13 @@ export async function fetchFifaWc2026FixturesCalendar(): Promise<FifaCalendarMat
     language: 'en',
     IdSeason: WC2026_SEASON_ID,
   });
-  const data = await fifaFetch<CalendarResponse>(`calendar/matches?${params}`);
+  const data = await fifaFetch<CalendarResponse>(`calendar/matches?${params}`, signal);
   return (data?.Results ?? []).filter((m) => m.IdCompetition === WC2026_COMPETITION_ID);
 }
 
-export async function fetchFifaMatchInfo(fifaMatchId: string): Promise<FifaMatchInfo | null> {
+export async function fetchFifaMatchInfo(fifaMatchId: string, signal?: AbortSignal): Promise<FifaMatchInfo | null> {
   const params = new URLSearchParams({ idMatch: fifaMatchId, language: 'en' });
-  return fifaFetch<FifaMatchInfo>(`live/football/getMatchInfo?${params}`);
+  return fifaFetch<FifaMatchInfo>(`live/football/getMatchInfo?${params}`, signal);
 }
 
 export type FifaTimelineEvent = {

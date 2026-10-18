@@ -21,9 +21,12 @@ function fifaLiveEnabled(env: AppEnv): boolean {
 }
 
 /** Near-real-time refresh: FIFA Match Centre sync or mock ticks, then progression + recompute. */
-export async function refreshMatchData(env: AppEnv): Promise<RefreshMatchDataResult> {
+export async function refreshMatchData(
+  env: AppEnv,
+  options?: { signal?: AbortSignal },
+): Promise<RefreshMatchDataResult> {
   if (fifaLiveEnabled(env)) {
-    const fifa = await syncFifaWc2026Matches(env);
+    const fifa = await syncFifaWc2026Matches(env, { signal: options?.signal });
     await syncFifaLineupsForUpcomingMatches(env).catch(() => undefined);
     await env.KV.put('meta:last_data_refresh', nowIso(), { expirationTtl: 86400 });
     const { warmPayloadCaches } = await import('../services/cacheWarm');

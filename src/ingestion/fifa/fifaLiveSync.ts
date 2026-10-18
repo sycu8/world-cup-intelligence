@@ -458,21 +458,31 @@ function needsFullFifaMatchInfo(row: FifaCalendarMatch, platformStatus: string, 
 /** @internal exported for unit tests */
 export { needsFullFifaMatchInfo, applyFifaPayload, applyFifaCalendarRow };
 
+function throwIfRefreshAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw new Error('model message timed out');
+}
+
 /** Pull FIFA scores-fixtures / Match Centre data for all WC2026 matches. */
-export async function syncFifaWc2026Matches(env: AppEnv): Promise<FifaSyncResult> {
+export async function syncFifaWc2026Matches(
+  env: AppEnv,
+  options?: { signal?: AbortSignal },
+): Promise<FifaSyncResult> {
   const updatedIds: string[] = [];
   const completedIds: string[] = [];
   const teamUpdatedIds: string[] = [];
   let synced = 0;
   let skipped = 0;
 
-  const calendar = await fetchFifaWc2026FixturesCalendar();
+  const signal = options?.signal;
+  throwIfRefreshAborted(signal);
+  const calendar = await fetchFifaWc2026FixturesCalendar(signal);
   const teamIndex = await loadTeamIndex(env.DB);
   const matchIndex = await loadInternalMatchIndex(env.DB);
   const nowMs = Date.now();
   const fifaIdLinks: { id: string; fifaId: string }[] = [];
 
   for (const row of calendar) {
+    throwIfRefreshAborted(signal);
     if (!row.Home || !row.Away) {
       skipped += 1;
       continue;
@@ -494,7 +504,7 @@ export async function syncFifaWc2026Matches(env: AppEnv): Promise<FifaSyncResult
 
     try {
       if (needsFullFifaMatchInfo(row, platformStatus, nowMs)) {
-        const info = (await fetchFifaMatchInfo(row.IdMatch)) ?? row;
+        const info = (await fetchFifaMatchInfo(row.IdMatch, signal)) ?? row;
         const outcome = await applyFifaPayload(env, internal, info as FifaMatchInfo, teamIndex);
         synced += 1;
         if (outcome === 'completed') completedIds.push(internal.id);
@@ -514,9 +524,13 @@ export async function syncFifaWc2026Matches(env: AppEnv): Promise<FifaSyncResult
         else if (outcome === 'teams_updated') teamUpdatedIds.push(internal.id);
       }
     } catch (e) {
+      if (signal?.aborted || (e instanceof Error && e.name === 'AbortError')) throw e;
+      if (e instanceof Error && e.message === 'model message timed out') throw e;
       logError('fifa match sync failed', { match_id: internal.id, error: String(e) });
     }
   }
+
+  throwIfRefreshAborted(signal);
 
   if (fifaIdLinks.length) {
     const now = nowIso();

@@ -18,6 +18,7 @@ import { STATSBOMB_INGEST_DIRTY_KEY } from '../constants/pipeline';
 import {
   CONSUMER_BATCH_DEADLINE_MS,
   INGEST_CHUNK_BUDGET_MS,
+  REFRESH_MAX_HOLD_MS,
   deferQueuedMessage,
   ingestMessageTimeoutMs,
   queueRetryDelaySeconds,
@@ -110,8 +111,8 @@ export async function handleIngestBatch(
       );
       let finished = false;
       try {
-        await withMessageTimeout(timeoutMs, async () => {
-          await runIngestMessage(msg, env);
+        await withMessageTimeout(timeoutMs, async (signal) => {
+          await runIngestMessage(msg, env, signal);
           finished = true;
         });
         msg.ack();
@@ -120,8 +121,22 @@ export async function handleIngestBatch(
           msg.ack();
           continue;
         }
+        const timedOut = e instanceof Error && e.message === 'model message timed out';
+        const callerCapped =
+          options?.messageTimeoutMs != null &&
+          options.messageTimeoutMs < REFRESH_MAX_HOLD_MS &&
+          timeoutMs <= options.messageTimeoutMs;
+        if (msg.body.type === 'refresh_minute' && timedOut && !callerCapped) {
+          logInfo('ingest refresh released at hold cap', { timeoutMs });
+          msg.ack();
+          continue;
+        }
+        const delaySeconds =
+          msg.body.type === 'refresh_minute'
+            ? Math.min(15, queueRetryDelaySeconds(msg.attempts))
+            : queueRetryDelaySeconds(msg.attempts);
         logInfo('ingest retry', { error: String(e) });
-        msg.retry({ delaySeconds: queueRetryDelaySeconds(msg.attempts) });
+        msg.retry({ delaySeconds });
       }
     } finally {
       if (claimedRefresh) await releaseRefreshClaim(env);
@@ -129,10 +144,14 @@ export async function handleIngestBatch(
   }
 }
 
-async function runIngestMessage(msg: Message<IngestJob>, env: AppEnv): Promise<void> {
+async function runIngestMessage(
+  msg: Message<IngestJob>,
+  env: AppEnv,
+  signal?: AbortSignal,
+): Promise<void> {
       switch (msg.body.type) {
         case 'refresh_minute': {
-          const { updatedIds, completedIds, teamUpdatedIds } = await refreshMatchData(env);
+          const { updatedIds, completedIds, teamUpdatedIds } = await refreshMatchData(env, { signal });
 
           if (completedIds.length) {
             await handleCompletedMatches(env, completedIds);

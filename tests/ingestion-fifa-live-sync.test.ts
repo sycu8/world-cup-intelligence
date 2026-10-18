@@ -100,6 +100,13 @@ describe('ingestion fifaLiveSync', () => {
     vi.useRealTimers();
   });
 
+  it('stops a refresh before the calendar fetch when the hold signal is already aborted', async () => {
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    const signal = AbortSignal.abort();
+    await expect(syncFifaWc2026Matches(createMockEnv(), { signal })).rejects.toThrow('model message timed out');
+    expect(api.fetchFifaWc2026FixturesCalendar).not.toHaveBeenCalled();
+  });
+
   it('syncTeamsFromFifaSide assigns knockout teams from FIFA calendar row', async () => {
     vi.setSystemTime(new Date('2026-07-01T00:00:00Z'));
     const api = await import('../src/ingestion/fifa/fifaApiClient');

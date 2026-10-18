@@ -22,6 +22,11 @@ export const AI_MESSAGE_TIMEOUT_MS = 120_000;
  * staying at 4 minutes leaves room for the runtime to ack and return.
  */
 export const CONSUMER_BATCH_DEADLINE_MS = 240_000;
+/**
+ * One refresh_minute may hold the ingest consumer (max_concurrency 1) for at most 3 minutes.
+ * A longer hold is what leaves lastDataRefresh unchanged until the 15 minute platform wall.
+ */
+export const REFRESH_MAX_HOLD_MS = 3 * 60_000;
 /** Non-AI messages, including a bulk chunk, stay inside the batch deadline. */
 export const MODEL_MESSAGE_TIMEOUT_MS = 90_000;
 /**
@@ -53,9 +58,9 @@ const INGEST_TIMEOUT_MS: Record<string, number> = {
   sync_leagues: INGEST_LONG_JOB_TIMEOUT_MS,
   source_ingest: INGEST_LONG_JOB_TIMEOUT_MS,
   bulk_ingest: INGEST_LONG_JOB_TIMEOUT_MS,
-  // Was 60s. The FIFA sync did not finish, so the message was retried and never
-  // acked. This is the batch budget: the longest this invocation can run and still ack.
-  refresh_minute: CONSUMER_BATCH_DEADLINE_MS,
+  // Was 60s, then the 4 minute batch budget. 3 minutes is enough for the steady
+  // 2–3 minute FIFA sync and short of the 15 minute consumer wall.
+  refresh_minute: REFRESH_MAX_HOLD_MS,
   match_complete: 60_000,
   refresh_live_probabilities: 60_000,
   webhook_deliver: 30_000,

@@ -6,6 +6,8 @@ import {
   AI_BRIEFING_QUEUE_MAX_AGE_MS,
   AI_MESSAGE_TIMEOUT_MS,
   CONSUMER_BATCH_DEADLINE_MS,
+  REFRESH_MAX_HOLD_MS,
+  ingestMessageTimeoutMs,
   queueRetryDelaySeconds,
 } from '../src/queues/modelJobLane';
 import { MODEL_QUEUE_STALE_DROPS_KEY } from '../src/constants/pipeline';
@@ -375,6 +377,52 @@ describe('handleIngestBatch', () => {
       expect(ack).toHaveBeenCalledTimes(1);
       expect(retry).not.toHaveBeenCalled();
       expect(send).toHaveBeenCalledWith({ type: 'recompute_all', matchIds: ['m-1'] });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('releases a hung refresh at 3 minutes so the next tick can run', async () => {
+    expect(REFRESH_MAX_HOLD_MS).toBe(3 * 60_000);
+    expect(ingestMessageTimeoutMs('refresh_minute')).toBe(REFRESH_MAX_HOLD_MS);
+    expect(REFRESH_MAX_HOLD_MS).toBeLessThan(CONSUMER_BATCH_DEADLINE_MS);
+
+    vi.useFakeTimers();
+    try {
+      const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+      let signal: AbortSignal | undefined;
+      vi.mocked(refreshMatchData).mockImplementationOnce((_env, options) => {
+        signal = options?.signal;
+        return new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(new Error('model message timed out')), { once: true });
+        });
+      });
+      const ack = vi.fn();
+      const retry = vi.fn();
+      const env = createMockEnv();
+      const pending = handleIngestBatch(
+        createMockMessageBatch([
+          { body: { type: 'refresh_minute', idempotencyKey: 'hung' }, ack, retry },
+        ]),
+        env,
+      );
+      await vi.advanceTimersByTimeAsync(REFRESH_MAX_HOLD_MS);
+      await pending;
+      expect(signal?.aborted).toBe(true);
+      expect(ack).toHaveBeenCalledTimes(1);
+      expect(retry).not.toHaveBeenCalled();
+      expect(await env.KV.get(REFRESH_CLAIM_KEY)).toBeNull();
+
+      vi.mocked(refreshMatchData).mockClear();
+      const next = vi.fn();
+      await handleIngestBatch(
+        createMockMessageBatch([
+          { body: { type: 'refresh_minute', idempotencyKey: 'after-hold' }, ack: next },
+        ]),
+        env,
+      );
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(refreshMatchData).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }
