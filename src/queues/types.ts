@@ -1,4 +1,4 @@
-export type IngestJob =
+type IngestJobShape =
   | {
       type: 'bulk_ingest';
       idempotencyKey: string;
@@ -13,6 +13,9 @@ export type IngestJob =
   | { type: 'refresh_live_probabilities'; idempotencyKey: string }
   | { type: 'sync_leagues'; idempotencyKey: string; leagueCursor?: number }
   | { type: 'webhook_deliver'; subscriptionId: string; eventId: number; idempotencyKey: string };
+
+/** fromDlq marks a single DLQ replay. A second visit is acked and not sent again. */
+export type IngestJob = IngestJobShape & { fromDlq?: boolean };
 
 export type ModelJob =
   | { type: 'recompute'; matchId: string }
