@@ -42,10 +42,9 @@ export function buildExplanationFactors(input: MatchFeatureInput): {
     },
   ];
   if (input.homeCoach || input.awayCoach) {
-    const coachSide =
-      (input.homeCoach?.tacticalRating ?? 0.72) >= (input.awayCoach?.tacticalRating ?? 0.72)
-        ? 'home'
-        : 'away';
+    const homeRating = input.homeCoach?.tacticalRating ?? 0.72;
+    const awayRating = input.awayCoach?.tacticalRating ?? 0.72;
+    const coachSide: 'home' | 'away' = homeRating >= awayRating ? 'home' : 'away';
     factors.push({
       key: 'head_coach',
       label: 'Head coach profile',
@@ -64,6 +63,53 @@ export function buildExplanationFactors(input: MatchFeatureInput): {
       confidence: 0.72,
       evidenceType: 'official',
     });
+  }
+  if (input.groupPointsPressure) {
+    const { homePressure, awayPressure, groupProgress } = input.groupPointsPressure;
+    const peak = Math.max(homePressure, awayPressure);
+    if (peak >= 0.12) {
+      const side: 'home' | 'away' | 'neutral' =
+        Math.abs(homePressure - awayPressure) < 0.08
+          ? 'neutral'
+          : homePressure >= awayPressure
+            ? 'home'
+            : 'away';
+      factors.push({
+        key: 'group_points_pressure',
+        label: 'Group-stage points pressure',
+        direction: side,
+        impact: peak * (0.25 + groupProgress * 0.15),
+        confidence: 0.74,
+        evidenceType: 'statistical',
+      });
+    }
+  }
+  if (input.liveMatchStats) {
+    const { home, away } = input.liveMatchStats;
+    const homePoss = home.possession ?? 50;
+    const awayPoss = away.possession ?? 50;
+    if (Math.abs(homePoss - awayPoss) >= 8) {
+      factors.push({
+        key: 'live_possession',
+        label: 'In-match possession edge',
+        direction: homePoss >= awayPoss ? 'home' : 'away',
+        impact: Math.abs(homePoss - awayPoss) / 100,
+        confidence: 0.88,
+        evidenceType: 'live_event',
+      });
+    }
+    const homeXg = home.xg ?? 0;
+    const awayXg = away.xg ?? 0;
+    if (Math.abs(homeXg - awayXg) >= 0.2) {
+      factors.push({
+        key: 'live_xg',
+        label: 'Live xG pressure',
+        direction: homeXg >= awayXg ? 'home' : 'away',
+        impact: Math.min(0.35, Math.abs(homeXg - awayXg) / 2),
+        confidence: 0.9,
+        evidenceType: 'live_event',
+      });
+    }
   }
 
   const sorted = [...factors].sort((a, b) => b.impact - a.impact);

@@ -39,7 +39,7 @@ export async function runScenarioBacktest(env: AppEnv, tournamentYear: number): 
     .bind(tournamentYear)
     .all<CompletedMatch>();
 
-  const rows = results ?? [];
+  const rows = results;
   const samples: {
     scenarioHitRate: number;
     scenarioBrierScore: number;
@@ -53,9 +53,9 @@ export async function runScenarioBacktest(env: AppEnv, tournamentYear: number): 
     const predicted = [m.home_win_prob, m.draw_prob, m.away_win_prob];
     const actual = actualOutcome(m.home_score, m.away_score);
     const brier = brierScore(predicted, actual);
-    const hit = predicted.indexOf(Math.max(...predicted)) === actual.indexOf(1) ? 1 : 0;
+    const hit = Number(predicted.indexOf(Math.max(...predicted)) === actual.indexOf(1));
     const favProb = Math.max(...predicted);
-    const bucketKey = favProb >= 0.6 ? '0.6-1.0' : favProb >= 0.45 ? '0.45-0.6' : '0-0.45';
+    const bucketKey = ['0-0.45', '0.45-0.6', '0.6-1.0'][Number(favProb >= 0.45) + Number(favProb >= 0.6)];
     const b = buckets.get(bucketKey) ?? { predicted: 0, actual: 0, n: 0 };
     b.predicted += favProb;
     b.actual += hit;
@@ -73,8 +73,8 @@ export async function runScenarioBacktest(env: AppEnv, tournamentYear: number): 
   const metrics = aggregateScenarioMetrics(samples);
   const calibrationBuckets = [...buckets.entries()].map(([bucket, v]) => ({
     bucket,
-    predicted: v.n ? v.predicted / v.n : 0,
-    actual: v.n ? v.actual / v.n : 0,
+    predicted: v.predicted / v.n,
+    actual: v.actual / v.n,
     n: v.n,
   }));
 

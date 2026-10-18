@@ -82,13 +82,13 @@ export async function getProjectedLineupForMatch(
     .bind(teamId, WC2026_TOURNAMENT_ID)
     .all<{ name: string; position: string | null; listed_position: string | null }>();
 
-  if ((squad.results ?? []).length >= 7) {
-    const rows = squad.results ?? [];
+  const squadList = squad.results;
+  if (squadList && squadList.length >= 7) {
     const h = hashString(`${matchId}:${teamId}`);
     const formation = FORMATIONS[h % FORMATIONS.length];
     return {
-      formation: inferFormationFromPlayers(rows) || formation,
-      players: rows.map((r) => r.name),
+      formation: inferFormationFromPlayers(squadList),
+      players: squadList.map((r) => r.name),
       source: 'squad',
     };
   }
@@ -99,12 +99,12 @@ export async function getProjectedLineupForMatch(
     .bind(teamId)
     .all<{ name: string; position: string | null }>();
 
-  if ((club.results ?? []).length >= 5) {
-    const rows = club.results ?? [];
+  const clubList = club.results;
+  if (clubList && clubList.length >= 5) {
     const h = hashString(`${matchId}:${teamId}`);
     return {
       formation: FORMATIONS[h % FORMATIONS.length],
-      players: rows.map((r) => r.name),
+      players: clubList.map((r) => r.name),
       source: 'projected',
     };
   }

@@ -90,10 +90,10 @@ const mexicoSaInput = (): MatchFeatureInput => ({
   },
 });
 
-describe('Mexico vs South Africa model calibration (wc-prob-v4)', () => {
+describe('Mexico vs South Africa model calibration (wc-prob-v5)', () => {
   it('favours Mexico at Azteca with staff-adjusted lambdas', async () => {
     const r = await computeProbability(mexicoSaInput());
-    expect(r.modelVersion).toBe('wc-prob-v4');
+    expect(r.modelVersion).toBe('wc-prob-v5');
     expect(r.homeWinProb).toBeGreaterThan(0.58);
     expect(r.awayWinProb).toBeLessThan(0.22);
     expect(r.expectedHomeGoals).toBeGreaterThan(1.2);

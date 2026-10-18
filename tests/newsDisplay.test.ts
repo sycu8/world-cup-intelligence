@@ -21,8 +21,12 @@ describe('newsDisplay', () => {
     expect(pickNewsSummary(article, 'vi')).toBe('Tóm tắt VI');
   });
 
-  it('prefers English in en mode', () => {
-    expect(pickNewsTitle(article, 'en')).toBe('England win');
-    expect(pickNewsSummary(article, 'en')).toBe('Short EN');
+  it('falls back to title when translated article lacks vi fields', () => {
+    expect(
+      pickNewsTitle({ ...article, translated: true, titleVi: undefined }, 'vi'),
+    ).toBe('Vietnamese default from API');
+    expect(
+      pickNewsSummary({ ...article, translated: true, summaryVi: undefined }, 'vi'),
+    ).toBe('VI summary default');
   });
 });

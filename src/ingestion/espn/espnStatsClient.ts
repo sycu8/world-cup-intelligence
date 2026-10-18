@@ -47,10 +47,7 @@ export async function resolveEspnEventId(
   awayName: string,
   kickoffUtc: string,
 ): Promise<string | null> {
-  const seen = new Set<string>();
   for (const dateYmd of kickoffDatesUtc(kickoffUtc)) {
-    if (seen.has(dateYmd)) continue;
-    seen.add(dateYmd);
     const events = await fetchScoreboard(dateYmd);
     const hit = findEspnEventId(events, homeName, awayName);
     if (hit) return hit;
@@ -95,10 +92,10 @@ export async function fetchEspnTeamMatchStats(
   const home = parseEspnTeamStats(homeRow.statistics);
   const away = parseEspnTeamStats(awayRow.statistics);
   const hasCore =
-    (home.possession ?? 0) > 0 &&
-    (away.possession ?? 0) > 0 &&
-    (home.passes ?? 0) > 0 &&
-    (away.passes ?? 0) > 0;
+    Number(home.possession) > 0 &&
+    Number(away.possession) > 0 &&
+    Number(home.passes) > 0 &&
+    Number(away.passes) > 0;
   if (!hasCore) return null;
 
   logInfo('espn stats resolved', {

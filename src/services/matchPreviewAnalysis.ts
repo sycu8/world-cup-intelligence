@@ -28,7 +28,7 @@ const LINEUP_PENDING: LocalizedLine = {
   en: 'No confirmed lineup yet — will update when official teams are published.',
 };
 
-function describeSideLineup(side: TeamPreviewSide, mode: 'vi' | 'en'): string {
+export function describeSideLineup(side: TeamPreviewSide, mode: 'vi' | 'en'): string {
   if (side.fullLineup.length < 7) {
     return mode === 'vi' ? LINEUP_PENDING.vi : LINEUP_PENDING.en;
   }
@@ -230,10 +230,10 @@ function ruleBasedPreview(
 
   const tactical: LocalizedLine = {
     vi: fav
-      ? `Mô hình nghiêng về ${fav}. xG kỳ vọng ${prob ? `${prob.xgHome.toFixed(2)}–${prob.xgAway.toFixed(2)}` : '—'} — ${homeShape} đấu ${awayShape} sẽ quyết định khoảng trống giữa các tuyến.`
+      ? `Mô hình nghiêng về ${fav}. xG kỳ vọng ${prob!.xgHome.toFixed(2)}–${prob!.xgAway.toFixed(2)} — ${homeShape} đấu ${awayShape} sẽ quyết định khoảng trống giữa các tuyến.`
       : `Thế trận cân bằng: ${homeShape} trước ${awayShape}; ai kiểm soát giữa sân sẽ kéo xG về phía mình.`,
     en: fav
-      ? `Model leans ${fav}. Expected xG ${prob ? `${prob.xgHome.toFixed(2)}–${prob.xgAway.toFixed(2)}` : '—'} — ${homeShape} vs ${awayShape} should decide central space.`
+      ? `Model leans ${fav}. Expected xG ${prob!.xgHome.toFixed(2)}–${prob!.xgAway.toFixed(2)} — ${homeShape} vs ${awayShape} should decide central space.`
       : `Balanced shape battle: ${homeShape} against ${awayShape}; midfield control should sway chance quality.`,
   };
 

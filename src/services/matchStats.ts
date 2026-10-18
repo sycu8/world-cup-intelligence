@@ -149,7 +149,7 @@ export async function getMatchStats(
       }>(),
   ]);
 
-  const statsByTeam = new Map((statsRows.results ?? []).map((r) => [r.team_id, r]));
+  const statsByTeam = new Map(statsRows.results.map((r) => [r.team_id, r]));
   const homeStats = statsByTeam.get(resolved.home_team_id);
   const awayStats = statsByTeam.get(resolved.away_team_id);
   const hasStats = !!(homeStats || awayStats);
@@ -192,7 +192,7 @@ export async function getMatchStats(
     minute: matchRow?.minute ?? resolved.minute ?? null,
     homeScore: matchRow?.home_score ?? resolved.home_score,
     awayScore: matchRow?.away_score ?? resolved.away_score,
-    updatedAt: latestStatAt ?? matchRow?.updated_at ?? null,
+    updatedAt: latestStatAt ?? null,
     dataSource: hasStats ? 'fifa_live' : 'unavailable',
     home: mapSide(homeTeam, homeStats),
     away: mapSide(awayTeam, awayStats),

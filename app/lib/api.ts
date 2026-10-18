@@ -1,9 +1,8 @@
 import type { LocalizedString } from './briefingText';
-
-const BASE = '/api';
+import { apiUrl } from './apiOrigin';
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
+  const res = await fetch(apiUrl(`/api${path}`));
   if (!res.ok) throw new Error(`API ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -85,6 +84,8 @@ export const api = {
   matchRecap: (id: string) => get<{ data: MatchRecapPayload }>(`/matches/${id}/recap`),
   matchStaff: (id: string) => get<{ data: MatchStaffPayload }>(`/matches/${id}/staff`),
   historicalTournaments: () => get<{ data: HistoricalTournament[] }>('/tournaments'),
+  leagues: () => get<{ data: LeagueCatalogPayload }>('/leagues'),
+  league: (slug: string) => get<{ data: LeagueHubPayload }>('/leagues/' + slug),
   teams: () => get<{ data: TeamSummary[] }>('/teams'),
   team: (id: string) => get<{ data: TeamSummary }>(`/teams/${id}`),
   teamWcH2h: (id: string) =>
@@ -105,13 +106,19 @@ export const api = {
   tournamentStandings: (year = 2026) =>
     get<{ data: GroupStandingsPayload }>(`/tournaments/${year}/standings`),
   tournamentMatchProbabilities: (year = 2026) =>
-    get<{ data: Record<string, { homeWin: number; draw: number; awayWin: number }> }>(
-      `/tournaments/${year}/match-probabilities`,
-    ),
+    get<{
+      data: Record<string, { homeWin: number; draw: number; awayWin: number; mostLikelyScore?: string; extraTimeProb?: number; penaltyProb?: number }>;
+    }>(`/tournaments/${year}/match-probabilities`),
   tournamentBracket: (year = 2026) =>
     get<{ data: BracketPayload }>(`/tournaments/${year}/bracket`),
   tournamentChampionOdds: (year = 2026) =>
     get<{ data: ChampionOddsPayload }>(`/tournaments/${year}/champion-odds`),
+  tournamentPredictionAccuracy: (year = 2026) =>
+    get<{ data: PredictionAccuracyReport }>(`/tournaments/${year}/prediction-accuracy`),
+  tournamentUpcomingProbabilityVerification: (year = 2026, refresh = false) =>
+    get<{ data: UpcomingProbabilityVerification }>(
+      `/tournaments/${year}/upcoming-probability-verification${refresh ? '?refresh=1' : ''}`,
+    ),
   matchAnalysis: (id: string) =>
     get<{ data: MultiVariableAnalysis | null; meta?: { gatewayConfigured?: boolean } }>(
       `/analysis/${id}`,
@@ -203,6 +210,22 @@ export type DashboardData = {
   statusCounts?: Record<string, number>;
 };
 
+export type MatchScoreDetail = {
+  ht?: { home: number; away: number };
+  secondHalf?: { home: number; away: number };
+  ft90?: { home: number; away: number };
+  extraTime?: { home: number; away: number };
+  extraTime1?: { home: number; away: number };
+  extraTime2?: { home: number; away: number };
+  penalties?: { home: number; away: number };
+  stoppage?: {
+    firstHalf?: number;
+    secondHalf?: number;
+    extraTimeFirst?: number;
+    extraTimeSecond?: number;
+  };
+};
+
 export type ScheduleMatch = {
   id: string;
   slug?: string;
@@ -222,6 +245,7 @@ export type ScheduleMatch = {
   home_country_code?: string;
   away_country_code?: string;
   match_date?: string;
+  scoreDetail?: MatchScoreDetail | null;
 };
 
 export type SquadPlayer = {
@@ -265,8 +289,88 @@ export type ChampionOddsPayload = {
   generatedAt: string;
   simulations: number;
   modelVersion?: string;
+  phase?: 'group' | 'knockout' | 'final' | 'final_live' | 'decided';
+  finalMatchId?: string;
   top: ChampionOddsEntry[];
   all: ChampionOddsEntry[];
+};
+
+export type TopScorerEntry = {
+  rank: number;
+  playerId: string;
+  playerName: string;
+  teamId: string;
+  teamName: string;
+  countryCode: string | null;
+  goals: number;
+};
+
+export type TopScorersPayload = {
+  tournamentId: string;
+  updatedAt: string;
+  scorers: TopScorerEntry[];
+};
+
+export type PredictionOutcome = 'home' | 'draw' | 'away';
+
+export type MatchPredictionEvaluation = {
+  matchId: string;
+  kickoffUtc: string;
+  homeName: string;
+  awayName: string;
+  actualScore: string;
+  predictedOutcome: PredictionOutcome;
+  actualOutcome: PredictionOutcome;
+  favoriteHit: boolean;
+  predictedScore: string | null;
+  scorelineHit: boolean;
+  scorelineTop3Hit: boolean;
+  actualScoreProb: number;
+  brierScore: number;
+  modelVersion: string;
+  predictedProbs: { home: number; draw: number; away: number };
+};
+
+export type PredictionAccuracyReport = {
+  tournamentYear: 2026;
+  evaluatedAt: string;
+  completedTotal: number;
+  completedWithSnapshot: number;
+  favoriteHits: number;
+  favoriteHitRate: number | null;
+  drawPredictions: number;
+  drawHits: number;
+  scorelineHits: number;
+  scorelineHitRate: number | null;
+  scorelineTop3Hits: number;
+  scorelineTop3HitRate: number | null;
+  avgBrier: number | null;
+  avgActualScoreProb: number | null;
+  modelVersions: Record<string, number>;
+  recent: MatchPredictionEvaluation[];
+};
+
+export type UpcomingMatchProbability = {
+  matchId: string;
+  kickoffUtc: string;
+  homeName: string;
+  awayName: string;
+  status: string;
+  hasProbability: boolean;
+  homeWin?: number;
+  draw?: number;
+  awayWin?: number;
+  modelVersion?: string;
+  snapshotAt?: string;
+};
+
+export type UpcomingProbabilityVerification = {
+  verifiedAt: string;
+  upcomingTotal: number;
+  withProbability: number;
+  missing: number;
+  refreshed: number;
+  matches: UpcomingMatchProbability[];
 };
 
 export type BracketMatchNode = {
@@ -325,6 +429,7 @@ export type MatchSummary = {
   minute?: number;
   kickoff_utc?: string;
   stage?: string;
+  scoreDetail?: MatchScoreDetail | null;
 };
 
 export type TeamSummary = {
@@ -746,4 +851,69 @@ export type HistoricalTournament = {
   host_countries_json?: string | null;
   teams_count?: number | null;
   status?: string | null;
+};
+
+export type LeagueCatalogCard = {
+  id: string;
+  slug: string;
+  name: string;
+  nameVi: string;
+  shortName: string;
+  shortNameVi: string;
+  region: 'vietnam' | 'japan' | 'europe' | 'africa' | 'world';
+  countryCode: string | null;
+  format: string;
+  season: string;
+  year: number;
+  accent: 'cyan' | 'magenta' | 'green' | 'yellow' | 'danger';
+  regionLabel: { vi: string; en: string };
+  liveCount: number;
+  upcomingCount: number;
+  completedCount: number;
+  href: string;
+};
+
+export type LeagueCatalogPayload = {
+  featured: LeagueCatalogCard;
+  regions: { region: LeagueCatalogCard['region']; label: { vi: string; en: string }; leagues: LeagueCatalogCard[] }[];
+  leagues: LeagueCatalogCard[];
+};
+
+export type LeagueStandingView = {
+  groupCode: string;
+  rank: number;
+  teamId: string;
+  teamName: string;
+  shortName: string | null;
+  countryCode: string | null;
+  crestUrl: string | null;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  gf: number;
+  ga: number;
+  gd: number;
+  points: number;
+};
+
+export type LeagueHubPayload = {
+  league: LeagueCatalogCard;
+  regionLabel: { vi: string; en: string };
+  standings: Record<string, LeagueStandingView[]>;
+  live: ScheduleMatch[];
+  upcoming: ScheduleMatch[];
+  results: ScheduleMatch[];
+  matchProbabilities: Record<string, { homeWin: number; draw: number; awayWin: number; mostLikelyScore?: string }>;
+  news: NewsArticle[];
+  topScorers: {
+    rank: number;
+    playerId: string;
+    playerName: string;
+    teamId: string | null;
+    teamName: string | null;
+    goals: number;
+  }[];
+  teams: { id: string; name: string; shortName: string | null; countryCode: string | null }[];
+  lastSync: string | null;
 };

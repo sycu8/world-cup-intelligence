@@ -5,8 +5,7 @@ import { CompliantPublicOddsAdapter } from './adapters/CompliantPublicOddsAdapte
 
 export function getMarketAdapters(env: { KV?: KVNamespace }): MarketDataAdapter[] {
   const adapters: MarketDataAdapter[] = [new ManualMarketInputAdapter()];
-  const licensedUrl = env.KV ? undefined : undefined;
-  adapters.push(new LicensedOddsApiAdapter('mkt-licensed', licensedUrl ?? null));
+  adapters.push(new LicensedOddsApiAdapter('mkt-licensed', null));
   adapters.push(new CompliantPublicOddsAdapter('mkt-public'));
   return adapters;
 }

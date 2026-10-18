@@ -20,17 +20,13 @@ export async function listMatches(
 }
 
 export async function getMatch(db: D1Database, matchId: string): Promise<MatchRow | null> {
-  return db
-    .prepare('SELECT * FROM matches WHERE id = ? AND tournament_id = ?')
-    .bind(matchId, WC2026_TOURNAMENT_ID)
-    .first<MatchRow>();
+  return db.prepare('SELECT * FROM matches WHERE id = ?').bind(matchId).first<MatchRow>();
 }
 
 export async function getMatchesByTournament(db: D1Database, tournamentId: string): Promise<MatchRow[]> {
-  const tid = tournamentId === WC2026_TOURNAMENT_ID ? tournamentId : WC2026_TOURNAMENT_ID;
   const { results } = await db
     .prepare('SELECT * FROM matches WHERE tournament_id = ? ORDER BY kickoff_utc ASC')
-    .bind(tid)
+    .bind(tournamentId)
     .all<MatchRow>();
   return results ?? [];
 }

@@ -6,6 +6,11 @@ import { isWc2026HostTeam } from '../models/probability/matchContext';
 import { applyEffectiveTeamProfile } from './teamProfile';
 import { loadHistoricalFormForTeams } from './teamFormStats';
 import { buildLineupFeaturesFromPlayers } from './lineupFeatures';
+import {
+  loadGroupHalfTimeSignals,
+  loadTournamentGroupFormForTeams,
+  type HalfTimeSignal,
+} from './tournamentMcSignals';
 
 export type TeamStrengthProfile = {
   teamId: string;
@@ -17,13 +22,49 @@ export type TeamStrengthProfile = {
   countryCode: string | null;
   isHost: boolean;
   effectiveRating: number;
+  attackRate: number;
+  defenseRate: number;
+  firstHalfLeadRate: number;
 };
 
-function computeEffectiveRating(profile: Omit<TeamStrengthProfile, 'effectiveRating'>): number {
+const HISTORICAL_FORM_WEIGHT = 0.35;
+const TOURNAMENT_FORM_WEIGHT = 0.65;
+
+function blendFormScore(a: number, b: number, hasTournament: boolean): number {
+  if (!hasTournament) return a;
+  return a * HISTORICAL_FORM_WEIGHT + b * TOURNAMENT_FORM_WEIGHT;
+}
+
+function attackDefenseRates(
+  formGoalsFor: number,
+  formGoalsAgainst: number,
+  half: HalfTimeSignal | undefined,
+  collectiveStrength: number,
+  fifaRanking: number,
+): { attackRate: number; defenseRate: number; firstHalfLeadRate: number } {
+  const htAttack = (half?.firstHalfGoalsFor ?? 0.35) + (half?.secondHalfGoalsFor ?? 0.35) * 0.45;
+  const htDefense = (half?.firstHalfGoalsAgainst ?? 0.35) + (half?.secondHalfGoalsAgainst ?? 0.35) * 0.3;
+  const baseAttack = 0.85 + formGoalsFor * 0.42 + htAttack * 0.35;
+  const baseDefense = 0.85 + formGoalsAgainst * 0.38 + htDefense * 0.3;
+  const eliteAttackBoost = fifaRanking <= 12 ? 0.22 : fifaRanking <= 20 ? 0.12 : 0;
+  const eliteDefenseBoost = fifaRanking <= 12 ? 0.08 : 0;
+
+  return {
+    attackRate: Math.max(0.55, Math.min(2.4, baseAttack + eliteAttackBoost + (collectiveStrength - 0.75) * 0.6)),
+    defenseRate: Math.max(0.45, Math.min(1.8, baseDefense - eliteDefenseBoost - (collectiveStrength - 0.75) * 0.35)),
+    firstHalfLeadRate: half?.firstHalfLeadRate ?? 0.22,
+  };
+}
+
+function computeEffectiveRating(
+  profile: Omit<TeamStrengthProfile, 'effectiveRating'>,
+): number {
   const formBonus = (profile.recentForm - 0.5) * 220;
   const collectiveBonus = (profile.collectiveStrength - 0.75) * 420;
   const rankBonus = Math.max(-80, Math.min(80, (25 - profile.fifaRanking) * 3));
-  const base = profile.elo + formBonus + collectiveBonus + rankBonus;
+  const htBonus = (profile.firstHalfLeadRate - 0.25) * 120;
+  const eliteBonus = profile.fifaRanking <= 12 ? 35 : profile.fifaRanking <= 20 ? 18 : 0;
+  const base = profile.elo + formBonus + collectiveBonus + rankBonus + htBonus + eliteBonus;
   return base * profile.lineupModifier;
 }
 
@@ -32,11 +73,11 @@ export function estimateTripleFromTeamStrength(
   away: TeamStrengthProfile,
   knockout: boolean,
 ): { homeWin: number; draw: number; awayWin: number } {
-  const homeAdv = home.isHost ? 55 : 25;
-  const homeElo = home.effectiveRating + homeAdv;
-  const awayElo = away.effectiveRating;
+  const homeAdv = home.isHost ? 55 : 28;
+  const homeElo = home.effectiveRating + homeAdv + (home.firstHalfLeadRate - away.firstHalfLeadRate) * 80;
+  const awayElo = away.effectiveRating + (away.attackRate - home.defenseRate) * 45;
   const expHome = 1 / (1 + 10 ** ((awayElo - homeElo) / 400));
-  const draw = knockout ? 0.2 : 0.24;
+  const draw = knockout ? 0.18 : 0.22;
   const scale = 1 - draw;
   const sum = expHome * scale + draw + (1 - expHome) * scale;
   return {
@@ -133,18 +174,34 @@ export async function loadTeamStrengthProfiles(
   const profiles: Record<string, TeamStrengthProfile> = {};
   const teamIds = teams.map((t) => t.id);
 
-  const [formByTeam, lineupByTeam] = await Promise.all([
+  const [historicalForm, tournamentForm, halfSignals, lineupByTeam] = await Promise.all([
     loadHistoricalFormForTeams(db, teamIds, 8, WC2026_TOURNAMENT_ID),
+    loadTournamentGroupFormForTeams(db, teamIds, 4),
+    loadGroupHalfTimeSignals(db, teamIds),
     loadLatestLineupFeaturesByTeam(db, teamIds),
   ]);
 
   for (const raw of teams) {
     const team = applyEffectiveTeamProfile(raw);
-    const historicalForm = formByTeam.get(team.id) ?? null;
+    const hist = historicalForm.get(team.id) ?? null;
+    const current = tournamentForm.get(team.id) ?? null;
+    const half = halfSignals.get(team.id);
     const lineupFeatures = lineupByTeam.get(team.id);
 
     const collectiveStrength = team.collective_strength_rating ?? 0.75;
-    const recentForm = historicalForm?.recentForm ?? collectiveStrength - 0.5 + 0.5;
+    const hasTournament = !!current && current.matchesPlayed > 0;
+    const recentForm = blendFormScore(
+      hist?.recentForm ?? collectiveStrength - 0.5 + 0.5,
+      current?.recentForm ?? hist?.recentForm ?? 0.5,
+      hasTournament,
+    );
+    const goalsFor = blendFormScore(hist?.goalsForPerGame ?? 1.1, current?.goalsForPerGame ?? 1.1, hasTournament);
+    const goalsAgainst = blendFormScore(
+      hist?.goalsAgainstPerGame ?? 1.0,
+      current?.goalsAgainstPerGame ?? 1.0,
+      hasTournament,
+    );
+    const rates = attackDefenseRates(goalsFor, goalsAgainst, half, collectiveStrength, team.fifa_ranking ?? 40);
 
     const base: Omit<TeamStrengthProfile, 'effectiveRating'> = {
       teamId: team.id,
@@ -155,6 +212,7 @@ export async function loadTeamStrengthProfiles(
       lineupModifier: lineupModifier(lineupFeatures),
       countryCode: team.country_code ?? null,
       isHost: isWc2026HostTeam(team.country_code),
+      ...rates,
     };
 
     profiles[team.id] = {

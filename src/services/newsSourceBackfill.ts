@@ -41,11 +41,12 @@ export async function backfillNewsSources(env: AppEnv): Promise<number> {
     updated += byKey.meta.changes ?? 0;
   }
 
+  const byId = (id: string) => WC_NEWS_FEEDS.find((f) => f.id === id)!;
   const urlRules: { pattern: string; feed: NewsFeed }[] = [
-    { pattern: '%bbc.%', feed: WC_NEWS_FEEDS[1] },
-    { pattern: '%bbci.%', feed: WC_NEWS_FEEDS[1] },
-    { pattern: '%theguardian.%', feed: WC_NEWS_FEEDS[0] },
-    { pattern: '%fifa.%', feed: WC_NEWS_FEEDS[2] },
+    { pattern: '%bbc.%', feed: byId('rss-bbc-football') },
+    { pattern: '%bbci.%', feed: byId('rss-bbc-football') },
+    { pattern: '%theguardian.%', feed: byId('rss-guardian-football') },
+    { pattern: '%fifa.%', feed: byId('rss-fifa-news') },
   ];
 
   for (const { pattern, feed } of urlRules) {

@@ -1,4 +1,6 @@
-/** FIFA World Cup 2026 — sole tournament surfaced in the product */
+import { isClubLeagueTournamentId } from './leagues';
+
+/** FIFA World Cup 2026 — flagship tournament; club leagues are separate ids */
 export const WC2026_TOURNAMENT_ID = 't-2026';
 export const WC2026_YEAR = 2026;
 export const WC2026_MATCH_COUNT = 104;
@@ -13,5 +15,6 @@ export function isWc2026Tournament(tournamentId: string | null | undefined): boo
 
 export function resolveScheduleTournamentId(requested: string | undefined): string {
   if (!requested || requested === WC2026_TOURNAMENT_ID) return WC2026_TOURNAMENT_ID;
+  if (isClubLeagueTournamentId(requested)) return requested;
   return WC2026_TOURNAMENT_ID;
 }

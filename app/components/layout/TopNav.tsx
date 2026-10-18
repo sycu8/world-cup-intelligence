@@ -4,11 +4,21 @@ import { LangSwitch } from '../i18n/LangSwitch';
 import { BrandLogo } from '../brand/BrandLogo';
 
 const links = [
-  { to: '/', k: 'nav.home' as const, match: (p: string) => p === '/' },
-  { to: '/matches', k: 'nav.matches' as const, match: (p: string) => p === '/matches' || p.startsWith('/matches/') },
-  { to: '/tournaments', k: 'nav.tournaments' as const },
-  { to: '/news-intelligence', k: 'nav.articles' as const },
-  { to: '/guide', k: 'nav.guide' as const },
+  { to: '/', k: 'nav.home' as const, match: (p: string, search: string) => p === '/' },
+  {
+    to: '/matches',
+    k: 'nav.matches' as const,
+    match: (p: string, search: string) =>
+      (p === '/matches' && new URLSearchParams(search).get('tab') !== 'standings') ||
+      (p.startsWith('/matches/') && !p.endsWith('/analysis')),
+  },
+  {
+    to: '/leagues',
+    k: 'nav.tournaments' as const,
+    match: (p: string, _search: string) => p.startsWith('/leagues') || (p === '/matches' && new URLSearchParams(_search).get('tab') === 'standings'),
+  },
+  { to: '/news-intelligence', k: 'nav.articles' as const, match: (p: string) => p.startsWith('/news-intelligence') },
+  { to: '/guide', k: 'nav.guide' as const, match: (p: string) => p === '/guide' },
   { to: '/docs/api', k: 'nav.api' as const, match: (p: string) => p.startsWith('/docs/api') },
 ];
 
@@ -16,11 +26,11 @@ export function TopNav() {
   const loc = useLocation();
   return (
     <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-3">
+      <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-3 px-4 py-3">
         <BrandLogo />
         <nav className="hidden gap-1 md:flex">
           {links.map((l) => {
-            const active = l.match ? l.match(loc.pathname) : loc.pathname === l.to;
+            const active = l.match ? l.match(loc.pathname, loc.search) : loc.pathname === l.to;
             return (
               <Link
                 key={l.k}

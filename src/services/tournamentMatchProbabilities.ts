@@ -8,8 +8,19 @@ import type { ProbabilityResult } from '../models/probability/types';
 import { buildMatchFeaturesWithForm } from './matchFeatures';
 import { recomputeMatchProbability } from './recomputeMatch';
 import { logInfo } from '../utils/logger';
+import {
+  knockoutExtraTimeProbability,
+  knockoutPenaltyProbability,
+} from '../models/probability/knockoutForecast';
 
-export type MatchProbabilityTriple = { homeWin: number; draw: number; awayWin: number };
+export type MatchProbabilityTriple = {
+  homeWin: number;
+  draw: number;
+  awayWin: number;
+  mostLikelyScore?: string;
+  extraTimeProb?: number;
+  penaltyProb?: number;
+};
 
 export type TournamentMatchProbabilitiesPayload = {
   data: Record<string, MatchProbabilityTriple>;
@@ -18,6 +29,21 @@ export type TournamentMatchProbabilitiesPayload = {
 
 const SYNC_FILL_BUDGET_MS = 3_000;
 const GAP_FILL_KV_KEY = 'tournament-prob-gap-fill';
+
+function withKnockoutForecast(
+  triple: MatchProbabilityTriple,
+  draw: number,
+  stage: string | null | undefined,
+): MatchProbabilityTriple {
+  const extraTimeProb = knockoutExtraTimeProbability(draw, stage);
+  const penaltyProb = knockoutPenaltyProbability(draw, stage);
+  if (extraTimeProb == null && penaltyProb == null) return triple;
+  return {
+    ...triple,
+    ...(extraTimeProb != null ? { extraTimeProb } : {}),
+    ...(penaltyProb != null ? { penaltyProb } : {}),
+  };
+}
 
 function fullOutputToResult(
   full: Awaited<ReturnType<typeof computeFullMatchProbability>>,
@@ -59,11 +85,16 @@ async function computeAndPersistPreview(
   const features = await buildMatchFeaturesWithForm(env, match, home, away, 2026);
   const full = await computeFullMatchProbability(features);
   await probabilityRepo.saveSnapshot(env.DB, fullOutputToResult(full, match.minute));
-  return {
-    homeWin: full.homeWinProb,
-    draw: full.drawProb,
-    awayWin: full.awayWinProb,
-  };
+  return withKnockoutForecast(
+    {
+      homeWin: full.homeWinProb,
+      draw: full.drawProb,
+      awayWin: full.awayWinProb,
+      mostLikelyScore: full.mostLikelyScore,
+    },
+    full.drawProb,
+    match.stage,
+  );
 }
 
 /** Persist full snapshots (scenarios, market) for matches still missing after preview fill. */
@@ -104,9 +135,9 @@ export async function persistMissingTournamentProbabilities(
 export async function buildTournamentMatchProbabilitiesPayload(
   env: AppEnv,
   tournamentId: string,
-  options: { scheduleBackgroundFill?: boolean } = {},
+  options: { scheduleBackgroundFill?: boolean; skipInlineFill?: boolean } = {},
 ): Promise<TournamentMatchProbabilitiesPayload> {
-  const { scheduleBackgroundFill = true } = options;
+  const { scheduleBackgroundFill = true, skipInlineFill = false } = options;
 
   const [rows, matches] = await Promise.all([
     probabilityRepo.listLatestSnapshotsForTournament(env.DB, tournamentId),
@@ -114,12 +145,18 @@ export async function buildTournamentMatchProbabilitiesPayload(
   ]);
 
   const data: Record<string, MatchProbabilityTriple> = {};
+  const stageByMatchId = new Map(matches.map((m) => [m.id, m.stage]));
   for (const row of rows) {
-    data[row.matchId] = {
-      homeWin: row.homeWinProb,
-      draw: row.drawProb,
-      awayWin: row.awayWinProb,
-    };
+    data[row.matchId] = withKnockoutForecast(
+      {
+        homeWin: row.homeWinProb,
+        draw: row.drawProb,
+        awayWin: row.awayWinProb,
+        mostLikelyScore: row.mostLikelyScore ?? undefined,
+      },
+      row.drawProb,
+      stageByMatchId.get(row.matchId),
+    );
   }
 
   const missing = matches.map((m) => m.id).filter((id) => !data[id]);
@@ -127,6 +164,21 @@ export async function buildTournamentMatchProbabilitiesPayload(
     return {
       data,
       meta: { total: matches.length, withProbability: matches.length, pending: 0, missingIds: [] },
+    };
+  }
+
+  if (skipInlineFill) {
+    if (scheduleBackgroundFill && missing.length > 0) {
+      void persistMissingTournamentProbabilities(env, missing);
+    }
+    return {
+      data,
+      meta: {
+        total: matches.length,
+        withProbability: Object.keys(data).length,
+        pending: missing.length,
+        missingIds: missing,
+      },
     };
   }
 

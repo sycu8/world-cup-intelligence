@@ -45,7 +45,7 @@ const REQUIRED_BY_GROUP: Record<ScenarioFeatureGroup, string[]> = {
   historical_tournament: ['tournamentYear', 'stage'],
 };
 
-function hasPath(ctx: MatchScenarioContext, path: string): boolean {
+export function hasPath(ctx: MatchScenarioContext, path: string): boolean {
   if (path === 'homeSystem') return !!ctx.homeSystem;
   if (path === 'awaySystem') return !!ctx.awaySystem;
   if (path === 'homeLineupSource') return ctx.homeLineupSource !== 'unknown';
@@ -61,7 +61,7 @@ function hasPath(ctx: MatchScenarioContext, path: string): boolean {
     if (rest === 'homeTeam.recentForm') return Number.isFinite(ctx.features.homeTeam.recentForm);
     if (rest === 'awayTeam.recentForm') return Number.isFinite(ctx.features.awayTeam.recentForm);
     if (rest === 'sourceConfidence') return ctx.features.sourceConfidence > 0;
-    return !!ctx.features;
+    return false;
   }
   if (path.startsWith('homeSystem.') || path.startsWith('awaySystem.')) return true;
   return false;
@@ -72,7 +72,7 @@ export function selectScenarioFeatures(
   context: MatchScenarioContext,
 ): ScenarioFeatureSelection {
   const selectedFeatureGroups = GROUPS_BY_TYPE[scenarioType] ?? BASELINE_GROUPS;
-  const requiredInputs = selectedFeatureGroups.flatMap((g) => REQUIRED_BY_GROUP[g] ?? []);
+  const requiredInputs = selectedFeatureGroups.flatMap((g) => REQUIRED_BY_GROUP[g]);
   const optionalInputs = ['marketImplied', 'features.homeLineup', 'features.awayLineup'];
   const missingInputs = [...new Set(requiredInputs)].filter((p) => !hasPath(context, p));
   const inputQualityScore = Math.max(

@@ -40,6 +40,9 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Security audit
+        run: npm run audit
+
       - name: Apply D1 migrations (UAT)
         if: steps.target.outputs.value == 'uat' || steps.target.outputs.value == 'both'
         env:

@@ -12,6 +12,8 @@ import {
 type Props = {
   kickoffUtc: string;
   showDate?: boolean;
+  /** When true with showDate, date and time stay on one line (no line break). */
+  inlineDate?: boolean;
   showLocalReference?: boolean;
   showGmt7Label?: boolean;
   className?: string;
@@ -22,6 +24,7 @@ type Props = {
 export function MatchKickoffDisplay({
   kickoffUtc,
   showDate = false,
+  inlineDate = false,
   showLocalReference = true,
   showGmt7Label = false,
   className = '',
@@ -42,7 +45,7 @@ export function MatchKickoffDisplay({
       {showDate && (
         <span className={dateClassName}>
           {formatKickoffDate(kickoffUtc, SCHEDULE_TZ, locale)}
-          <br />
+          {inlineDate ? ' ' : <br />}
         </span>
       )}
       <span className={timeClassName}>

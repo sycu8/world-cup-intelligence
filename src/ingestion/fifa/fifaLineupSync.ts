@@ -111,10 +111,6 @@ export async function syncFifaMatchLineupsFromInfo(
   awayTeamId: string,
   info: FifaMatchInfo,
 ): Promise<{ updated: boolean; home: boolean; away: boolean }> {
-  if (!isFifaLineupReady(info)) {
-    return { updated: false, home: false, away: false };
-  }
-
   const [homeTeam, awayTeam] = await Promise.all([
     env.DB.prepare(`SELECT country_code FROM teams WHERE id = ?`)
       .bind(homeTeamId)
@@ -152,8 +148,8 @@ export async function syncFifaMatchLineupsFromInfo(
       fifa_match_id: info.IdMatch,
       home_updated: home,
       away_updated: away,
-      formation_home: info.HomeTeam?.Tactics,
-      formation_away: info.AwayTeam?.Tactics,
+      formation_home: info.HomeTeam?.Tactics ?? undefined,
+      formation_away: info.AwayTeam?.Tactics ?? undefined,
     });
   }
 
@@ -260,7 +256,7 @@ export async function syncFifaLineupsForUpcomingMatches(env: AppEnv): Promise<Sy
   }
 
   if (matchIds.length) {
-    logInfo('fifa lineup batch sync', { updated: matchIds.length, matchIds });
+    logInfo('fifa lineup batch sync', { updated: matchIds.length, match_ids: matchIds.join(',') });
   }
 
   return { checked: results?.length ?? 0, updated: matchIds.length, matchIds };

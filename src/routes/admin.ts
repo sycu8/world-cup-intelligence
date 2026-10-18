@@ -132,6 +132,12 @@ adminRoutes.post('/recompute-all', async (c) => {
   return c.json({ data });
 });
 
+adminRoutes.post('/verify-upcoming-probabilities', async (c) => {
+  const { refreshAllUpcomingProbabilities } = await import('../services/upcomingProbabilityVerification');
+  const data = await refreshAllUpcomingProbabilities(c.env);
+  return c.json({ data });
+});
+
 adminRoutes.post('/backtest', async (c) => {
   const summary = await runBacktest(c.env.DB);
   return c.json({ data: summary });

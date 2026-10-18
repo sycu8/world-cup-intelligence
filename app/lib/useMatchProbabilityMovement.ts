@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, type ProbabilityData, type ProbabilityMovementPayload } from './api';
 
-const MOVEMENT_REFRESH_MS = 30_000;
+const MOVEMENT_REFRESH_MS = 15 * 60 * 1000;
 
 /** Shared probability-movement fetch — one poll per match page instead of duplicate panel requests. */
 export function useMatchProbabilityMovement(

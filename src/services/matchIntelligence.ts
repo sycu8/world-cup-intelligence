@@ -6,7 +6,7 @@ export { getMarketSignalsPayload, buildModelVsMarket } from '../market/services/
 import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import type { TeamSystemProfile } from '../models/probability/teamSystemStrength';
 
-function mapTeamSystemRow(row: Record<string, unknown> | null, fallback?: TeamSystemProfile) {
+export function mapTeamSystemRow(row: Record<string, unknown> | null, fallback?: TeamSystemProfile) {
   if (!row && fallback) {
     return {
       teamId: fallback.teamId,
@@ -121,7 +121,8 @@ export async function getProbabilityMovement(env: AppEnv, matchId: string) {
     const reasonCode: 'baseline' | 'live' | 'recalc' =
       i === 0
         ? 'baseline'
-        : cur.minute > (prev?.minute ?? 0)
+        : cur.minute > (prev?.minute ?? 0) ||
+            (cur.minute > 0 && prev != null && cur.minute === prev.minute)
           ? 'live'
           : 'recalc';
 

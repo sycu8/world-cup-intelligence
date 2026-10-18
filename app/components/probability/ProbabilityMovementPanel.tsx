@@ -91,7 +91,7 @@ export function ProbabilityMovementPanel({
                 <span className="text-foreground/60">·</span>
                 <span className="text-foreground/75">{eventReason(e.reasonCode, t)}</span>
               </div>
-              <p className="mt-2 font-mono-data text-sm leading-relaxed">
+              <p className="mt-2 break-words font-mono-data text-xs leading-relaxed sm:text-sm">
                 {t('common.abbrHome')} {pct(e.homeWinBefore)} → {pct(e.homeWinAfter)}
                 {' · '}
                 {t('common.abbrDraw')} {pct(e.drawBefore)} → {pct(e.drawAfter)}

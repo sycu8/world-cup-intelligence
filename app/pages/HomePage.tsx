@@ -1,134 +1,102 @@
-import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
-import type { GroupStandingsPayload } from '../lib/api';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { api, type DashboardData, type NewsArticle, type ScheduleMatch, type ChampionOddsPayload } from '../lib/api';
-import { consumeHomePrefetch } from '../lib/homePrefetch';
-import { FeaturedMatchHero } from '../components/home/FeaturedMatchHero';
-import { WorldCupCountdown } from '../components/home/WorldCupCountdown';
-import { PlatformSnapshot } from '../components/home/PlatformSnapshot';
-import { ChampionOddsPanel } from '../components/home/ChampionOddsPanel';
-import { NewUserQuickStart } from '../components/home/NewUserQuickStart';
-import { HomePageSkeleton } from '../components/home/HomePageSkeleton';
-import { Bilingual } from '../components/i18n/Bilingual';
+import { api, type LeagueCatalogPayload } from '../lib/api';
+import { usePageMeta } from '../lib/usePageMeta';
 import { useI18n } from '../lib/i18n/I18nContext';
+import { HomeLandingHero } from '../components/home/HomeLandingHero';
+import { HomeLandingValue } from '../components/home/HomeLandingValue';
+import { HomeLeaguePulse } from '../components/home/HomeLeaguePulse';
+import { HomeWorldCupStrip } from '../components/home/HomeWorldCupStrip';
+import { LeagueCard } from '../components/leagues/LeagueCard';
 
 const HomeNewsPreview = lazy(() =>
   import('../components/home/HomeNewsPreview').then((m) => ({ default: m.HomeNewsPreview })),
 );
-const GroupStageBoard = lazy(() =>
-  import('../components/tournament/GroupStageBoard').then((m) => ({ default: m.GroupStageBoard })),
-);
 
-const REFRESH_MS = 30_000;
-
-function SectionFallback({ className = 'min-h-[12rem]' }: { className?: string }) {
-  return <div className={`panel animate-pulse rounded-panel bg-panel2/30 ${className}`} aria-hidden />;
+function SectionFallback({ className = 'min-h-[10rem]' }: { className?: string }) {
+  return <div className={`animate-pulse rounded-card bg-panel2/30 ${className}`} aria-hidden />;
 }
 
 export function HomePage() {
   const { t } = useI18n();
-  const [matches, setMatches] = useState<ScheduleMatch[]>([]);
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [hotNews, setHotNews] = useState<NewsArticle[]>([]);
-  const [standings, setStandings] = useState<GroupStandingsPayload | null>(null);
-  const [matchProbabilities, setMatchProbabilities] = useState<
-    Record<string, { homeWin: number; draw: number; awayWin: number }>
-  >({});
-  const [championOdds, setChampionOdds] = useState<ChampionOddsPayload | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [catalog, setCatalog] = useState<LeagueCatalogPayload | null>(null);
+  const [ready, setReady] = useState(false);
 
-  const applyHome = useCallback((payload: Awaited<ReturnType<typeof api.home>>) => {
-    setMatches(payload.data.schedule.matches);
-    setDashboard(payload.data.dashboard);
-    setHotNews(payload.data.hotNews.slice(0, 3));
-    setStandings(payload.data.standings ?? null);
-    setMatchProbabilities(payload.data.matchProbabilities ?? {});
-    setChampionOdds(payload.data.championOdds ?? null);
-  }, []);
-
-  const load = useCallback(async () => {
-    try {
-      const prefetched = await consumeHomePrefetch();
-      if (prefetched) {
-        applyHome(prefetched);
-        return;
-      }
-      applyHome(await api.home());
-    } catch {
-      setMatches([]);
-      setDashboard(null);
-      setHotNews([]);
-      setStandings(null);
-      setMatchProbabilities({});
-      setChampionOdds(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [applyHome]);
+  usePageMeta({
+    title: t('home.landing.metaTitle'),
+    description: t('home.landing.metaDescription'),
+  });
 
   useEffect(() => {
-    load();
-    let interval: ReturnType<typeof setInterval> | undefined;
-    const delay = window.setTimeout(() => {
-      interval = window.setInterval(load, REFRESH_MS);
-    }, REFRESH_MS);
+    let cancelled = false;
+    void api
+      .leagues()
+      .then((res) => {
+        if (!cancelled) {
+          setCatalog(res.data);
+          setReady(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCatalog(null);
+          setReady(true);
+        }
+      });
     return () => {
-      window.clearTimeout(delay);
-      if (interval) window.clearInterval(interval);
+      cancelled = true;
     };
-  }, [load]);
+  }, []);
 
-  const featured = dashboard?.featuredMatch ?? null;
+  const leagues = catalog?.leagues ?? [];
+  const liveCount = leagues.reduce((sum, l) => sum + (l.liveCount ?? 0), 0);
 
   return (
-    <div className="space-y-8">
-      <header>
-        <Bilingual
-          k="home.calendarTitle"
-          as="h1"
-          className="font-heading text-4xl tracking-tight md:text-5xl"
-        />
-        <Bilingual k="home.calendarSubtitle" as="p" className="mt-3 max-w-2xl text-base text-foreground/80" />
-        <p className="mt-2 text-sm text-muted-dim">
-          {t('home.newUserHint')}{' '}
-          <Link to="/guide" className="text-cyan hover:underline">
-            {t('home.newUserHintLink')}
-          </Link>{' '}
-          {t('home.newUserHintTail')}
-        </p>
-      </header>
+    <div className="home-landing">
+      <HomeLandingHero liveCount={liveCount} leagueCount={leagues.length || 5} />
 
-      {loading ? (
-        <HomePageSkeleton />
-      ) : (
-        <>
-          <NewUserQuickStart />
-          <Suspense fallback={<SectionFallback className="min-h-[24rem]" />}>
-            <GroupStageBoard
-              matches={matches}
-              initialStandings={standings}
-              initialProbs={matchProbabilities}
-            />
-          </Suspense>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-stretch">
-            <div className="flex flex-col gap-4">
-              <WorldCupCountdown />
-              <ChampionOddsPanel odds={championOdds} loading={!championOdds} />
-              <PlatformSnapshot dashboard={dashboard} compact />
+      <div className="home-landing-body space-y-14 sm:space-y-16">
+        <section className="home-landing-section" aria-labelledby="home-leagues-title">
+          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 id="home-leagues-title" className="font-heading text-2xl tracking-tight sm:text-3xl">
+                {t('home.landing.leaguesTitle')}
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-muted sm:text-base">{t('home.landing.leaguesSubtitle')}</p>
             </div>
-            {featured ? (
-              <FeaturedMatchHero match={featured} />
-            ) : (
-              <div className="panel flex min-h-[17rem] items-center justify-center text-muted">
-                <Bilingual k="home.noFeatured" />
-              </div>
-            )}
+            <Link to="/leagues" className="shrink-0 text-sm font-medium text-cyan hover:underline">
+              {t('leagues.choose')} →
+            </Link>
           </div>
+          {!ready ? (
+            <SectionFallback className="min-h-[12rem]" />
+          ) : leagues.length ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {leagues.map((league) => (
+                <LeagueCard key={league.id} league={league} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted">{t('home.landing.leaguesEmpty')}</p>
+          )}
+        </section>
+
+        <HomeLandingValue />
+
+        {ready ? <HomeLeaguePulse leagues={leagues} /> : <SectionFallback />}
+
+        <HomeWorldCupStrip />
+
+        <section className="home-landing-section" aria-labelledby="home-news-title">
+          <h2 id="home-news-title" className="font-heading text-2xl tracking-tight sm:text-3xl">
+            {t('home.landing.newsTitle')}
+          </h2>
+          <p className="mt-1 mb-5 text-sm text-muted">{t('home.landing.newsSubtitle')}</p>
           <Suspense fallback={<SectionFallback />}>
-            <HomeNewsPreview initialHot={hotNews} />
+            <HomeNewsPreview />
           </Suspense>
-        </>
-      )}
+        </section>
+      </div>
     </div>
   );
 }

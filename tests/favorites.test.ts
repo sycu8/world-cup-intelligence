@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { loadFavorites, toggleInList } from '../app/lib/favorites';
+import { describe, expect, it, vi } from 'vitest';
+import { FAVORITES_CHANGED, loadFavorites, saveFavorites, toggleInList } from '../app/lib/favorites';
 
 describe('favorites', () => {
   it('toggleInList adds and removes ids', () => {
@@ -10,5 +10,29 @@ describe('favorites', () => {
 
   it('loadFavorites returns empty store when storage missing', () => {
     expect(loadFavorites()).toEqual({ matches: [], teams: [] });
+  });
+
+  it('loadFavorites parses stored JSON and tolerates invalid shape', () => {
+    localStorage.setItem('wc-favorites-v1', JSON.stringify({ matches: ['m1'], teams: null }));
+    expect(loadFavorites()).toEqual({ matches: ['m1'], teams: [] });
+
+    localStorage.setItem('wc-favorites-v1', JSON.stringify({ teams: ['t1'] }));
+    expect(loadFavorites()).toEqual({ matches: [], teams: ['t1'] });
+
+    localStorage.setItem('wc-favorites-v1', '{bad json');
+    expect(loadFavorites()).toEqual({ matches: [], teams: [] });
+  });
+
+  it('saveFavorites persists and emits change event', () => {
+    const listener = vi.fn();
+    window.addEventListener(FAVORITES_CHANGED, listener);
+    saveFavorites({ matches: ['m1'], teams: ['t1'] });
+
+    expect(JSON.parse(localStorage.getItem('wc-favorites-v1')!)).toEqual({
+      matches: ['m1'],
+      teams: ['t1'],
+    });
+    expect(listener).toHaveBeenCalled();
+    window.removeEventListener(FAVORITES_CHANGED, listener);
   });
 });

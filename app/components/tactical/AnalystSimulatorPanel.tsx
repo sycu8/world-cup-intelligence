@@ -69,7 +69,7 @@ export function AnalystSimulatorPanel({ base, onChange }: Props) {
           {t('simulator.reset')}
         </button>
       </div>
-      <p className="mt-3 font-mono-data text-[10px] text-muted">
+      <p className="mt-3 break-words font-mono-data text-[10px] leading-relaxed text-muted sm:text-[11px]">
         {t('simulator.preview')} {t('common.abbrHome')} {(adjusted.homeWin * 100).toFixed(1)}% ·{' '}
         {t('common.abbrDraw')} {(adjusted.draw * 100).toFixed(1)}% · {t('common.abbrAway')}{' '}
         {(adjusted.awayWin * 100).toFixed(1)}%

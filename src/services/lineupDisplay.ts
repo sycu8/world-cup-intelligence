@@ -328,9 +328,9 @@ async function loadClubFallback(env: AppEnv, teamId: string): Promise<LineupDisp
   if (rows.length < 5) return null;
 
   const starters = rows.slice(0, 11).map((r, i) => {
-    const position = normalizeLineupPosition(null, null, r.position ?? STARTER_SLOTS[i]?.pos ?? 'CM');
+    const position = normalizeLineupPosition(null, null, r.position ?? STARTER_SLOTS[i].pos);
     return {
-      shirtNumber: STARTER_SLOTS[i]?.shirt ?? i + 1,
+      shirtNumber: STARTER_SLOTS[i].shirt,
       name: r.name,
       position,
       positionGroup: lineupPositionGroup(position),

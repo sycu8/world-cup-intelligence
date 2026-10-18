@@ -24,6 +24,9 @@ function profile(
     countryCode: null,
     isHost: false,
     effectiveRating: 1750,
+    attackRate: 1.35,
+    defenseRate: 0.82,
+    firstHalfLeadRate: 0.32,
     ...overrides,
   };
 }
@@ -53,6 +56,35 @@ describe('tournamentMonteCarlo', () => {
     expect(result.championCounts[0]?.prob).toBeGreaterThan(0);
   });
 
+  it('elite teams win more often than weaker opponents', () => {
+    const input = finalOnlyInput();
+    input.teamStrength['t-a1'] = profile('t-a1', {
+      effectiveRating: 1920,
+      attackRate: 1.65,
+      defenseRate: 0.72,
+      firstHalfLeadRate: 0.38,
+      fifaRanking: 3,
+    });
+    input.teamStrength['t-a2'] = profile('t-a2', {
+      effectiveRating: 1480,
+      attackRate: 0.85,
+      defenseRate: 1.25,
+      firstHalfLeadRate: 0.15,
+      fifaRanking: 35,
+    });
+
+    let eliteChampionWins = 0;
+    for (let i = 0; i < 400; i += 1) {
+      let seed = i + 1;
+      const rng = () => {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        return seed / 0x7fffffff;
+      };
+      if (simulateTournamentOnce(input, rng) === 't-a1') eliteChampionWins += 1;
+    }
+    expect(eliteChampionWins).toBeGreaterThan(200);
+  });
+
   it('simulateTournamentOnce is deterministic with fixed rng', () => {
     const input = finalOnlyInput();
     let i = 0;
@@ -64,6 +96,62 @@ describe('tournamentMonteCarlo', () => {
     i = 0;
     const b = simulateTournamentOnce(input, rng);
     expect(a).toBe(b);
+  });
+
+  it('uses completed knockouts and only simulates the scheduled final', () => {
+    const input: TournamentMonteCarloInput = {
+      simulations: 400,
+      teamStrength: {
+        'team-es': profile('team-es', { effectiveRating: 1860, countryCode: 'ES' }),
+        'team-ar': profile('team-ar', { effectiveRating: 1910, countryCode: 'AR' }),
+        'team-fr': profile('team-fr', { effectiveRating: 1880 }),
+        'team-en': profile('team-en', { effectiveRating: 1800 }),
+      },
+      groupMatches: [],
+      knockoutMatches: [
+        {
+          id: 'm-w26-sf-01',
+          stage: 'Semi-final',
+          homeTeamId: 'team-fr',
+          awayTeamId: 'team-es',
+          homeScore: 0,
+          awayScore: 2,
+          status: 'completed',
+        },
+        {
+          id: 'm-w26-sf-02',
+          stage: 'Semi-final',
+          homeTeamId: 'team-en',
+          awayTeamId: 'team-ar',
+          homeScore: 1,
+          awayScore: 2,
+          status: 'completed',
+        },
+        {
+          id: 'm-w26-final-01',
+          stage: 'Final',
+          homeTeamId: 'team-es',
+          awayTeamId: 'team-ar',
+          homeScore: 0,
+          awayScore: 0,
+          status: 'scheduled',
+        },
+      ],
+      groupRankLinks: [],
+      winnerLinks: [],
+    };
+
+    let seed = 7;
+    const rng = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
+    const result = runTournamentMonteCarlo({ ...input, simulations: 500, rng });
+    expect(result.championCounts).toHaveLength(2);
+    const teamIds = new Set(result.championCounts.map((row) => row.teamId));
+    expect(teamIds).toEqual(new Set(['team-es', 'team-ar']));
+    const sum = result.championCounts.reduce((acc, row) => acc + row.prob, 0);
+    expect(sum).toBeCloseTo(1, 2);
   });
 });
 

@@ -155,7 +155,6 @@ export function aggregateMovement(rows: MovementRow[]): Map<string, { dx: number
 
   const out = new Map<string, { dx: number; dy: number; magnitude: number }>();
   for (const [id, s] of sums) {
-    if (s.n === 0) continue;
     const dx = s.dx / s.n;
     const dy = s.dy / s.n;
     out.set(id, { dx, dy, magnitude: Math.sqrt(dx * dx + dy * dy) });
@@ -297,9 +296,17 @@ export async function getPitchMapPayload(
        WHERE match_id = ? AND x IS NOT NULL AND y IS NOT NULL ORDER BY minute ASC`,
     )
       .bind(matchId)
-      .all<
-        PitchMapEvent & { event_type: string; end_x: number | null; end_y: number | null }
-      >(),
+      .all<{
+        id: string;
+        x: number;
+        y: number;
+        end_x: number | null;
+        end_y: number | null;
+        event_type: string;
+        team_id: string;
+        player_id: string | null;
+        minute: number;
+      }>(),
   ]);
 
   const subs = subEvents.results ?? [];
@@ -358,7 +365,7 @@ export async function getPitchMapPayload(
 
   return {
     matchId,
-    slug: resolved.slug ?? matchId,
+    slug: resolved.slug,
     status: resolved.status,
     minute,
     home: buildSide(
