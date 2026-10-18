@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  BRIEFING_PARSE_FAILURE_TTL_SECONDS,
+  BRIEFING_AI_FAILURE_TTL_SECONDS,
   fallbackBriefing,
   generateTacticalBriefing,
   getCachedBriefing,
@@ -130,7 +130,9 @@ describe('tacticalBriefing', () => {
       probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
     });
     expect(result.summary).toBeTruthy();
-    expect(env.KV.put).toHaveBeenCalled();
+    expect(env.KV.put).toHaveBeenCalledWith('briefing:vi3:m-2', expect.any(String), {
+      expirationTtl: 3600,
+    });
   });
 
   it('getCachedBriefing returns null for invalid cache payload', async () => {
@@ -191,6 +193,9 @@ describe('tacticalBriefing', () => {
       probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
     });
     expect(result.matchId).toBe('m-gw-fail');
+    expect(env.KV.put).toHaveBeenCalledWith('briefing:vi3:m-gw-fail', expect.any(String), {
+      expirationTtl: BRIEFING_AI_FAILURE_TTL_SECONDS,
+    });
   });
 
   it('generateTacticalBriefing parses Workers AI non-response payloads', async () => {
@@ -252,9 +257,9 @@ describe('tacticalBriefing', () => {
     expect(env.KV.put).toHaveBeenCalledWith(
       'briefing:vi3:m-trunc',
       expect.any(String),
-      { expirationTtl: BRIEFING_PARSE_FAILURE_TTL_SECONDS },
+      { expirationTtl: BRIEFING_AI_FAILURE_TTL_SECONDS },
     );
-    expect(BRIEFING_PARSE_FAILURE_TTL_SECONDS).toBeLessThan(3600);
+    expect(BRIEFING_AI_FAILURE_TTL_SECONDS).toBeLessThan(3600);
 
     const logged = spy.mock.calls.map((call) => String(call[0])).join('\n');
     const payload = JSON.parse(String(spy.mock.calls[0]?.[0]));
@@ -263,6 +268,27 @@ describe('tacticalBriefing', () => {
     expect(payload.matchId).toBe('m-trunc');
     expect(logged).not.toContain('Phân tích bị cắt');
     spy.mockRestore();
+  });
+
+  it('caches the fallback for 60s when Workers AI fails without a parse error', async () => {
+    for (const message of ['2001', '5028', 'network']) {
+      const env = createMockEnv({
+        AI: {
+          run: vi.fn(async () => {
+            throw new Error(message);
+          }),
+        } as never,
+      });
+      const result = await generateTacticalBriefing(env, {
+        matchId: `m-${message}`,
+        aiFallback: false,
+        probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
+      });
+      expect(result.summary.en).toContain('statistical model');
+      expect(env.KV.put).toHaveBeenCalledWith(`briefing:vi3:m-${message}`, expect.any(String), {
+        expirationTtl: BRIEFING_AI_FAILURE_TTL_SECONDS,
+      });
+    }
   });
 });
 

@@ -8,12 +8,8 @@ import { logError, summarizeError } from '../utils/logger';
 
 const BRIEFING_CACHE_PREFIX = 'briefing:vi3:';
 const BRIEFING_CACHE_TTL_SECONDS = 3600;
-/** KV minimum TTL. A parse failure must not pin the statistical fallback for an hour. */
-export const BRIEFING_PARSE_FAILURE_TTL_SECONDS = 60;
-
-function isModelParseError(error: unknown): boolean {
-  return error instanceof SyntaxError || (error instanceof Error && error.name === 'ZodError');
-}
+/** KV minimum TTL. An AI failure must not pin the statistical fallback for an hour. */
+export const BRIEFING_AI_FAILURE_TTL_SECONDS = 60;
 
 type BriefingInput = {
   matchId: string;
@@ -111,7 +107,7 @@ export async function generateTacticalBriefing(
   const cached = await getCachedBriefing(env, input.matchId);
   if (cached) return cached;
 
-  let parseFailed = false;
+  let aiFailed = false;
 
   if (isGatewayConfigured(env) && !input.aiFallback) {
     try {
@@ -131,7 +127,7 @@ export async function generateTacticalBriefing(
         return briefing;
       }
     } catch (error) {
-      if (isModelParseError(error)) parseFailed = true;
+      aiFailed = true;
       logError('tactical briefing gateway failed', {
         matchId: input.matchId,
         error: summarizeError(error),
@@ -161,7 +157,7 @@ export async function generateTacticalBriefing(
       });
       return briefing;
     } catch (error) {
-      if (isModelParseError(error)) parseFailed = true;
+      aiFailed = true;
       logError('tactical briefing workers ai failed', {
         matchId: input.matchId,
         error: summarizeError(error),
@@ -171,7 +167,7 @@ export async function generateTacticalBriefing(
 
   const fallback = fallbackBriefing(input);
   await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(fallback), {
-    expirationTtl: parseFailed ? BRIEFING_PARSE_FAILURE_TTL_SECONDS : BRIEFING_CACHE_TTL_SECONDS,
+    expirationTtl: aiFailed ? BRIEFING_AI_FAILURE_TTL_SECONDS : BRIEFING_CACHE_TTL_SECONDS,
   });
   return fallback;
 }
