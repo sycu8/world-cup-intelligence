@@ -536,7 +536,7 @@ export async function syncFifaWc2026Matches(
     );
   }
 
-  if (aborted(signal)) throw new Error('model message timed out');
+  throwIfRefreshAborted(signal);
 
   if (synced > 0) {
     await env.KV.put('meta:last_fifa_sync', nowIso(), { expirationTtl: 86400 });

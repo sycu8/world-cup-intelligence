@@ -17,11 +17,18 @@
  * (batch 10, max_retries 1, max_concurrency 1, no nested dead-letter queue).
  * A message that is not acked is discarded after that retry. Refresh ticks
  * are acked and not replayed. Other idempotent jobs are sent once with
- * `fromDlq` set; a second visit is acked. Stale crawl, league, and
- * live-probability ticks are acked and not replayed. Model DLQ messages are
- * counted and acked. Without a consumer, Cloudflare keeps a DLQ message for
- * four days and then deletes it — these queues have consumers, so that
- * retention is not the drain path.
+ * `fromDlq` set, at most one every DRAIN_REPLAY_GAP_SECONDS; a second visit
+ * is acked. Stale crawl, league, and live-probability ticks are acked and
+ * not replayed. Model DLQ messages are counted and acked. Without a consumer,
+ * Cloudflare keeps a DLQ message for four days and then deletes it — these
+ * queues have consumers, so that retention is not the drain path.
+ *
+ * Reported after the #58 deploy, not measured in this repo: prod DLQ 3,072
+ * and UAT DLQ 4,422. An ack-only batch of 10 then waits DRAIN_PAUSE_SECONDS,
+ * so those depths are on the order of 2 hours (prod) and 3 hours (UAT) when
+ * the messages are refresh ticks. A DLQ that is all idempotent replays is
+ * one replay every 30s: about 26 hours prod and 37 hours UAT. Read the live
+ * depth before expecting either number. Do not purge.
  */
 export const REFRESH_STALE_MS = 10 * 60_000;
 
@@ -33,6 +40,46 @@ export const REFRESH_STALE_MS = 10 * 60_000;
 export const REFRESH_MIN_GAP_MS = 50_000;
 
 export const INGEST_BATCH_SIZE = 10;
+
+/**
+ * D1 was down for about 2 minutes while a backlog drained in one tight loop.
+ * Ack-only work does not call D1, but the next batch used to start at once
+ * and a refresh was in that same window. After this many ack-only messages
+ * and no real job, the consumer waits before it pulls again.
+ */
+export const DRAIN_ACK_BURST = 4;
+export const DRAIN_PAUSE_SECONDS = 10;
+
+/** One idempotent DLQ replay this far after the previous one. */
+export const DRAIN_REPLAY_GAP_SECONDS = 30;
+export const DLQ_REPLAY_NOT_BEFORE_KEY = 'ingest:dlq_replay_not_before_ms';
+
+export function drainPauseMs(ackOnly: number, ranWork: boolean, burst = DRAIN_ACK_BURST): number {
+  if (ranWork || ackOnly < burst) return 0;
+  return DRAIN_PAUSE_SECONDS * 1000;
+}
+
+/** Seconds until this replay may hit the main queue. Moves the cursor forward by one gap. */
+export async function takeDlqReplayDelaySeconds(
+  env: { KV: { get(key: string): Promise<string | null>; put(key: string, value: string, options?: { expirationTtl?: number }): Promise<unknown> } },
+  now = Date.now(),
+): Promise<number> {
+  let notBefore = now;
+  try {
+    const stored = Number(await env.KV.get(DLQ_REPLAY_NOT_BEFORE_KEY));
+    if (Number.isFinite(stored) && stored > now) notBefore = stored;
+  } catch {
+    notBefore = now;
+  }
+  try {
+    await env.KV.put(DLQ_REPLAY_NOT_BEFORE_KEY, String(notBefore + DRAIN_REPLAY_GAP_SECONDS * 1000), {
+      expirationTtl: 86_400,
+    });
+  } catch {
+    // A missed cursor lets the next replay go sooner. The message is still sent.
+  }
+  return Math.max(0, Math.ceil((notBefore - now) / 1000));
+}
 
 export { INGEST_LAST_RUN_KEY, INGEST_STALE_DROPS_KEY } from '../constants/pipeline';
 

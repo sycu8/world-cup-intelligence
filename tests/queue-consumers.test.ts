@@ -10,6 +10,7 @@ import {
   queueRetryDelaySeconds,
 } from '../src/queues/modelJobLane';
 import { INGEST_LAST_RUN_KEY, INGEST_STALE_DROPS_KEY, MODEL_QUEUE_STALE_DROPS_KEY } from '../src/constants/pipeline';
+import { DRAIN_PAUSE_SECONDS } from '../src/queues/ingestDrain';
 import { createMockDb, createMockEnv } from './helpers/mockEnv';
 import { createMockMessageBatch } from './helpers/mockMessageBatch';
 
@@ -438,6 +439,25 @@ describe('handleIngestBatch', () => {
     expect(await env.KV.get(INGEST_STALE_DROPS_KEY)).toBe('3');
   });
 
+  it('pauses after an ack-only drain burst so the next batch waits', async () => {
+    const pause = vi.fn(async () => undefined);
+    const old = new Date(Date.now() - 11 * 60_000);
+    const acks = [vi.fn(), vi.fn(), vi.fn(), vi.fn()];
+    await handleIngestBatch(
+      createMockMessageBatch(
+        acks.map((ack, index) => ({
+          body: { type: 'refresh_minute' as const, idempotencyKey: `old-${index}` },
+          timestamp: old,
+          ack,
+        })),
+      ),
+      createMockEnv(),
+      { pause },
+    );
+    for (const ack of acks) expect(ack).toHaveBeenCalledTimes(1);
+    expect(pause).toHaveBeenCalledWith(DRAIN_PAUSE_SECONDS * 1000);
+  });
+
   it('runs one fresh crawl when two starter ticks share a batch', async () => {
     const { crawlWorldCupNews } = await import('../src/ingestion/newsCrawler');
     vi.mocked(crawlWorldCupNews).mockClear();
@@ -523,7 +543,7 @@ describe('handleIngestBatch', () => {
       expect(signal?.aborted).toBe(true);
       expect(ack).toHaveBeenCalledTimes(1);
       expect(retry).not.toHaveBeenCalled();
-      expect(await env.KV.get(REFRESH_CLAIM_KEY)).toBeNull();
+      expect(await env.KV.get(INGEST_LAST_RUN_KEY)).toBeNull();
 
       vi.mocked(refreshMatchData).mockClear();
       const next = vi.fn();

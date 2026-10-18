@@ -1,6 +1,11 @@
 import type { AppEnv } from '../env';
 import { logError } from '../utils/logger';
-import { IDEMPOTENT_INGEST_TYPES, isStaleIngestTick } from './ingestDrain';
+import {
+  drainPauseMs,
+  IDEMPOTENT_INGEST_TYPES,
+  isStaleIngestTick,
+  takeDlqReplayDelaySeconds,
+} from './ingestDrain';
 
 type DlqBody = {
   type?: string;
@@ -22,7 +27,11 @@ type DlqBody = {
  * counted and acked, not sent to ingest. A stalled bulk walk is re-sent by
  * the cron resumer from the walk record.
  */
-export async function handleDlqBatch(batch: MessageBatch<unknown>, env: AppEnv): Promise<void> {
+export async function handleDlqBatch(
+  batch: MessageBatch<unknown>,
+  env: AppEnv,
+  options?: { pause?: (ms: number) => Promise<void> },
+): Promise<void> {
   const counts: Record<string, number> = {};
   let replayed = 0;
   let dropped = 0;
@@ -47,7 +56,10 @@ export async function handleDlqBatch(batch: MessageBatch<unknown>, env: AppEnv):
 
     if (IDEMPOTENT_INGEST_TYPES.has(type) && env.INGEST_QUEUE) {
       try {
-        await env.INGEST_QUEUE.send({ ...body, fromDlq: true });
+        const delaySeconds = await takeDlqReplayDelaySeconds(env);
+        const payload = { ...body, fromDlq: true };
+        if (delaySeconds > 0) await env.INGEST_QUEUE.send(payload, { delaySeconds });
+        else await env.INGEST_QUEUE.send(payload);
         msg.ack();
         replayed += 1;
       } catch (error) {
@@ -66,4 +78,10 @@ export async function handleDlqBatch(batch: MessageBatch<unknown>, env: AppEnv):
     replayed,
     dropped,
   });
+
+  const waitMs = drainPauseMs(dropped, replayed > 0);
+  if (waitMs > 0) {
+    logError('queue dlq drain paused', { dropped, pauseMs: waitMs });
+    await (options?.pause ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms))))(waitMs);
+  }
 }

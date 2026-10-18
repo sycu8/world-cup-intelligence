@@ -27,6 +27,7 @@ import {
   withMessageTimeout,
 } from './modelJobLane';
 import {
+  drainPauseMs,
   ingestDedupeKey,
   isStaleIngestTick,
   parseLastRunMs,
@@ -83,14 +84,24 @@ function statsbombDataChanged(result: {
   return result.matchesInserted > 0 || result.teamsUpdated > 0;
 }
 
+function pauseMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function handleIngestBatch(
   batch: MessageBatch<IngestJob>,
   env: AppEnv,
-  options?: { deadlineMs?: number; messageTimeoutMs?: number },
+  options?: {
+    deadlineMs?: number;
+    messageTimeoutMs?: number;
+    pause?: (ms: number) => Promise<void>;
+  },
 ): Promise<void> {
   const deadlineMs = options?.deadlineMs ?? CONSUMER_BATCH_DEADLINE_MS;
   const batchStarted = Date.now();
   const seen = new Set<string>();
+  let ackOnly = 0;
+  let ranWork = false;
   for (const msg of batch.messages) {
     if (isStaleIngestTick(msg.body, msg.timestamp, Date.now())) {
       logInfo('ingest tick skipped stale', {
@@ -100,12 +111,14 @@ export async function handleIngestBatch(
       });
       await recordIngestStaleDrops(env, 1);
       msg.ack();
+      ackOnly += 1;
       continue;
     }
     const dedupeKey = ingestDedupeKey(msg.body);
     if (dedupeKey && seen.has(dedupeKey)) {
       logInfo('ingest duplicate acked', { key: dedupeKey });
       msg.ack();
+      ackOnly += 1;
       continue;
     }
     if (dedupeKey) seen.add(dedupeKey);
@@ -121,9 +134,11 @@ export async function handleIngestBatch(
     if (starterRefresh && !refreshRunIsDue(await readLastRefreshRunMs(env), Date.now())) {
       logInfo('ingest refresh skipped recent', { idempotencyKey: msg.body.idempotencyKey });
       msg.ack();
+      ackOnly += 1;
       continue;
     }
     if (starterRefresh) await markRefreshStarted(env, Date.now());
+    ranWork = true;
 
     const timeoutMs = Math.max(
       1,
@@ -180,6 +195,11 @@ export async function handleIngestBatch(
       logInfo('ingest retry', { error: String(e) });
       msg.retry({ delaySeconds });
     }
+  }
+  const waitMs = drainPauseMs(ackOnly, ranWork);
+  if (waitMs > 0) {
+    logInfo('ingest drain paused', { ackOnly, pauseMs: waitMs });
+    await (options?.pause ?? pauseMs)(waitMs);
   }
 }
 

@@ -1,13 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import { handleDlqBatch } from '../src/queues/dlqConsumer';
 import {
+  DRAIN_PAUSE_SECONDS,
+  DRAIN_REPLAY_GAP_SECONDS,
   REFRESH_MIN_GAP_MS,
   REFRESH_STALE_MS,
+  drainPauseMs,
   estimateIngestDrainSeconds,
   ingestDedupeKey,
   isStaleIngestTick,
   isStaleRefreshMinute,
   refreshRunIsDue,
+  takeDlqReplayDelaySeconds,
 } from '../src/queues/ingestDrain';
 import { createMockEnv } from './helpers/mockEnv';
 
@@ -37,6 +41,18 @@ describe('ingest drain', () => {
     expect(refreshRunIsDue(now - 30_000, now)).toBe(false);
     expect(estimateIngestDrainSeconds(0, 2)).toBe(0);
     expect(estimateIngestDrainSeconds(25, 2)).toBe(6);
+    expect(drainPauseMs(3, false)).toBe(0);
+    expect(drainPauseMs(4, true)).toBe(0);
+    expect(drainPauseMs(4, false)).toBe(DRAIN_PAUSE_SECONDS * 1000);
+    expect(DRAIN_REPLAY_GAP_SECONDS).toBe(30);
+  });
+
+  it('spaces DLQ replays from the last scheduled time', async () => {
+    const env = createMockEnv();
+    const now = Date.now();
+    await expect(takeDlqReplayDelaySeconds(env, now)).resolves.toBe(0);
+    await expect(takeDlqReplayDelaySeconds(env, now)).resolves.toBe(DRAIN_REPLAY_GAP_SECONDS);
+    await expect(takeDlqReplayDelaySeconds(env, now + 5_000)).resolves.toBe(DRAIN_REPLAY_GAP_SECONDS * 2 - 5);
   });
 
   it('counts DLQ messages, drops stale refresh ticks, and replays an idempotent job once', async () => {
@@ -97,6 +113,13 @@ describe('ingest drain', () => {
             body: { type: 'webhook_deliver', idempotencyKey: 'wh', subscriptionId: 's', eventId: 1 },
             ack: ackHook,
           },
+          {
+            id: 'news-later',
+            attempts: 4,
+            timestamp: new Date(now),
+            body: { type: 'sync_leagues', idempotencyKey: 'league-1' },
+            ack: vi.fn(),
+          },
         ],
       } as never,
       env,
@@ -108,12 +131,17 @@ describe('ingest drain', () => {
     expect(ackReplay).toHaveBeenCalledTimes(1);
     expect(ackAgain).toHaveBeenCalledTimes(1);
     expect(ackHook).toHaveBeenCalledTimes(1);
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send).toHaveBeenCalledWith({ type: 'crawl_news', idempotencyKey: 'news-1', fromDlq: true });
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenNthCalledWith(1, { type: 'crawl_news', idempotencyKey: 'news-1', fromDlq: true });
+    expect(send).toHaveBeenNthCalledWith(
+      2,
+      { type: 'sync_leagues', idempotencyKey: 'league-1', fromDlq: true },
+      { delaySeconds: DRAIN_REPLAY_GAP_SECONDS },
+    );
     const logged = errorSpy.mock.calls.map((call) => String(call[0])).join('\n');
     expect(logged).toContain('refresh_minute');
     expect(logged).toContain('crawl_news');
-    expect(logged).toContain('"replayed":1');
+    expect(logged).toContain('"replayed":2');
     errorSpy.mockRestore();
   });
 
