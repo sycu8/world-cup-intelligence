@@ -23,6 +23,21 @@ import {
   queueRetryDelaySeconds,
   withMessageTimeout,
 } from './modelJobLane';
+import { ingestDedupeKey, isStaleRefreshMinute, REFRESH_STALE_MS } from './ingestDrain';
+
+const REFRESH_CLAIM_KEY = 'ingest:dedupe:refresh_minute';
+
+async function claimFreshRefresh(env: AppEnv): Promise<boolean> {
+  try {
+    const existing = await env.KV.get(REFRESH_CLAIM_KEY);
+    if (existing) return false;
+    await env.KV.put(REFRESH_CLAIM_KEY, String(Date.now()), { expirationTtl: 60 });
+    return true;
+  } catch (error) {
+    logInfo('ingest refresh claim failed', { error: String(error) });
+    return true;
+  }
+}
 
 function statsbombDataChanged(result: {
   matchesInserted: number;
@@ -38,7 +53,29 @@ export async function handleIngestBatch(
 ): Promise<void> {
   const deadlineMs = options?.deadlineMs ?? CONSUMER_BATCH_DEADLINE_MS;
   const batchStarted = Date.now();
+  const seen = new Set<string>();
   for (const msg of batch.messages) {
+    if (isStaleRefreshMinute(msg.body, msg.timestamp, Date.now())) {
+      logInfo('ingest refresh skipped stale', {
+        idempotencyKey: msg.body.idempotencyKey,
+        staleAfterMs: REFRESH_STALE_MS,
+      });
+      msg.ack();
+      continue;
+    }
+    const dedupeKey = ingestDedupeKey(msg.body);
+    if (dedupeKey && seen.has(dedupeKey)) {
+      logInfo('ingest duplicate acked', { key: dedupeKey });
+      msg.ack();
+      continue;
+    }
+    if (msg.body.type === 'refresh_minute' && !(await claimFreshRefresh(env))) {
+      logInfo('ingest refresh skipped duplicate', { idempotencyKey: msg.body.idempotencyKey });
+      msg.ack();
+      continue;
+    }
+    if (dedupeKey) seen.add(dedupeKey);
+
     const elapsed = Date.now() - batchStarted;
     if (elapsed >= deadlineMs) {
       logInfo('ingest batch deferred', { type: msg.body.type });
@@ -53,10 +90,18 @@ export async function handleIngestBatch(
         deadlineMs - elapsed,
       ),
     );
+    let finished = false;
     try {
-      await withMessageTimeout(timeoutMs, () => runIngestMessage(msg, env));
+      await withMessageTimeout(timeoutMs, async () => {
+        await runIngestMessage(msg, env);
+        finished = true;
+      });
       msg.ack();
     } catch (e) {
+      if (finished) {
+        msg.ack();
+        continue;
+      }
       logInfo('ingest retry', { error: String(e) });
       msg.retry({ delaySeconds: queueRetryDelaySeconds(msg.attempts) });
     }

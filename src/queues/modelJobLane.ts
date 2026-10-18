@@ -53,7 +53,9 @@ const INGEST_TIMEOUT_MS: Record<string, number> = {
   sync_leagues: INGEST_LONG_JOB_TIMEOUT_MS,
   source_ingest: INGEST_LONG_JOB_TIMEOUT_MS,
   bulk_ingest: INGEST_LONG_JOB_TIMEOUT_MS,
-  refresh_minute: 60_000,
+  // Was 60s. The FIFA sync did not finish, so the message was retried and never
+  // acked. This is the batch budget: the longest this invocation can run and still ack.
+  refresh_minute: CONSUMER_BATCH_DEADLINE_MS,
   match_complete: 60_000,
   refresh_live_probabilities: 60_000,
   webhook_deliver: 30_000,
