@@ -12,7 +12,13 @@ import {
 } from '../services/matchScenarioService';
 import { runScenarioBacktest } from '../models/scenarios/backtesting/scenarioBacktestRunner';
 import { briefingWithheldFromCache, generateTacticalBriefing } from '../ai/tacticalBriefing';
-import { clearBriefingInflight, isBriefingWithheld, markBriefingWithheld } from '../ai/briefingQueue';
+import {
+  clearBriefingInflight,
+  isBriefingWithheld,
+  markBriefingWithheld,
+  requestBriefingGeneration,
+} from '../ai/briefingQueue';
+import { MODEL_QUEUE_STALE_DROPS_KEY } from '../constants/pipeline';
 import { runMultiVariableAnalysis } from '../ai/multiVariableAnalysis';
 import { extractEntitiesFromArticle } from '../ai/entityExtraction';
 import { processNewsDocumentImpact } from '../services/newsMatchImpact';
@@ -37,6 +43,13 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
         .map((msg) => (msg.body && typeof msg.body.type === 'string' ? msg.body.type : 'unknown'))
         .join(','),
     });
+    try {
+      const current = Number.parseInt((await env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY)) ?? '0', 10);
+      const base = Number.isFinite(current) ? current : 0;
+      await env.KV.put(MODEL_QUEUE_STALE_DROPS_KEY, String(base + dropped.length));
+    } catch (error) {
+      logError('model queue drop count failed', { error: String(error) });
+    }
   }
   runnable.sort((a, b) => modelJobPriority(a.body.type) - modelJobPriority(b.body.type));
 
@@ -45,7 +58,7 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
       switch (msg.body.type) {
         case 'recompute':
           await recomputeMatchProbability(env, msg.body.matchId);
-          await env.MODEL_QUEUE?.send({ type: 'ai_briefing', matchId: msg.body.matchId });
+          await requestBriefingGeneration(env, msg.body.matchId);
           await env.MODEL_QUEUE?.send({ type: 'ai_multi_analyze', matchId: msg.body.matchId });
           break;
         case 'PRE_MATCH_RECOMPUTE':
@@ -83,7 +96,7 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
         case 'recompute_all':
           for (const matchId of msg.body.matchIds) {
             await recomputeMatchProbability(env, matchId);
-            await env.MODEL_QUEUE?.send({ type: 'ai_briefing', matchId });
+            await requestBriefingGeneration(env, matchId);
             await env.MODEL_QUEUE?.send({ type: 'ai_multi_analyze', matchId });
           }
           break;

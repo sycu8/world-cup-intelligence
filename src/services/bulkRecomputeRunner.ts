@@ -19,12 +19,37 @@ export type BulkRecomputeRunOptions = {
   phase?: 'matches' | 'champion';
   budgetMs?: number;
   now?: () => number;
+  reason?: string;
 };
 
+type BulkPending = { reason: string; cursor?: string };
+
+export function readBulkPending(raw: string | null): BulkPending | null {
+  if (!raw) return null;
+  if (raw.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(raw) as { reason?: string; cursor?: string };
+      if (typeof parsed.reason === 'string' && parsed.reason) {
+        return { reason: parsed.reason, cursor: parsed.cursor };
+      }
+    } catch {
+      /* A plain source string is a fresh schedule. */
+    }
+  }
+  return { reason: raw };
+}
+
+async function writeBulkPending(env: AppEnv, reason: string, cursor?: string): Promise<void> {
+  const value = cursor ? JSON.stringify({ reason, cursor }) : reason;
+  await env.KV.put(BULK_RECOMPUTE_KV_KEY, value, { expirationTtl: 86400 });
+}
+
 /**
- * Stay under the 15-minute queue consumer limit. One slice per invocation,
- * then a continuation message. Recomputing a match again is safe.
+ * Stay under the 15-minute queue consumer limit, and under the 2-minute
+ * briefing wait. At most this many matches per message, and never past the
+ * time budget. The next message carries the cursor.
  */
+export const BULK_RECOMPUTE_CHUNK_SIZE = 8;
 export const BULK_RECOMPUTE_BUDGET_MS = 60_000;
 
 export type BulkChunkResult = {
@@ -88,7 +113,7 @@ export async function runWc2026BulkChunk(
   let processed = 0;
   let last = index > 0 ? ids[index - 1] : undefined;
 
-  while (index < ids.length) {
+  while (index < ids.length && processed < BULK_RECOMPUTE_CHUNK_SIZE) {
     const elapsed = now() - started;
     if (elapsed >= budgetMs) break;
     const matchId = ids[index]!;
@@ -110,6 +135,7 @@ export async function runWc2026BulkChunk(
     processed += 1;
     index += 1;
     await env.KV.put(BULK_RECOMPUTE_CURSOR_KEY, matchId, { expirationTtl: 86400 });
+    if (options.reason) await writeBulkPending(env, options.reason, matchId);
     if (budgetHit) break;
   }
 
@@ -147,10 +173,28 @@ export async function runBulkRecomputeIfPending(
     return true;
   }
 
-  const reason = await env.KV.get(BULK_RECOMPUTE_KV_KEY);
-  if (!reason) return false;
+  const pending = readBulkPending(await env.KV.get(BULK_RECOMPUTE_KV_KEY));
+  if (!pending && !options.cursor) return false;
+  const reason = pending?.reason ?? options.reason ?? 'continuation';
 
-  const chunk = await runWc2026BulkChunk(env, options);
+  let chunk: BulkChunkResult;
+  try {
+    chunk = await runWc2026BulkChunk(env, {
+      ...options,
+      reason,
+      cursor: options.cursor ?? pending?.cursor,
+    });
+  } catch (error) {
+    const cursor = (await env.KV.get(BULK_RECOMPUTE_CURSOR_KEY)) ?? pending?.cursor;
+    if (cursor) {
+      await writeBulkPending(env, reason, cursor);
+      await enqueueBulk(env, { reason, cursor });
+      logInfo('bulk wc2026 recompute paused', { reason, cursor, error: String(error) });
+      return true;
+    }
+    throw error;
+  }
+
   if (!chunk.done) {
     await enqueueBulk(env, { reason, cursor: chunk.nextCursor });
     logInfo('bulk wc2026 recompute continued', {
@@ -189,6 +233,7 @@ export async function scheduleRecomputeAfterDataChange(
 ): Promise<void> {
   const { immediate = false, queue = true } = options;
 
+  await env.KV.delete(BULK_RECOMPUTE_CURSOR_KEY);
   await env.KV.put(BULK_RECOMPUTE_KV_KEY, source, { expirationTtl: 86400 });
   await env.KV.put(LAST_RECOMPUTE_META_KEY, nowIso(), { expirationTtl: 86400 * 7 });
   logInfo('wc2026 recompute scheduled', { source, immediate, queue });

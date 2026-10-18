@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { handleIngestBatch } from '../src/queues/ingestConsumer';
 import { handleModelBatch } from '../src/queues/modelConsumer';
-import { AI_MESSAGE_TIMEOUT_MS } from '../src/queues/modelJobLane';
+import { AI_BRIEFING_QUEUE_MAX_AGE_MS, AI_MESSAGE_TIMEOUT_MS } from '../src/queues/modelJobLane';
+import { MODEL_QUEUE_STALE_DROPS_KEY } from '../src/constants/pipeline';
 import { createMockDb, createMockEnv } from './helpers/mockEnv';
 import { createMockMessageBatch } from './helpers/mockMessageBatch';
 
@@ -262,6 +263,32 @@ describe('handleModelBatch', () => {
     );
     expect(send).toHaveBeenCalledWith({ type: 'ai_briefing', matchId: 'm-1' });
     expect(send).toHaveBeenCalledWith({ type: 'ai_multi_analyze', matchId: 'm-1' });
+    expect(env.KV.put).toHaveBeenCalledWith(
+      'briefing:inflight:m-1',
+      expect.stringMatching(/^1:\d+$/),
+      expect.any(Object),
+    );
+  });
+
+  it('recompute_all sets an in-flight marker for each briefing it queues', async () => {
+    const send = vi.fn(async () => undefined);
+    const env = createMockEnv({ MODEL_QUEUE: { send } as never, AI_FALLBACK_MODE: 'true' });
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'recompute_all', matchIds: ['m-1', 'm-2'] } }]),
+      env,
+    );
+    expect(send).toHaveBeenCalledWith({ type: 'ai_briefing', matchId: 'm-1' });
+    expect(send).toHaveBeenCalledWith({ type: 'ai_briefing', matchId: 'm-2' });
+    expect(env.KV.put).toHaveBeenCalledWith(
+      'briefing:inflight:m-1',
+      expect.stringMatching(/^1:\d+$/),
+      expect.any(Object),
+    );
+    expect(env.KV.put).toHaveBeenCalledWith(
+      'briefing:inflight:m-2',
+      expect.stringMatching(/^1:\d+$/),
+      expect.any(Object),
+    );
   });
 
   it('PRE_MATCH_RECOMPUTE generates scenarios', async () => {
@@ -422,7 +449,7 @@ describe('handleModelBatch', () => {
       createMockMessageBatch([
         {
           body: { type: 'ai_briefing', matchId: 'm-1' },
-          timestamp: new Date(Date.now() - 151_000),
+          timestamp: new Date(Date.now() - AI_BRIEFING_QUEUE_MAX_AGE_MS - 1_000),
           ack,
           retry,
         },
@@ -436,6 +463,34 @@ describe('handleModelBatch', () => {
     expect(logged).toContain('model queue dropped stale');
     expect(logged).toContain('"dropped":1');
     log.mockRestore();
+  });
+
+  it('does not drop a fresh briefing that has been waiting behind other AI jobs', async () => {
+    const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+    const ack = vi.fn();
+    await handleModelBatch(
+      createMockMessageBatch([
+        {
+          body: { type: 'ai_briefing', matchId: 'm-1' },
+          timestamp: new Date(Date.now() - 600_000),
+          ack,
+        },
+      ]),
+      createMockEnv({ AI_FALLBACK_MODE: 'true' }),
+    );
+    expect(generateTacticalBriefing).toHaveBeenCalled();
+    expect(ack).toHaveBeenCalled();
+  });
+
+  it('counts stale drops in KV for the health endpoint', async () => {
+    const env = createMockEnv();
+    await handleModelBatch(
+      createMockMessageBatch([
+        { body: { type: 'ai_briefing', matchId: 'm-old' }, timestamp: new Date(Date.now() - AI_BRIEFING_QUEUE_MAX_AGE_MS - 5_000) },
+      ]),
+      env,
+    );
+    expect(await env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY)).toBe('1');
   });
 
   it('acks an unknown job type without calling the model', async () => {

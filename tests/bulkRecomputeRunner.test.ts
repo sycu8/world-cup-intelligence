@@ -87,7 +87,10 @@ describe('bulkRecomputeRunner KV contract', () => {
       reason: 'ingest',
       cursor: 'm-b',
     });
-    expect(await env.KV.get(BULK_RECOMPUTE_KV_KEY)).toBe('ingest');
+    expect(JSON.parse((await env.KV.get(BULK_RECOMPUTE_KV_KEY)) ?? '{}')).toEqual({
+      reason: 'ingest',
+      cursor: 'm-b',
+    });
     expect(await env.KV.get(BULK_RECOMPUTE_CURSOR_KEY)).toBe('m-b');
   });
 
@@ -135,5 +138,49 @@ describe('bulkRecomputeRunner KV contract', () => {
       cursor: 'm-a',
     });
     expect(await env.KV.get(BULK_RECOMPUTE_CURSOR_KEY)).toBe('m-a');
+    expect(JSON.parse((await env.KV.get(BULK_RECOMPUTE_KV_KEY)) ?? '{}')).toEqual({
+      reason: 'ingest',
+      cursor: 'm-a',
+    });
+  });
+
+  it('a retry after a timeout continues from the cursor instead of the first match', async () => {
+    const ids = ['m-a', 'm-b', 'm-c'];
+    vi.mocked(recomputeMatchProbability).mockClear();
+    vi.mocked(recomputeMatchProbability).mockImplementationOnce(() => new Promise(() => undefined));
+    const env = createMockEnv({
+      DB: createMockDb({ all: () => ({ results: ids.map((id) => ({ id })) }) }),
+      KV: createMockKv({ [BULK_RECOMPUTE_KV_KEY]: 'ingest' }),
+      MODEL_QUEUE: { send: vi.fn(async () => undefined) } as never,
+    });
+
+    await runBulkRecomputeIfPending(env, { budgetMs: 20 });
+    vi.mocked(recomputeMatchProbability).mockClear();
+    vi.mocked(recomputeMatchProbability).mockResolvedValue(null);
+
+    await runBulkRecomputeIfPending(env, { budgetMs: 60_000 });
+
+    expect(vi.mocked(recomputeMatchProbability).mock.calls.map((call) => call[1])).toEqual(['m-b', 'm-c']);
+  });
+
+  it('processes at most one chunk of matches per message', async () => {
+    const ids = Array.from({ length: 20 }, (_, index) => `m-${index}`);
+    vi.mocked(recomputeMatchProbability).mockClear();
+    vi.mocked(recomputeMatchProbability).mockResolvedValue(null);
+    const send = vi.fn(async () => undefined);
+    const env = createMockEnv({
+      DB: createMockDb({ all: () => ({ results: ids.map((id) => ({ id })) }) }),
+      KV: createMockKv({ [BULK_RECOMPUTE_KV_KEY]: 'ingest' }),
+      MODEL_QUEUE: { send } as never,
+    });
+
+    await runBulkRecomputeIfPending(env, { budgetMs: 60_000 });
+
+    expect(vi.mocked(recomputeMatchProbability).mock.calls.map((call) => call[1])).toEqual(ids.slice(0, 8));
+    expect(send).toHaveBeenCalledWith({
+      type: 'recompute_wc2026_bulk',
+      reason: 'ingest',
+      cursor: 'm-7',
+    });
   });
 });

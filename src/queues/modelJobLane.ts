@@ -1,4 +1,10 @@
-import { BRIEFING_STALE_MS } from '../ai/briefingQueue';
+/**
+ * How long an ai_briefing may sit on the queue before it is dropped.
+ * One batch can be 5 AI calls at 120s each (600s). The 150s page guard is
+ * separate and must not drop a briefing that is only waiting its turn.
+ * Hours-old backlog messages are still dropped.
+ */
+export const AI_BRIEFING_QUEUE_MAX_AGE_MS = 12 * 60_000;
 
 /**
  * ai_briefing stays on MODEL_QUEUE. A second queue binding would isolate it
@@ -9,7 +15,7 @@ import { BRIEFING_STALE_MS } from '../ai/briefingQueue';
 /** One AI message cannot hold the rest of the batch past the briefing call cap. */
 export const AI_MESSAGE_TIMEOUT_MS = 120_000;
 export const MODEL_JOB_MAX_AGE_MS: Record<string, number> = {
-  ai_briefing: BRIEFING_STALE_MS,
+  ai_briefing: AI_BRIEFING_QUEUE_MAX_AGE_MS,
   ai_multi_analyze: 30 * 60_000,
   ai_extract_news: 30 * 60_000,
   LIVE_RECOMPUTE: 10 * 60_000,

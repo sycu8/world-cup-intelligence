@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { NEWS_CRAWL_KV_KEY } from '../src/constants/pipeline';
+import { MODEL_QUEUE_STALE_DROPS_KEY, NEWS_CRAWL_KV_KEY } from '../src/constants/pipeline';
 import { buildHealthPayload } from '../src/services/healthPayload';
 import { createMockDb, createMockEnv, createMockKv } from './helpers/mockEnv';
 
@@ -11,6 +11,7 @@ describe('buildHealthPayload', () => {
         'meta:last_data_refresh': '2026-06-01T00:00:00.000Z',
         'meta:last_fifa_sync': '2026-06-01T00:05:00.000Z',
         [NEWS_CRAWL_KV_KEY]: '2026-06-01T00:10:00.000Z',
+        [MODEL_QUEUE_STALE_DROPS_KEY]: '12',
       }),
       DB: createMockDb({
         first: () => ({ ok: 1 }),
@@ -33,6 +34,7 @@ describe('buildHealthPayload', () => {
     expect(payload.pipeline.lastDataRefresh).toBe('2026-06-01T00:00:00.000Z');
     expect(payload.pipeline.lastFifaSync).toBe('2026-06-01T00:05:00.000Z');
     expect(payload.pipeline.lastNewsCrawl).toBe('2026-06-01T00:10:00.000Z');
+    expect(payload.pipeline.modelQueueStaleDrops).toBe(12);
     expect(payload.viewOnly).toBe(true);
     expect(payload.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
