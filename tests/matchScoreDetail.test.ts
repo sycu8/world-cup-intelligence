@@ -176,4 +176,39 @@ describe('matchScoreDetail', () => {
     await enrichScheduleScoreDetails(db, matches);
     expect(matches[0]?.scoreDetail?.ht).toEqual({ home: 1, away: 0 });
   });
+
+  it('loads goal events in chunks under the D1 bound-parameter limit', async () => {
+    const bindCounts: number[] = [];
+    const db = {
+      prepare() {
+        return {
+          bind(...ids: string[]) {
+            bindCounts.push(ids.length);
+            return {
+              async all() {
+                return {
+                  results: ids.map((id) => ({
+                    match_id: id,
+                    team_id: 'h',
+                    minute: 10,
+                    period: '1H',
+                    event_type: 'goal',
+                  })),
+                };
+              },
+            };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    const ids = Array.from({ length: 104 }, (_, index) => `m-${index}`);
+    const { loadGoalEventsForMatches } = await import('../src/services/matchScoreDetail');
+    const events = await loadGoalEventsForMatches(db, ids);
+
+    expect(bindCounts.length).toBe(2);
+    expect(Math.max(...bindCounts)).toBeLessThanOrEqual(80);
+    expect(bindCounts.reduce((sum, count) => sum + count, 0)).toBe(104);
+    expect(events.size).toBe(104);
+  });
 });
