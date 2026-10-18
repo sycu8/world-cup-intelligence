@@ -2,6 +2,7 @@ import type { AppEnv } from '../env';
 import { TacticalBriefingSchema, type TacticalBriefing } from './schemas';
 import { nowIso } from '../utils/time';
 import { isGatewayConfigured, gatewayChatJson } from './gatewayClient';
+import { WORKERS_AI_TEXT_MODEL } from './modelRouter';
 import { SYSTEM_NO_INVENT_NUMBERS, tacticalBriefingPrompt } from './prompts';
 
 const BRIEFING_CACHE_PREFIX = 'briefing:vi3:';
@@ -126,7 +127,7 @@ export async function generateTacticalBriefing(
 
   if (env.AI && !input.aiFallback) {
     try {
-      const response = await env.AI.run('@cf/meta/llama-3-8b-instruct', {
+      const response = await env.AI.run(WORKERS_AI_TEXT_MODEL, {
         messages: [
           { role: 'system', content: SYSTEM_NO_INVENT_NUMBERS },
           {

@@ -1,5 +1,6 @@
 import type { AppEnv } from '../env';
 import { gatewayChatJson, isGatewayConfigured } from './gatewayClient';
+import { WORKERS_AI_TEXT_MODEL } from './modelRouter';
 import { isLikelyVietnamese } from '../services/newsTranslationUtils';
 import { logError, logInfo } from '../utils/logger';
 
@@ -88,10 +89,7 @@ async function workersAiTranslate(
   summary: string,
 ): Promise<NewsTranslation | null> {
   if (!env.AI) return null;
-  const models = [
-    '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
-    '@cf/meta/llama-3-8b-instruct',
-  ] as const;
+  const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', WORKERS_AI_TEXT_MODEL] as const;
 
   for (const model of models) {
     try {

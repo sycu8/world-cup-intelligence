@@ -10,6 +10,7 @@ import { mockScenario, mockComparison } from './helpers/scenarioFixtures';
 import { jsonRoute, requestRoute } from './helpers/routeHarness';
 import { installSmokeFetchMock } from './helpers/smokeFetch';
 import { sampleScheduleMatches, sampleStandings } from './helpers/smokeFixtures';
+import { WORKERS_AI_TEXT_MODEL } from '../src/ai/modelRouter';
 
 function renderWithI18n(ui: ReactElement, entry = '/') {
   return render(
@@ -327,7 +328,7 @@ describe('coverage branch sweep round 3 — backend batch', () => {
         AI_GATEWAY_ENABLED: 'true',
         AI_GATEWAY_ID: 'default',
       }),
-      '@cf/meta/llama-3-8b-instruct',
+      WORKERS_AI_TEXT_MODEL,
       [{ role: 'user', content: 'hi' }],
     ).catch(() => undefined);
 

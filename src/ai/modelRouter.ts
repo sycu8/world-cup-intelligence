@@ -62,6 +62,14 @@ const ROUTING: Record<AiTask, GatewayModelConfig> = {
 /** Free fallback when OpenAI unavailable */
 export const WORKERS_AI_FALLBACK = 'workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
+/**
+ * Text model for direct `env.AI.run` calls.
+ * Replaces the Llama 3 8B instruct model retired on 2026-05-30.
+ * The 8B `-fast` slug is no longer in the catalog; this FP8 model keeps
+ * the same `{ response }` chat API.
+ */
+export const WORKERS_AI_TEXT_MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8' as const;
+
 export function resolveModel(task: AiTask, preferEconomy = false): GatewayModelConfig {
   const cfg = ROUTING[task];
   if (preferEconomy && cfg.tier !== 'economy') {

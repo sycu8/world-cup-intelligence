@@ -25,6 +25,7 @@ import { createMockEnv, createMockKv } from './helpers/mockEnv';
 import { mockScenario } from './helpers/scenarioFixtures';
 import type { MatchScenarioSet } from '../src/models/scenarios/types';
 import { MARKET_DISCLAIMER } from '../src/market/types';
+import { WORKERS_AI_TEXT_MODEL } from '../src/ai/modelRouter';
 
 vi.mock('../src/ai/gatewayClient', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/ai/gatewayClient')>();
@@ -392,7 +393,7 @@ describe('gatewayClient', () => {
       vi.fn(async () =>
         Response.json({
           choices: [{ message: { content: '{"ok":true}' } }],
-          model: '@cf/meta/llama-3-8b-instruct',
+          model: WORKERS_AI_TEXT_MODEL,
           usage: { total_tokens: 10 },
         }),
       ),
@@ -454,7 +455,7 @@ describe('gatewayClient', () => {
     });
     vi.mocked(gatewayChat).mockResolvedValueOnce({
       content: '```json\n{"titleVi":"Tiêu đề từ gateway"}\n```',
-      model: '@cf/meta/llama-3-8b-instruct',
+      model: WORKERS_AI_TEXT_MODEL,
       provider: 'workers',
     });
     const parsed = await gatewayChatJson<{ titleVi: string }>(createMockEnv(), 'news_summary', [
@@ -476,7 +477,7 @@ describe('gatewayClient', () => {
     });
     vi.mocked(gatewayChat).mockResolvedValueOnce({
       content: 'not valid json',
-      model: '@cf/meta/llama-3-8b-instruct',
+      model: WORKERS_AI_TEXT_MODEL,
       provider: 'workers',
     });
     expect(await gatewayChatJson(createMockEnv(), 'news_summary', [{ role: 'user', content: 'x' }])).toBeNull();
