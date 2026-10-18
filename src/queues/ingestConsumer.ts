@@ -1,5 +1,6 @@
 import type { IngestJob } from './types';
 import type { AppEnv } from '../env';
+import { aiEnqueueBlocked, aiRunFlagsFromDelivery, isAiCapacityError, noteAiCapacity, withAiRun } from '../ai/aiCallGuard';
 import { logInfo } from '../utils/logger';
 import { refreshMatchData, handleCompletedMatches, runRefreshFollowUp } from '../ingestion/matchDataRefresh';
 import { crawlWorldCupNews, type NewsCrawlChunk } from '../ingestion/newsCrawler';
@@ -134,13 +135,27 @@ export async function handleIngestBatch(
     );
     let finished = false;
     try {
-      await withMessageTimeout(timeoutMs, async (signal) => {
-        await runIngestMessage(msg, env, signal);
-        finished = true;
-      });
+      await withAiRun(
+        aiRunFlagsFromDelivery({
+          attempts: msg.attempts,
+          fromDlq: msg.body.fromDlq,
+          runId: msg.body.idempotencyKey,
+        }),
+        () =>
+          withMessageTimeout(timeoutMs, async (signal) => {
+            await runIngestMessage(msg, env, signal);
+            finished = true;
+          }),
+      );
       msg.ack();
     } catch (e) {
       if (finished) {
+        msg.ack();
+        continue;
+      }
+      if (isAiCapacityError(e)) {
+        await noteAiCapacity(env, e);
+        logInfo('ingest acked after ai capacity', { type: msg.body.type });
         msg.ack();
         continue;
       }
@@ -213,7 +228,7 @@ async function runIngestMessage(msg: Message<IngestJob>, env: AppEnv, signal: Ab
           if (!split) {
             bracketUpdatedIds = await replayKnockoutBracketFromCompleted(env);
           }
-          if (teamUpdatedIds.length || bracketUpdatedIds.length) {
+          if ((teamUpdatedIds.length || bracketUpdatedIds.length) && !aiEnqueueBlocked()) {
             await scheduleRecomputeAfterDataChange(env, 'knockout-teams-bracket', { queue: true });
           }
 
@@ -234,10 +249,12 @@ async function runIngestMessage(msg: Message<IngestJob>, env: AppEnv, signal: Ab
                     ).all<{ id: string }>()
                   ).results?.map((r) => r.id) ?? [];
 
-          if (recomputeIds.length && env.MODEL_QUEUE) {
-            await env.MODEL_QUEUE.send({ type: 'recompute_all', matchIds: recomputeIds });
-          } else if (recomputeIds.length) {
-            for (const id of recomputeIds) await recomputeMatchProbability(env, id);
+          if (recomputeIds.length && !aiEnqueueBlocked()) {
+            if (env.MODEL_QUEUE) {
+              await env.MODEL_QUEUE.send({ type: 'recompute_all', matchIds: recomputeIds });
+            } else {
+              for (const id of recomputeIds) await recomputeMatchProbability(env, id);
+            }
           }
           break;
         }

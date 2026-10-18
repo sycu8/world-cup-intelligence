@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { handleScheduledCron } from '../src/scheduled/cron';
 import { createMockEnv } from './helpers/mockEnv';
@@ -31,6 +33,30 @@ describe('handleScheduledCron', () => {
     expect(waitUntil).toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalled();
     logSpy.mockRestore();
+  });
+
+  it('enqueues score refresh on the UAT five-minute cron', async () => {
+    const send = vi.fn(async () => undefined);
+    const env = createMockEnv({ INGEST_QUEUE: { send } as never });
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    await handleScheduledCron(env, '*/5 * * * *');
+
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'refresh_minute' }));
+  });
+
+  it('schedules UAT refresh every five minutes and production every minute', async () => {
+    const text = await readFile(join(import.meta.dirname, '..', 'wrangler.jsonc'), 'utf8');
+    const prodAt = text.indexOf('"name": "wc-tactical-probability-platform"');
+    expect(prodAt).toBeGreaterThan(0);
+    const uat = text.slice(0, prodAt);
+    const prod = text.slice(prodAt);
+    expect(uat).toContain('"crons": ["*/5 * * * *", "*/15 * * * *", "0 3 * * 1"]');
+    expect(prod).toContain('"crons": ["* * * * *", "*/15 * * * *", "0 3 * * 1"]');
+    expect(uat).toContain('"AI_CALLS_PER_RUN": "20"');
+    expect(uat).toContain('"AI_CALLS_PER_MINUTE": "30"');
+    expect(prod).toContain('"AI_CALLS_PER_RUN": "40"');
+    expect(prod).toContain('"AI_CALLS_PER_MINUTE": "80"');
   });
 
   it('awaits cache warm when no execution context is provided', async () => {

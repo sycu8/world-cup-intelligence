@@ -1,4 +1,5 @@
 import type { AppEnv } from '../env';
+import { guardedAiRun } from './aiCallGuard';
 import { gatewayChatJson, isGatewayConfigured } from './gatewayClient';
 import { resolveModel, WORKERS_AI_TEXT_MODEL } from './modelRouter';
 import { isLikelyVietnamese } from '../services/newsTranslationUtils';
@@ -63,14 +64,20 @@ function normalizeTranslation(
 }
 
 /** Cloudflare dedicated EN→VI model — works without OpenAI key. */
-async function m2m100Translate(env: AppEnv, text: string, maxLen: number): Promise<string | null> {
+async function m2m100Translate(env: AppEnv, text: string, maxLen: number, source: string): Promise<string | null> {
   if (!env.AI || !text.trim()) return null;
   try {
-    const response = await env.AI.run('@cf/meta/m2m100-1.2b', {
-      text: text.slice(0, maxLen === 320 ? 400 : 900),
-      source_lang: 'en',
-      target_lang: 'vi',
-    });
+    const response = await guardedAiRun(
+      env,
+      '@cf/meta/m2m100-1.2b',
+      {
+        text: text.slice(0, maxLen === 320 ? 400 : 900),
+        source_lang: 'en',
+        target_lang: 'vi',
+      },
+      { source },
+    );
+    if (response == null) return null;
     const translated =
       typeof response === 'object' && response && 'translated_text' in response
         ? String((response as { translated_text: string }).translated_text).trim()
@@ -91,15 +98,22 @@ async function workersAiTranslate(
   if (!env.AI) return null;
   const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', WORKERS_AI_TEXT_MODEL] as const;
 
+  const source = `${title}\n${summary}`;
   for (const model of models) {
     try {
-      const response = await env.AI.run(model, {
-        max_tokens: resolveModel('news_summary').maxTokens,
-        messages: [
-          { role: 'system', content: SYSTEM },
-          { role: 'user', content: USER_PROMPT(title, summary) },
-        ],
-      });
+      const response = await guardedAiRun(
+        env,
+        model,
+        {
+          max_tokens: resolveModel('news_summary').maxTokens,
+          messages: [
+            { role: 'system', content: SYSTEM },
+            { role: 'user', content: USER_PROMPT(title, summary) },
+          ],
+        },
+        { source },
+      );
+      if (response == null) break;
       const text =
         typeof response === 'object' && response && 'response' in response
           ? String((response as { response: string }).response)
@@ -122,8 +136,8 @@ async function m2m100NewsTranslation(
   summary: string,
 ): Promise<NewsTranslation | null> {
   const [titleVi, summaryVi] = await Promise.all([
-    m2m100Translate(env, title, 320),
-    m2m100Translate(env, summary, 520),
+    m2m100Translate(env, title, 320, `title:${title}`),
+    m2m100Translate(env, summary, 520, `summary:${summary}`),
   ]);
   if (!titleVi || !summaryVi) return null;
   if (!isAcceptableTranslation(titleVi, title)) return null;

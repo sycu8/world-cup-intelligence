@@ -1,5 +1,6 @@
 import type { ModelJob } from './types';
 import type { AppEnv } from '../env';
+import { aiEnqueueBlocked, aiRunFlagsFromDelivery, isAiCapacityError, noteAiCapacity, withAiRun } from '../ai/aiCallGuard';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { resolveMatchRef } from '../services/matchRef';
 import { isLegacyMatchId } from '../utils/matchSlug';
@@ -80,9 +81,22 @@ export async function handleModelBatch(
       Math.min(modelMessageTimeoutMs(msg.body.type), options?.messageTimeoutMs ?? Number.POSITIVE_INFINITY, deadlineMs - elapsed),
     );
     try {
-      await withMessageTimeout(timeoutMs, (signal) => runModelMessage(msg, env, config, signal));
+      await withAiRun(
+        aiRunFlagsFromDelivery({
+          attempts: msg.attempts,
+          fromDlq: 'fromDlq' in msg.body && Boolean((msg.body as { fromDlq?: boolean }).fromDlq),
+          runId: msg.id,
+        }),
+        () => withMessageTimeout(timeoutMs, (signal) => runModelMessage(msg, env, config, signal)),
+      );
       msg.ack();
     } catch (e) {
+      if (isAiCapacityError(e)) {
+        await noteAiCapacity(env, e);
+        logInfo('model job acked after ai capacity', { type: msg.body.type });
+        msg.ack();
+        continue;
+      }
       logError('model job failed', { error: String(e), type: msg.body.type });
       msg.retry({ delaySeconds: queueRetryDelaySeconds(msg.attempts) });
     }
@@ -112,8 +126,10 @@ async function runModelMessage(
       switch (msg.body.type) {
         case 'recompute':
           await recomputeMatchProbability(env, msg.body.matchId);
-          await requestBriefingGeneration(env, msg.body.matchId);
-          await env.MODEL_QUEUE?.send({ type: 'ai_multi_analyze', matchId: msg.body.matchId });
+          if (!aiEnqueueBlocked()) {
+            await requestBriefingGeneration(env, msg.body.matchId);
+            await env.MODEL_QUEUE?.send({ type: 'ai_multi_analyze', matchId: msg.body.matchId });
+          }
           break;
         case 'PRE_MATCH_RECOMPUTE':
           await recomputeMatchProbability(env, msg.body.matchId);
@@ -151,6 +167,7 @@ async function runModelMessage(
           for (const matchId of msg.body.matchIds) {
             if (signal.aborted) throw new Error('model message timed out');
             await recomputeMatchProbability(env, matchId);
+            if (aiEnqueueBlocked()) continue;
             await requestBriefingGeneration(env, matchId);
             await env.MODEL_QUEUE?.send({ type: 'ai_multi_analyze', matchId });
           }

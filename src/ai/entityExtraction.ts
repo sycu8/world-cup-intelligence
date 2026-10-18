@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { AppEnv } from '../env';
+import { guardedAiRun } from './aiCallGuard';
 import { gatewayChatJson, isGatewayConfigured } from './gatewayClient';
 import { resolveModel, WORKERS_AI_TEXT_MODEL } from './modelRouter';
 import { SYSTEM_NO_INVENT_NUMBERS, entityExtractPrompt } from './prompts';
@@ -53,13 +54,19 @@ async function workersAiExtract(env: AppEnv, articleText: string): Promise<Extra
   if (!env.AI) return null;
   const started = Date.now();
   try {
-    const response = await env.AI.run(WORKERS_AI_TEXT_MODEL, {
-      max_tokens: resolveModel('entity_extract').maxTokens,
-      messages: [
-        { role: 'system', content: SYSTEM_NO_INVENT_NUMBERS },
-        { role: 'user', content: entityExtractPrompt(articleText) },
-      ],
-    });
+    const response = await guardedAiRun(
+      env,
+      WORKERS_AI_TEXT_MODEL,
+      {
+        max_tokens: resolveModel('entity_extract').maxTokens,
+        messages: [
+          { role: 'system', content: SYSTEM_NO_INVENT_NUMBERS },
+          { role: 'user', content: entityExtractPrompt(articleText) },
+        ],
+      },
+      { source: articleText },
+    );
+    if (response == null) return null;
     const text = extractJsonObject(await workersAiResultText(response));
     if (!text.includes('{')) return null;
     return EntitySchema.parse(JSON.parse(text));

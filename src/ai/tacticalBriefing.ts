@@ -1,4 +1,5 @@
 import type { AppEnv } from '../env';
+import { guardedAiRun } from './aiCallGuard';
 import { TacticalBriefingSchema, type TacticalBriefing } from './schemas';
 import { nowIso } from '../utils/time';
 import { isGatewayConfigured, gatewayChatJson } from './gatewayClient';
@@ -166,7 +167,8 @@ export async function generateTacticalBriefing(
       model: WORKERS_AI_TEXT_MODEL,
     });
     try {
-      const response = await env.AI.run(
+      const response = await guardedAiRun(
+        env,
         WORKERS_AI_TEXT_MODEL,
         {
           max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS,
@@ -179,26 +181,34 @@ export async function generateTacticalBriefing(
             },
           ],
         },
-        { signal: options?.signal ?? AbortSignal.timeout(BRIEFING_AI_TIMEOUT_MS) },
+        {
+          matchId: input.matchId,
+          source: `briefing:${input.matchId}`,
+          signal: options?.signal ?? AbortSignal.timeout(BRIEFING_AI_TIMEOUT_MS),
+        },
       );
-      const durationMs = Date.now() - started;
-      logInfo('tactical briefing workers ai done', {
-        matchId: input.matchId,
-        model: WORKERS_AI_TEXT_MODEL,
-        durationMs,
-      });
-      const text = extractJsonObject(await workersAiResultText(response));
-      const parsed: unknown = JSON.parse(text);
-      if (!briefingHasContent(parsed)) {
-        withholdCache = true;
-        throw new Error('briefing missing summary or takeaway');
+      if (response == null) {
+        aiFailed = true;
+      } else {
+        const durationMs = Date.now() - started;
+        logInfo('tactical briefing workers ai done', {
+          matchId: input.matchId,
+          model: WORKERS_AI_TEXT_MODEL,
+          durationMs,
+        });
+        const text = extractJsonObject(await workersAiResultText(response));
+        const parsed: unknown = JSON.parse(text);
+        if (!briefingHasContent(parsed)) {
+          withholdCache = true;
+          throw new Error('briefing missing summary or takeaway');
+        }
+        withholdCache = false;
+        const briefing = alignBriefingPercentages(parseModelBriefing(parsed, input.matchId), input.probability);
+        await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(briefing), {
+          expirationTtl: BRIEFING_CACHE_TTL_SECONDS,
+        });
+        return briefing;
       }
-      withholdCache = false;
-      const briefing = alignBriefingPercentages(parseModelBriefing(parsed, input.matchId), input.probability);
-      await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(briefing), {
-        expirationTtl: BRIEFING_CACHE_TTL_SECONDS,
-      });
-      return briefing;
     } catch (error) {
       aiFailed = true;
       logAiCallFailure('tactical briefing workers ai failed', error, {

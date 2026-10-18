@@ -1,4 +1,5 @@
 import type { AppEnv } from '../env';
+import { guardedAiRun, type GuardedAiMeta } from './aiCallGuard';
 import { gatewayChatJson, isGatewayConfigured } from './gatewayClient';
 import { resolveModel, WORKERS_AI_TEXT_MODEL } from './modelRouter';
 import {
@@ -43,19 +44,26 @@ async function workersAiTranslate(
   userPrompt: string,
   textEn: string,
   maxLen: number,
+  meta: GuardedAiMeta,
 ): Promise<string | null> {
   if (!env.AI || !textEn.trim()) return null;
   const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', WORKERS_AI_TEXT_MODEL] as const;
 
   for (const model of models) {
     try {
-      const response = await env.AI.run(model, {
-        max_tokens: resolveModel('news_summary').maxTokens,
-        messages: [
-          { role: 'system', content: COMMENTATOR_SYSTEM },
-          { role: 'user', content: userPrompt },
-        ],
-      });
+      const response = await guardedAiRun(
+        env,
+        model,
+        {
+          max_tokens: resolveModel('news_summary').maxTokens,
+          messages: [
+            { role: 'system', content: COMMENTATOR_SYSTEM },
+            { role: 'user', content: userPrompt },
+          ],
+        },
+        meta,
+      );
+      if (response == null) break;
       const raw =
         typeof response === 'object' && response && 'response' in response
           ? String((response as { response: string }).response)
@@ -69,14 +77,25 @@ async function workersAiTranslate(
   return null;
 }
 
-async function m2m100Translate(env: AppEnv, text: string, maxLen: number): Promise<string | null> {
+async function m2m100Translate(
+  env: AppEnv,
+  text: string,
+  maxLen: number,
+  meta: GuardedAiMeta,
+): Promise<string | null> {
   if (!env.AI || !text.trim()) return null;
   try {
-    const response = await env.AI.run('@cf/meta/m2m100-1.2b', {
-      text: text.slice(0, Math.min(text.length, 900)),
-      source_lang: 'en',
-      target_lang: 'vi',
-    });
+    const response = await guardedAiRun(
+      env,
+      '@cf/meta/m2m100-1.2b',
+      {
+        text: text.slice(0, Math.min(text.length, 900)),
+        source_lang: 'en',
+        target_lang: 'vi',
+      },
+      meta,
+    );
+    if (response == null) return null;
     const translated =
       typeof response === 'object' && response && 'translated_text' in response
         ? String((response as { translated_text: string }).translated_text).trim()
@@ -109,19 +128,21 @@ export async function translateMatchRecapSummary(
   env: AppEnv,
   summaryEn: string,
   maxLen = 900,
+  context?: { matchId?: string },
 ): Promise<string | null> {
   const source = summaryEn.trim();
   if (!source) return null;
   if (isLikelyVietnamese(source) && !needsBroadcastStyleRefresh(source)) return source.slice(0, maxLen);
 
+  const meta: GuardedAiMeta = { matchId: context?.matchId, minute: null, source };
   const prompt = SUMMARY_USER_PROMPT(source);
-  const viaWorkers = await workersAiTranslate(env, prompt, source, maxLen);
+  const viaWorkers = await workersAiTranslate(env, prompt, source, maxLen, meta);
   if (viaWorkers) return viaWorkers;
 
   const viaGateway = await gatewayTranslate(env, prompt, source, maxLen);
   if (viaGateway) return viaGateway;
 
-  const viaM2m = await m2m100Translate(env, source, maxLen);
+  const viaM2m = await m2m100Translate(env, source, maxLen, meta);
   if (viaM2m) return viaM2m;
 
   return null;
@@ -134,20 +155,22 @@ export async function translateMatchRecapText(
   maxLen = 520,
   eventType: string | null = null,
   minute: number | null = null,
+  context?: { matchId?: string },
 ): Promise<string | null> {
   const source = textEn.trim();
   if (!source) return null;
   if (isLikelyVietnamese(source) && !needsBroadcastStyleRefresh(source)) return source.slice(0, maxLen);
 
+  const meta: GuardedAiMeta = { matchId: context?.matchId, minute, source };
   const prompt = commentaryUserPrompt(source, eventType, minute);
 
-  const viaWorkers = await workersAiTranslate(env, prompt, source, maxLen);
+  const viaWorkers = await workersAiTranslate(env, prompt, source, maxLen, meta);
   if (viaWorkers) return viaWorkers;
 
   const viaGateway = await gatewayTranslate(env, prompt, source, maxLen);
   if (viaGateway) return viaGateway;
 
-  const viaM2m = await m2m100Translate(env, source, maxLen);
+  const viaM2m = await m2m100Translate(env, source, maxLen, meta);
   if (viaM2m) return viaM2m;
 
   return null;
@@ -178,6 +201,7 @@ export async function translateCommentaryLines(
   env: AppEnv,
   lines: CommentaryTranslateInput[],
   existingVi?: (string | null | undefined)[],
+  context?: { matchId?: string },
 ): Promise<string[]> {
   const out = await mapConcurrent(lines, COMMENTARY_TRANSLATE_CONCURRENCY, async (line, i) => {
     const cached = existingVi?.[i]?.trim();
@@ -185,7 +209,8 @@ export async function translateCommentaryLines(
       return cached;
     }
     return (
-      (await translateMatchRecapText(env, line.textEn, 480, line.eventType, line.minute)) ?? line.textEn
+      (await translateMatchRecapText(env, line.textEn, 480, line.eventType, line.minute, context)) ??
+      line.textEn
     );
   });
   if (out.some((vi, i) => vi !== lines[i].textEn && isLikelyVietnamese(vi, lines[i].textEn))) {

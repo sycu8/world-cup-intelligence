@@ -642,6 +642,99 @@ describe('handleIngestBatch', () => {
     );
   });
 
+  it('bounds Workers AI when one refresh translates many lines', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    const run = vi.fn(async () => ({ response: '{"textVi":"Đội ghi bàn từ pha đá phạt."}' }));
+    vi.mocked(refreshMatchData).mockImplementationOnce(async (env) => {
+      const { translateMatchRecapText } = await import('../src/ai/translateMatchRecap');
+      for (let i = 0; i < 100; i++) {
+        await translateMatchRecapText(
+          env,
+          `The team scores from a corner number ${i}.`,
+          520,
+          'shot',
+          i,
+          { matchId: 'm-storm' },
+        );
+      }
+      return { updatedIds: ['m-storm'], completedIds: [], teamUpdatedIds: [] };
+    });
+    const env = createMockEnv({
+      AI: { run } as never,
+      AI_CALLS_PER_RUN: '4',
+      AI_CALLS_PER_MINUTE: '4',
+      MODEL_QUEUE: { send: vi.fn() } as never,
+    });
+    await handleIngestBatch(
+      createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'storm-fresh' }, attempts: 1 }]),
+      env,
+    );
+    expect(run.mock.calls.length).toBeLessThanOrEqual(4);
+    expect(run).toHaveBeenCalledTimes(4);
+  });
+
+  it('a redelivery storm does not call Workers AI or enqueue model work', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    const run = vi.fn(async () => ({ response: '{"textVi":"Đội ghi bàn từ pha đá phạt."}' }));
+    const send = vi.fn(async () => undefined);
+    vi.mocked(refreshMatchData).mockImplementationOnce(async (env) => {
+      const { translateMatchRecapText } = await import('../src/ai/translateMatchRecap');
+      for (let i = 0; i < 100; i++) {
+        await translateMatchRecapText(
+          env,
+          `The team scores from a corner number ${i}.`,
+          520,
+          'shot',
+          i,
+          { matchId: 'm-storm' },
+        );
+      }
+      return { updatedIds: ['m-storm'], completedIds: [], teamUpdatedIds: [] };
+    });
+    const env = createMockEnv({
+      AI: { run } as never,
+      MODEL_QUEUE: { send } as never,
+    });
+    await handleIngestBatch(
+      createMockMessageBatch(
+        Array.from({ length: 30 }, (_, i) => ({
+          body: { type: 'refresh_minute' as const, idempotencyKey: `storm-${i}` },
+          attempts: 4,
+        })),
+      ),
+      env,
+    );
+    expect(run).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('acks a refresh that hits Workers AI capacity and does not enqueue model work', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    const run = vi.fn(async () => {
+      throw new Error('Workers AI 3040 Capacity temporarily exceeded');
+    });
+    const send = vi.fn(async () => undefined);
+    const ack = vi.fn();
+    const retry = vi.fn();
+    vi.mocked(refreshMatchData).mockImplementationOnce(async (env) => {
+      const { translateMatchRecapText } = await import('../src/ai/translateMatchRecap');
+      await translateMatchRecapText(env, 'The team scores from a corner.', 520, 'shot', 12, {
+        matchId: 'm-cap',
+      });
+      return { updatedIds: ['m-cap'], completedIds: [], teamUpdatedIds: [] };
+    });
+    await handleIngestBatch(
+      createMockMessageBatch([
+        { body: { type: 'refresh_minute', idempotencyKey: 'cap' }, attempts: 1, ack, retry },
+      ]),
+      createMockEnv({ AI: { run } as never, MODEL_QUEUE: { send } as never }),
+    );
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(ack).toHaveBeenCalled();
+    expect(retry).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it('a slow ingest message does not hold the rest of the batch', async () => {
     const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
     const { deliverWebhook } = await import('../src/services/publicApi/webhooks');
@@ -665,6 +758,34 @@ describe('handleIngestBatch', () => {
 describe('handleModelBatch', () => {
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('does not enqueue briefings from a redelivered recompute', async () => {
+    const send = vi.fn(async () => undefined);
+    const env = createMockEnv({ MODEL_QUEUE: { send } as never, AI_FALLBACK_MODE: 'true' });
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'recompute', matchId: 'm-1' }, attempts: 2 }]),
+      env,
+    );
+    expect(send).not.toHaveBeenCalled();
+    expect(env.KV.put).not.toHaveBeenCalledWith(
+      'briefing:inflight:m-1',
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it('acks a briefing that fails with Workers AI 3021 and does not retry it', async () => {
+    const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+    vi.mocked(generateTacticalBriefing).mockRejectedValueOnce(new Error('Workers AI 3021'));
+    const ack = vi.fn();
+    const retry = vi.fn();
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'ai_briefing', matchId: 'm-1' }, ack, retry }]),
+      createMockEnv({ AI_FALLBACK_MODE: 'false' }),
+    );
+    expect(ack).toHaveBeenCalled();
+    expect(retry).not.toHaveBeenCalled();
   });
 
   it('recompute chains briefing and analysis jobs', async () => {

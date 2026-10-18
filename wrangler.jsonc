@@ -33,7 +33,9 @@
     "VECTORIZE_FALLBACK_MODE": "true",
     "AI_GATEWAY_ENABLED": "true",
     "AI_GATEWAY_ID": "wc-tactical",
-    "CORS_ORIGINS": "*"
+    "CORS_ORIGINS": "*",
+    "AI_CALLS_PER_RUN": "20",
+    "AI_CALLS_PER_MINUTE": "30"
   },
   "kv_namespaces": [
     { "binding": "KV", "id": "413d9f3be91046c883fb42fc5c99b0d7" }
@@ -94,8 +96,9 @@
     "bindings": [{ "name": "MATCH_ROOM", "class_name": "MatchRoom" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MatchRoom"] }],
+  // UAT score refresh runs every 5 minutes.
   "triggers": {
-    "crons": ["* * * * *", "*/15 * * * *", "0 3 * * 1"]
+    "crons": ["*/5 * * * *", "*/15 * * * *", "0 3 * * 1"]
   },
   "env": {
     "production": {
@@ -113,7 +116,9 @@
         "VECTORIZE_FALLBACK_MODE": "true",
         "AI_GATEWAY_ENABLED": "true",
         "AI_GATEWAY_ID": "wc-tactical",
-        "CORS_ORIGINS": "*"
+        "CORS_ORIGINS": "*",
+        "AI_CALLS_PER_RUN": "40",
+        "AI_CALLS_PER_MINUTE": "80"
       },
       "kv_namespaces": [
         { "binding": "KV", "id": "fe99c19c60a542ea9771111b5ae050da" }
@@ -173,6 +178,7 @@
       "durable_objects": {
         "bindings": [{ "name": "MATCH_ROOM", "class_name": "MatchRoom" }]
       },
+      // Production score refresh runs every minute.
       "triggers": {
         "crons": ["* * * * *", "*/15 * * * *", "0 3 * * 1"]
       }

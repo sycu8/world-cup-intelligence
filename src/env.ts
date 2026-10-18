@@ -7,6 +7,10 @@ export type AppEnv = {
   AI_GATEWAY_ENABLED?: string;
   AI_GATEWAY_ACCOUNT_ID?: string;
   AI_GATEWAY_ID?: string;
+  /** Hard ceiling for Workers AI calls inside one queue message. */
+  AI_CALLS_PER_RUN?: string;
+  /** Hard ceiling for Workers AI calls in the current minute. */
+  AI_CALLS_PER_MINUTE?: string;
   OPENAI_API_KEY?: string;
   CF_AIG_TOKEN?: string;
   ADMIN_TOKEN?: string;
