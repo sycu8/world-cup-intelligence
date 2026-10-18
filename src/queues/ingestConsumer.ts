@@ -23,19 +23,32 @@ import {
   queueRetryDelaySeconds,
   withMessageTimeout,
 } from './modelJobLane';
-import { ingestDedupeKey, isStaleRefreshMinute, REFRESH_STALE_MS } from './ingestDrain';
-
-const REFRESH_CLAIM_KEY = 'ingest:dedupe:refresh_minute';
+import {
+  ingestDedupeKey,
+  isStaleRefreshMinute,
+  REFRESH_CLAIM_KEY,
+  refreshClaimBlocks,
+  REFRESH_STALE_MS,
+} from './ingestDrain';
 
 async function claimFreshRefresh(env: AppEnv): Promise<boolean> {
   try {
+    const now = Date.now();
     const existing = await env.KV.get(REFRESH_CLAIM_KEY);
-    if (existing) return false;
-    await env.KV.put(REFRESH_CLAIM_KEY, String(Date.now()), { expirationTtl: 60 });
+    if (refreshClaimBlocks(existing, now)) return false;
+    await env.KV.put(REFRESH_CLAIM_KEY, String(now), { expirationTtl: 60 });
     return true;
   } catch (error) {
     logInfo('ingest refresh claim failed', { error: String(error) });
     return true;
+  }
+}
+
+async function releaseRefreshClaim(env: AppEnv): Promise<void> {
+  try {
+    await env.KV.delete(REFRESH_CLAIM_KEY);
+  } catch (error) {
+    logInfo('ingest refresh claim release failed', { error: String(error) });
   }
 }
 
@@ -69,41 +82,49 @@ export async function handleIngestBatch(
       msg.ack();
       continue;
     }
-    if (msg.body.type === 'refresh_minute' && !(await claimFreshRefresh(env))) {
-      logInfo('ingest refresh skipped duplicate', { idempotencyKey: msg.body.idempotencyKey });
-      msg.ack();
-      continue;
-    }
-    if (dedupeKey) seen.add(dedupeKey);
-
-    const elapsed = Date.now() - batchStarted;
-    if (elapsed >= deadlineMs) {
-      logInfo('ingest batch deferred', { type: msg.body.type });
-      await deferQueuedMessage(env.INGEST_QUEUE, msg);
-      continue;
-    }
-    const timeoutMs = Math.max(
-      1,
-      Math.min(
-        ingestMessageTimeoutMs(msg.body.type),
-        options?.messageTimeoutMs ?? Number.POSITIVE_INFINITY,
-        deadlineMs - elapsed,
-      ),
-    );
-    let finished = false;
+    let claimedRefresh = false;
     try {
-      await withMessageTimeout(timeoutMs, async () => {
-        await runIngestMessage(msg, env);
-        finished = true;
-      });
-      msg.ack();
-    } catch (e) {
-      if (finished) {
-        msg.ack();
+      if (msg.body.type === 'refresh_minute') {
+        claimedRefresh = await claimFreshRefresh(env);
+        if (!claimedRefresh) {
+          logInfo('ingest refresh skipped duplicate', { idempotencyKey: msg.body.idempotencyKey });
+          msg.ack();
+          continue;
+        }
+      }
+      if (dedupeKey) seen.add(dedupeKey);
+
+      const elapsed = Date.now() - batchStarted;
+      if (elapsed >= deadlineMs) {
+        logInfo('ingest batch deferred', { type: msg.body.type });
+        await deferQueuedMessage(env.INGEST_QUEUE, msg);
         continue;
       }
-      logInfo('ingest retry', { error: String(e) });
-      msg.retry({ delaySeconds: queueRetryDelaySeconds(msg.attempts) });
+      const timeoutMs = Math.max(
+        1,
+        Math.min(
+          ingestMessageTimeoutMs(msg.body.type),
+          options?.messageTimeoutMs ?? Number.POSITIVE_INFINITY,
+          deadlineMs - elapsed,
+        ),
+      );
+      let finished = false;
+      try {
+        await withMessageTimeout(timeoutMs, async () => {
+          await runIngestMessage(msg, env);
+          finished = true;
+        });
+        msg.ack();
+      } catch (e) {
+        if (finished) {
+          msg.ack();
+          continue;
+        }
+        logInfo('ingest retry', { error: String(e) });
+        msg.retry({ delaySeconds: queueRetryDelaySeconds(msg.attempts) });
+      }
+    } finally {
+      if (claimedRefresh) await releaseRefreshClaim(env);
     }
   }
 }

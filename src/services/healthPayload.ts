@@ -8,8 +8,34 @@ import {
   NEWS_CRAWL_KV_KEY,
 } from '../constants/pipeline';
 
+/** lastDataRefresh older than this is degraded. Exactly this age stays healthy. */
+export const DATA_REFRESH_DEGRADED_AFTER_MS = 150_000;
+/** lastDataRefresh older than this is unhealthy. Exactly 10 minutes stays degraded. */
+export const DATA_REFRESH_UNHEALTHY_AFTER_MS = 10 * 60_000;
+
+export type DataRefreshHealth = 'healthy' | 'degraded' | 'unhealthy';
+
+/**
+ * Missing or unparseable stamps are unhealthy: a refresh that never recorded
+ * a time cannot be treated as current.
+ */
+export function dataRefreshStatus(last: string | null, now = Date.now()): DataRefreshHealth {
+  const at = Date.parse(last ?? '');
+  if (!Number.isFinite(at)) return 'unhealthy';
+  const age = now - at;
+  if (age > DATA_REFRESH_UNHEALTHY_AFTER_MS) return 'unhealthy';
+  if (age > DATA_REFRESH_DEGRADED_AFTER_MS) return 'degraded';
+  return 'healthy';
+}
+
+function combineHealthStatus(dbOk: boolean, refresh: DataRefreshHealth): DataRefreshHealth {
+  if (refresh === 'unhealthy') return 'unhealthy';
+  if (!dbOk || refresh === 'degraded') return 'degraded';
+  return 'healthy';
+}
+
 export type HealthPayload = {
-  status: string;
+  status: DataRefreshHealth;
   environment: string;
   dependencies: Record<string, string | boolean>;
   pipeline: {
@@ -53,7 +79,7 @@ export async function buildHealthPayload(env: AppEnv): Promise<HealthPayload> {
   }
 
   return {
-    status: dbOk ? 'healthy' : 'degraded',
+    status: combineHealthStatus(dbOk, dataRefreshStatus(lastRefresh)),
     environment: config.environment,
     dependencies,
     pipeline: {

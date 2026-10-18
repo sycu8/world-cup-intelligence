@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { handleIngestBatch } from '../src/queues/ingestConsumer';
+import { REFRESH_CLAIM_KEY, REFRESH_CLAIM_MAX_AGE_MS } from '../src/queues/ingestDrain';
 import { handleModelBatch } from '../src/queues/modelConsumer';
 import {
   AI_BRIEFING_QUEUE_MAX_AGE_MS,
@@ -8,7 +9,7 @@ import {
   queueRetryDelaySeconds,
 } from '../src/queues/modelJobLane';
 import { MODEL_QUEUE_STALE_DROPS_KEY } from '../src/constants/pipeline';
-import { createMockDb, createMockEnv } from './helpers/mockEnv';
+import { createMockDb, createMockEnv, createMockKv } from './helpers/mockEnv';
 import { createMockMessageBatch } from './helpers/mockMessageBatch';
 
 vi.mock('../src/ingestion/matchDataRefresh', () => ({
@@ -273,6 +274,7 @@ describe('handleIngestBatch', () => {
     expect(refreshMatchData).toHaveBeenCalledTimes(1);
     expect(first).toHaveBeenCalledTimes(1);
     expect(second).toHaveBeenCalledTimes(1);
+    expect(await env.KV.get(REFRESH_CLAIM_KEY)).toBeNull();
 
     vi.mocked(refreshMatchData).mockClear();
     const third = vi.fn();
@@ -283,7 +285,61 @@ describe('handleIngestBatch', () => {
       env,
     );
     expect(third).toHaveBeenCalledTimes(1);
+    expect(refreshMatchData).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs a fresh refresh after a claim older than 60 seconds and skips a young one', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    const now = Date.now();
+    const stuck = createMockEnv({
+      KV: createMockKv({ [REFRESH_CLAIM_KEY]: String(now - REFRESH_CLAIM_MAX_AGE_MS - 1) }),
+    });
+    const recovered = vi.fn();
+    await handleIngestBatch(
+      createMockMessageBatch([
+        {
+          body: { type: 'refresh_minute', idempotencyKey: 'after-stuck-claim' },
+          timestamp: new Date(now - 30_000),
+          ack: recovered,
+        },
+      ]),
+      stuck,
+    );
+    expect(recovered).toHaveBeenCalledTimes(1);
+    expect(refreshMatchData).toHaveBeenCalledTimes(1);
+    expect(await stuck.KV.get(REFRESH_CLAIM_KEY)).toBeNull();
+
+    vi.mocked(refreshMatchData).mockClear();
+    const young = createMockEnv({
+      KV: createMockKv({ [REFRESH_CLAIM_KEY]: String(now - 10_000) }),
+    });
+    const skipped = vi.fn();
+    await handleIngestBatch(
+      createMockMessageBatch([
+        {
+          body: { type: 'refresh_minute', idempotencyKey: 'while-claimed' },
+          timestamp: new Date(now),
+          ack: skipped,
+        },
+      ]),
+      young,
+    );
+    expect(skipped).toHaveBeenCalledTimes(1);
     expect(refreshMatchData).not.toHaveBeenCalled();
+    expect(await young.KV.get(REFRESH_CLAIM_KEY)).toBe(String(now - 10_000));
+  });
+
+  it('runs a refresh tick with no timestamp instead of classing it stale', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    const ack = vi.fn();
+    await handleIngestBatch(
+      createMockMessageBatch([
+        { body: { type: 'refresh_minute', idempotencyKey: 'no-stamp' }, ack },
+      ]),
+      createMockEnv(),
+    );
+    expect(ack).toHaveBeenCalledTimes(1);
+    expect(refreshMatchData).toHaveBeenCalledTimes(1);
   });
 
   it('acks refresh_minute when the job runs longer than the old 60s cap', async () => {
@@ -328,13 +384,15 @@ describe('handleIngestBatch', () => {
     const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
     vi.mocked(refreshMatchData).mockRejectedValueOnce(new Error('boom'));
     const retry = vi.fn();
+    const env = createMockEnv();
     await handleIngestBatch(
       createMockMessageBatch([
         { body: { type: 'refresh_minute', idempotencyKey: 'k7' }, retry },
       ]),
-      createMockEnv(),
+      env,
     );
     expect(retry).toHaveBeenCalledWith({ delaySeconds: 10 });
+    expect(await env.KV.get(REFRESH_CLAIM_KEY)).toBeNull();
   });
 
   it('continues a statsbomb ingest from the season cursor instead of restarting', async () => {

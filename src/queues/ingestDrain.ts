@@ -15,6 +15,22 @@
  */
 export const REFRESH_STALE_MS = 10 * 60_000;
 
+/** Cross-batch refresh claim. KV expiration is best-effort, so age is checked in code. */
+export const REFRESH_CLAIM_KEY = 'ingest:dedupe:refresh_minute';
+export const REFRESH_CLAIM_MAX_AGE_MS = 60_000;
+
+/**
+ * A stored claim blocks a new refresh only while it is younger than the max age.
+ * Empty, missing, and non-numeric values do not block, so a key KV never deletes
+ * cannot stop refresh permanently.
+ */
+export function refreshClaimBlocks(stored: string | null, now = Date.now()): boolean {
+  if (!stored) return false;
+  const takenAt = Number(stored);
+  if (!Number.isFinite(takenAt)) return false;
+  return now - takenAt < REFRESH_CLAIM_MAX_AGE_MS;
+}
+
 /**
  * Jobs the DLQ may send back once. refresh_minute is idempotent too, but every
  * tick is acked on the DLQ instead: cron already enqueues the next one, and a

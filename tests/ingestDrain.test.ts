@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { handleDlqBatch } from '../src/queues/dlqConsumer';
-import { REFRESH_STALE_MS, ingestDedupeKey, isStaleRefreshMinute } from '../src/queues/ingestDrain';
+import {
+  REFRESH_CLAIM_MAX_AGE_MS,
+  REFRESH_STALE_MS,
+  ingestDedupeKey,
+  isStaleRefreshMinute,
+  refreshClaimBlocks,
+} from '../src/queues/ingestDrain';
 import { createMockEnv } from './helpers/mockEnv';
 
 describe('ingest drain', () => {
@@ -9,10 +15,23 @@ describe('ingest drain', () => {
     expect(REFRESH_STALE_MS).toBe(10 * 60_000);
     expect(isStaleRefreshMinute({ type: 'refresh_minute' }, new Date(now - REFRESH_STALE_MS - 1), now)).toBe(true);
     expect(isStaleRefreshMinute({ type: 'refresh_minute' }, new Date(now - 60_000), now)).toBe(false);
+    expect(isStaleRefreshMinute({ type: 'refresh_minute' }, new Date(now - 30_000), now)).toBe(false);
+    expect(isStaleRefreshMinute({ type: 'refresh_minute' }, undefined, now)).toBe(false);
     expect(isStaleRefreshMinute({ type: 'crawl_news' }, new Date(now - REFRESH_STALE_MS - 1), now)).toBe(false);
     expect(ingestDedupeKey({ type: 'refresh_minute', idempotencyKey: 'a' })).toBe('refresh_minute');
     expect(ingestDedupeKey({ type: 'refresh_minute', idempotencyKey: 'b' })).toBe('refresh_minute');
     expect(ingestDedupeKey({ type: 'crawl_news', idempotencyKey: 'news-1' })).toBe('crawl_news:news-1');
+  });
+
+  it('lets a refresh claim block only while it is younger than 60 seconds', () => {
+    const now = 1_700_000_000_000;
+    expect(REFRESH_CLAIM_MAX_AGE_MS).toBe(60_000);
+    expect(refreshClaimBlocks(null, now)).toBe(false);
+    expect(refreshClaimBlocks('', now)).toBe(false);
+    expect(refreshClaimBlocks('not-a-timestamp', now)).toBe(false);
+    expect(refreshClaimBlocks(String(now - 10_000), now)).toBe(true);
+    expect(refreshClaimBlocks(String(now - REFRESH_CLAIM_MAX_AGE_MS), now)).toBe(false);
+    expect(refreshClaimBlocks(String(now - REFRESH_CLAIM_MAX_AGE_MS - 1), now)).toBe(false);
   });
 
   it('counts DLQ messages, drops stale refresh ticks, and replays an idempotent job once', async () => {
