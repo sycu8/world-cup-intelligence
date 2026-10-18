@@ -58,7 +58,7 @@ describe('refresh_minute budget', () => {
     expect(await env.KV.get('meta:last_data_refresh')).toBeNull();
   });
 
-  it.each(['lineups', 'bracket', 'warm'] as const)(
+  it.each(['lineups', 'bracket', 'warm', 'completed'] as const)(
     'stamps its own key when the %s step finishes',
     async (step) => {
       const { warmPayloadCaches } = await import('../src/services/cacheWarm');
@@ -78,6 +78,7 @@ describe('refresh_minute budget', () => {
         lineups: 'meta:last_lineups_refresh',
         bracket: 'meta:last_bracket_refresh',
         warm: 'meta:last_warm_refresh',
+        completed: 'meta:last_completed_refresh',
       }[step];
       expect(await env.KV.get(ownKey)).toEqual(expect.any(String));
       expect(await env.KV.get('meta:last_data_refresh')).toBeNull();

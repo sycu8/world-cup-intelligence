@@ -38,13 +38,16 @@
  * handlers only enqueue, and the 300s retry starts only after msg.retry().
  *
  * Reported after the #58 deploy, not measured in this repo: prod DLQ 3,072
- * and UAT DLQ 4,422. An ack-only batch of 10 then waits DRAIN_PAUSE_SECONDS,
- * so those depths are on the order of 2 hours (prod) and 3 hours (UAT) when
- * the messages are refresh ticks. A DLQ that is all idempotent replays is
- * one replay every 30s: about 26 hours prod and 37 hours UAT. Read the live
- * depth before expecting either number. Do not purge.
+ * and UAT DLQ 4,422. An ack-only consumer batch holds 10 messages, then waits
+ * DRAIN_PAUSE_SECONDS (10) when it acked at least DRAIN_ACK_BURST (4) and
+ * replayed nothing. 3,072 is 307 batches of 10 plus a remainder of 2, so
+ * 307 waits: 3,070 seconds, about 51 minutes. 4,422 is 442 batches of 10
+ * plus a remainder of 2, so 442 waits: 4,420 seconds, about 74 minutes.
+ * Idempotent replays are one every DRAIN_REPLAY_GAP_SECONDS (30): 3,072 is
+ * 92,160 seconds (25.6 hours) and 4,422 is 132,660 seconds (36.85 hours).
+ * Read the live depth before expecting either number. Do not purge.
  */
-import { readPipelineCounter, writePipelineCounter } from '../services/pipelineCounters';
+import { readPipelineCounter, rememberPipelineCounter, writePipelineCounter } from '../services/pipelineCounters';
 import { logError } from '../utils/logger';
 
 export const REFRESH_STALE_MS = 10 * 60_000;
@@ -117,10 +120,14 @@ export async function loadReplayCursorMs(env: CursorEnv): Promise<number> {
 
 /**
  * Call only after the queue send succeeds.
- * False means D1 rejected the write and the previous cursor is unchanged.
+ * False means D1 rejected the write. The D1 row and its KV backup stay at the
+ * last accepted value. This isolate still remembers cursorMs so the next
+ * replay in the same process waits another DRAIN_REPLAY_GAP_SECONDS.
  */
 export async function saveReplayCursorMs(env: CursorEnv, cursorMs: number): Promise<boolean> {
-  return writePipelineCounter(env, DLQ_REPLAY_CURSOR_KEY, cursorMs, DLQ_REPLAY_CURSOR_KV_KEY);
+  const saved = await writePipelineCounter(env, DLQ_REPLAY_CURSOR_KEY, cursorMs, DLQ_REPLAY_CURSOR_KV_KEY);
+  if (!saved) rememberPipelineCounter(env, DLQ_REPLAY_CURSOR_KEY, cursorMs);
+  return saved;
 }
 
 export function drainPauseMs(ackOnly: number, ranWork: boolean, burst = DRAIN_ACK_BURST): number {

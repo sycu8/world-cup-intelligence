@@ -16,11 +16,13 @@ function isoAge(ageMs: number): string {
 
 describe('dataRefreshStatus', () => {
   it('stays healthy through 150s, degraded after that, and unhealthy after 10 minutes', () => {
+    expect(DATA_REFRESH_DEGRADED_AFTER_MS).toBe(150_000);
+    expect(DATA_REFRESH_UNHEALTHY_AFTER_MS).toBe(600_000);
     expect(dataRefreshStatus(isoAge(0), NOW)).toBe('healthy');
-    expect(dataRefreshStatus(isoAge(DATA_REFRESH_DEGRADED_AFTER_MS), NOW)).toBe('healthy');
-    expect(dataRefreshStatus(isoAge(DATA_REFRESH_DEGRADED_AFTER_MS + 1), NOW)).toBe('degraded');
-    expect(dataRefreshStatus(isoAge(DATA_REFRESH_UNHEALTHY_AFTER_MS), NOW)).toBe('degraded');
-    expect(dataRefreshStatus(isoAge(DATA_REFRESH_UNHEALTHY_AFTER_MS + 1), NOW)).toBe('unhealthy');
+    expect(dataRefreshStatus(isoAge(150_000), NOW)).toBe('healthy');
+    expect(dataRefreshStatus(isoAge(150_001), NOW)).toBe('degraded');
+    expect(dataRefreshStatus(isoAge(600_000), NOW)).toBe('degraded');
+    expect(dataRefreshStatus(isoAge(600_001), NOW)).toBe('unhealthy');
     expect(dataRefreshStatus(null, NOW)).toBe('unhealthy');
     expect(dataRefreshStatus('not-a-date', NOW)).toBe('unhealthy');
   });
@@ -210,6 +212,39 @@ describe('buildHealthPayload', () => {
       DB: createMockDb({ first: () => ({ ok: 1 }) }),
     });
     expect((await buildHealthPayload(degradedFifa)).status).toBe('degraded');
+
+    const fifaAt150s = createMockEnv({
+      KV: createMockKv({
+        'meta:last_data_refresh': isoAge(0),
+        'meta:last_fifa_sync': isoAge(150_000),
+      }),
+      DB: createMockDb({ first: () => ({ ok: 1 }) }),
+    });
+    expect((await buildHealthPayload(fifaAt150s)).status).toBe('healthy');
+    const fifaAt150sPlus = createMockEnv({
+      KV: createMockKv({
+        'meta:last_data_refresh': isoAge(0),
+        'meta:last_fifa_sync': isoAge(150_001),
+      }),
+      DB: createMockDb({ first: () => ({ ok: 1 }) }),
+    });
+    expect((await buildHealthPayload(fifaAt150sPlus)).status).toBe('degraded');
+    const fifaAt10Min = createMockEnv({
+      KV: createMockKv({
+        'meta:last_data_refresh': isoAge(0),
+        'meta:last_fifa_sync': isoAge(600_000),
+      }),
+      DB: createMockDb({ first: () => ({ ok: 1 }) }),
+    });
+    expect((await buildHealthPayload(fifaAt10Min)).status).toBe('degraded');
+    const fifaPast10Min = createMockEnv({
+      KV: createMockKv({
+        'meta:last_data_refresh': isoAge(0),
+        'meta:last_fifa_sync': isoAge(600_001),
+      }),
+      DB: createMockDb({ first: () => ({ ok: 1 }) }),
+    });
+    expect((await buildHealthPayload(fifaPast10Min)).status).toBe('unhealthy');
     vi.useRealTimers();
   });
 });

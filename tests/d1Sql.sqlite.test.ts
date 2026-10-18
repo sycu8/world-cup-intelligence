@@ -41,12 +41,14 @@ function sqliteCounterEnv(seed: Record<string, string> = {}) {
 describe('pipeline counter SQL', () => {
   it('adds only the delta on conflict and copies a KV seed once', async () => {
     const env = sqliteCounterEnv({ [DLQ_PARKED_COUNT_KEY]: '7' });
+    expect(PIPELINE_COUNTER_UPSERT_SQL).toContain('value = pipeline_counters.value + ?');
     expect(await addPipelineCounter(env, DLQ_PARKED_COUNT_KEY, 1)).toBe(8);
     expect(await addPipelineCounter(env, DLQ_PARKED_COUNT_KEY, 1)).toBe(9);
+    expect(await addPipelineCounter(env, DLQ_PARKED_COUNT_KEY, 4)).toBe(13);
     const row = env.db.prepare('SELECT value FROM pipeline_counters WHERE key = ?').get(DLQ_PARKED_COUNT_KEY) as {
       value: number;
     };
-    expect(row.value).toBe(9);
+    expect(row.value).toBe(13);
 
     env.db.exec('DELETE FROM pipeline_counters');
     const upsert = env.db.prepare(PIPELINE_COUNTER_UPSERT_SQL);

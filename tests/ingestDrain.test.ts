@@ -426,8 +426,10 @@ describe('ingest drain', () => {
 
     expect(ack).toHaveBeenCalledTimes(1);
     expect(send).not.toHaveBeenCalled();
-    expect(vi.mocked(env.KV.put).mock.calls.map((call) => String(call[0]))).toContain(
+    expect(vi.mocked(env.KV.put)).toHaveBeenCalledWith(
       dlqParkKey('wc-model-dlq', 'bulk'),
+      expect.any(String),
+      { expirationTtl: 345600 },
     );
     errorSpy.mockRestore();
   });
@@ -495,7 +497,8 @@ describe('ingest drain', () => {
     dbDown = true;
     await expect(loadReplayCursorMs(env)).resolves.toBe(cursor);
     await expect(saveReplayCursorMs(env, cursor + 90_000)).resolves.toBe(false);
-    await expect(loadReplayCursorMs(env)).resolves.toBe(cursor);
+    await expect(loadReplayCursorMs(env)).resolves.toBe(cursor + 90_000);
+    expect(kvStore.get(DLQ_REPLAY_CURSOR_KV_KEY)).toBe(String(cursor));
 
     const fresh = createMockEnv({
       DB: createMockDb({
@@ -537,5 +540,71 @@ describe('ingest drain', () => {
       idempotencyKey: 'sync_match_recap:m-1',
       fromDlq: true,
     });
+  });
+
+  it('spaces replays in memory when D1 rejects the cursor write', async () => {
+    const persisted = String(Date.now() - 5_000);
+    const kvStore = new Map<string, string>([[DLQ_REPLAY_CURSOR_KV_KEY, persisted]]);
+    const kv = {
+      get: vi.fn(async (key: string) => kvStore.get(key) ?? null),
+      put: vi.fn(async (key: string, value: string) => {
+        kvStore.set(key, value);
+      }),
+      delete: vi.fn(async () => undefined),
+    };
+    const send = vi.fn(async () => undefined);
+    const env = createMockEnv({
+      INGEST_QUEUE: { send } as never,
+      KV: kv as never,
+      DB: createMockDb({
+        first: () => {
+          throw new Error('d1 down');
+        },
+      }),
+    });
+
+    await handleDlqBatch(
+      {
+        queue: 'wc-ingest-dlq',
+        messages: [
+          {
+            id: 'one',
+            attempts: 1,
+            timestamp: new Date(),
+            body: { type: 'crawl_news', idempotencyKey: 'news-1' },
+            ack: vi.fn(),
+          },
+          {
+            id: 'two',
+            attempts: 1,
+            timestamp: new Date(),
+            body: { type: 'sync_leagues', idempotencyKey: 'league-1' },
+            ack: vi.fn(),
+          },
+        ],
+      } as never,
+      env,
+    );
+
+    expect(send).toHaveBeenNthCalledWith(1, {
+      type: 'crawl_news',
+      idempotencyKey: 'news-1',
+      fromDlq: true,
+    });
+    expect(send).toHaveBeenNthCalledWith(
+      2,
+      { type: 'sync_leagues', idempotencyKey: 'league-1', fromDlq: true },
+      { delaySeconds: DRAIN_REPLAY_GAP_SECONDS },
+    );
+    expect(kvStore.get(DLQ_REPLAY_CURSOR_KV_KEY)).toBe(persisted);
+    const fresh = createMockEnv({
+      KV: kv as never,
+      DB: createMockDb({
+        first: () => {
+          throw new Error('d1 down');
+        },
+      }),
+    });
+    await expect(loadReplayCursorMs(fresh)).resolves.toBe(Number(persisted));
   });
 });

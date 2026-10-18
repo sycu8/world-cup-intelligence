@@ -63,6 +63,14 @@ async function readKv(env: CounterEnv, key: string): Promise<number> {
   }
 }
 
+/** In-isolate only. Does not write D1 or KV. */
+export function rememberPipelineCounter(env: object, key: string, value: number): void {
+  if (!Number.isFinite(value)) return;
+  const map = localMap(env);
+  const current = map.get(key);
+  if (current == null || value > current) map.set(key, value);
+}
+
 function remembered(env: object, key: string): number | null {
   const value = localCounters.get(env)?.get(key);
   return value == null ? null : value;

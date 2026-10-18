@@ -81,8 +81,9 @@ export async function handleDlqBatch(
         await park(msg, body, type, 'replay_failed');
         continue;
       }
-      const saved = await saveReplayCursorMs(env, planned.nextCursorMs);
-      if (saved) cursor = planned.nextCursorMs;
+      await saveReplayCursorMs(env, planned.nextCursorMs);
+      // A rejected D1 write leaves the stored cursor. This batch still steps forward.
+      cursor = planned.nextCursorMs;
       msg.ack();
       replayed += 1;
       continue;
