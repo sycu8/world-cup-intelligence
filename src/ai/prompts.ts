@@ -31,13 +31,29 @@ export const entityExtractPrompt = (text: string) =>
 Article:
 ${text.slice(0, 3000)}`;
 
+/**
+ * fp8 rejects json_schema (Workers AI error 5025). json_object is accepted
+ * and keeps the reply as one JSON value. Nested fields are specified in the prompt.
+ */
+export const TACTICAL_BRIEFING_RESPONSE_FORMAT = { type: 'json_object' } as const;
+
 export const tacticalBriefingPrompt = (matchId: string, probability: Record<string, unknown>) =>
-  `Generate tactical briefing JSON for match ${matchId}. Use ONLY these model outputs for probability fields:
+  `Generate tactical briefing JSON for match ${matchId}. Use ONLY these engine numbers when you mention probabilities or xG. Do not invent scores or percentages:
 ${JSON.stringify(probability)}
 
-Every text field (summary, tacticalThemes.title/detail, collectiveTeamFactors.factor/explanation, lineupRisks.risk, keyPlayers.reason/impactArea, probabilityExplanation items, uncertaintyNotes items) MUST be:
-{ "vi": "tiếng Việt", "en": "English" }
-
-Schema: matchId, generatedAt (ISO), summary, tacticalThemes[], collectiveTeamFactors[], lineupRisks[], keyPlayers[], probabilityExplanation[], uncertaintyNotes[], citations[] (sourceName may stay English).
-Output one JSON object only, with no markdown and no commentary.
-Keep each array to at most 2 items.`;
+Every prose field must be { "vi": "tiếng Việt", "en": "English" }.
+Return one JSON object and nothing else. No markdown. At most 2 items in each array.
+Use this shape, including every nested field:
+{
+  "matchId": "${matchId}",
+  "generatedAt": "ISO-8601",
+  "summary": { "vi": "...", "en": "..." },
+  "tacticalThemes": [{ "title": { "vi": "...", "en": "..." }, "detail": { "vi": "...", "en": "..." }, "confidence": 0.6, "supportingSources": ["platform-model"] }],
+  "collectiveTeamFactors": [{ "teamId": "home or away team id", "factor": { "vi": "...", "en": "..." }, "explanation": { "vi": "...", "en": "..." }, "direction": "positive", "confidence": 0.6 }],
+  "lineupRisks": [{ "teamId": "home or away team id", "playerId": "player id or unspecified", "risk": { "vi": "...", "en": "..." }, "confidence": 0.5 }],
+  "keyPlayers": [{ "playerId": "player id or unspecified", "reason": { "vi": "...", "en": "..." }, "impactArea": { "vi": "...", "en": "..." }, "confidence": 0.5 }],
+  "probabilityExplanation": [{ "vi": "...", "en": "..." }],
+  "uncertaintyNotes": [{ "vi": "...", "en": "..." }],
+  "citations": [{ "sourceDocumentId": "platform-model", "sourceName": "PitchIntel", "reliabilityScore": 0.6 }]
+}
+direction is only "positive", "negative", or "neutral". confidence and reliabilityScore are numbers from 0 to 1.`;

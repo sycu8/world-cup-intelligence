@@ -1,0 +1,271 @@
+[
+  {
+    "matchId": "m-w26-gd-1v2",
+    "generatedAt": "2023-03-16T10:00:00.000Z",
+    "summary": {
+      "vi": "Đội nhà có khả năng giành chiến thắng cao hơn.",
+      "en": "The home team has a higher chance of winning."
+    },
+    "tacticalThemes": [
+      {
+        "title": {
+          "vi": "Tăng cường tấn công",
+          "en": "Increase Attack"
+        },
+        "detail": {
+          "vi": "Đội nhà có thể tăng cường tấn công để giành chiến thắng.",
+          "en": "The home team may increase their attack to win."
+        }
+      }
+    ],
+    "collectiveTeamFactors": [
+      {
+        "factor": {
+          "vi": "Khả năng giành chiến thắng",
+          "en": "Winning Probability"
+        },
+        "explanation": {
+          "vi": "Đội nhà có khả năng giành chiến thắng 48,46%, đội khách 14,75%.",
+          "en": "The home team has a winning probability of 48.46%, the away team 14.75%."
+        }
+      }
+    ],
+    "lineupRisks": [
+      {
+        "risk": {
+          "vi": "Rủi ro về hàng thủ",
+          "en": "Defensive Risk"
+        }
+      }
+    ],
+    "keyPlayers": [
+      {
+        "name": "Unknown",
+        "reason": {
+          "vi": "Không có thông tin về cầu thủ quan trọng",
+          "en": "No information about key players"
+        },
+        "impactArea": {
+          "vi": "Không có thông tin về khu vực ảnh hưởng",
+          "en": "No information about impact area"
+        }
+      }
+    ],
+    "probabilityExplanation": [
+      {
+        "vi": "Khả năng giành chiến thắng của đội nhà cao hơn do được thi đấu trên sân nhà.",
+        "en": "The home team's winning probability is higher because they are playing at home."
+      }
+    ],
+    "uncertaintyNotes": [
+      {
+        "vi": "Khả năng giành chiến thắng của đội khách không rõ ràng.",
+        "en": "The away team's winning probability is unclear."
+      }
+    ],
+    "citations": [
+      {
+        "sourceName": "Statistical Engine",
+        "vi": "Nguồn dữ liệu thống kê",
+        "en": "Statistical data source"
+      }
+    ]
+  },
+  {
+    "matchId": "m-w26-ge-1v3",
+    "generatedAt": "2023-02-20T14:30:00Z",
+    "summary": {
+      "vi": "Trận đấu sắp tới dự kiến sẽ có nhiều bàn thắng.",
+      "en": "The upcoming match is expected to be a high-scoring one."
+    },
+    "tacticalThemes": [
+      {
+        "title": {
+          "vi": "Phong cách chơi tấn công",
+          "en": "Attacking style"
+        },
+        "detail": {
+          "vi": "Cả hai đội đều có khả năng tạo ra cơ hội ghi bàn.",
+          "en": "Both teams have the potential to create scoring chances."
+        }
+      }
+    ],
+    "collectiveTeamFactors": [
+      {
+        "factor": {
+          "vi": "Tỷ lệ bàn thắng",
+          "en": "Goal-scoring ratio"
+        },
+        "explanation": {
+          "vi": "Đội nhà có tỷ lệ bàn thắng cao hơn 1,617, đội khách có tỷ lệ bàn thắng 1,167.",
+          "en": "The home team has a higher expected goal-scoring ratio at 1.617, while the away team has an expected goal-scoring ratio of 1.167."
+        }
+      }
+    ],
+    "lineupRisks": [
+      {
+        "risk": {
+          "vi": "Sự mất cân bằng trong sơ đồ đội hình",
+          "en": "Formation imbalance"
+        },
+        "explanation": {
+          "vi": "Sự mất cân bằng trong sơ đồ đội hình có thể ảnh hưởng đến hiệu suất của cả hai đội.",
+          "en": "Formation imbalance may affect the performance of both teams."
+        }
+      }
+    ],
+    "keyPlayers": [
+      {
+        "player": "no data",
+        "reason": {
+          "vi": "Không có thông tin về cầu thủ quan trọng",
+          "en": "No information about key players"
+        },
+        "impactArea": {
+          "vi": "Không có thông tin về phạm vi ảnh hưởng của cầu thủ",
+          "en": "No information about the impact area of the player"
+        }
+      }
+    ],
+    "probabilityExplanation": [
+      {
+        "factor": {
+          "vi": "Tỷ lệ thắng",
+          "en": "Winning probability"
+        },
+        "value": {
+          "vi": "0.466",
+          "en": "0.466"
+        },
+        "explanation": {
+          "vi": "Đội nhà có khả năng thắng 46,6%.",
+          "en": "The home team has a 46.6% chance of winning."
+        }
+      },
+      {
+        "factor": {
+          "vi": "Tỷ lệ hòa",
+          "en": "Draw probability"
+        },
+        "value": {
+          "vi": "0.271",
+          "en": "0.271"
+        },
+        "explanation": {
+          "vi": "Trận đấu có khả năng hòa 27,1%.",
+          "en": "The match has a 27.1% chance of a draw."
+        }
+      },
+      {
+        "factor": {
+          "vi": "Tỷ lệ thua",
+          "en": "Loss probability"
+        },
+        "value": {
+          "vi": "0.262",
+          "en": "0.262"
+        },
+        "explanation": {
+          "vi": "Đội khách có khả năng thua 26,2%.",
+          "en": "The away team has a 26.2% chance of losing."
+        }
+      }
+    ],
+    "uncertaintyNotes": [
+      {
+        "note": {
+          "vi": "Không có thông tin về khả năng của các cầu thủ",
+          "en": "No information about the abilities of the players"
+        }
+      }
+    ],
+    "citations": [
+      {
+        "sourceName": "Statistical Engine",
+        "sourceUrl": "https://example.com/statistical-engine"
+      }
+    ]
+  },
+  {
+    "matchId": "m-w26-final-01",
+    "generatedAt": "2023-05-01T14:30:00.000Z",
+    "summary": {
+      "vi": "Đội nhà có khả năng chiến thắng cao hơn, nhưng tỷ lệ thắng của đội khách cũng đáng kể.",
+      "en": "The home team has a higher chance of winning, but the away team's winning rate is also significant."
+    },
+    "tacticalThemes": [
+      {
+        "title": {
+          "vi": "Thay đổi chiến thuật",
+          "en": "Tactical changes"
+        },
+        "detail": {
+          "vi": "Đội nhà có thể sẽ triển khai một chiến thuật phòng ngự chặt chẽ hơn để chống lại đội khách.",
+          "en": "The home team may employ a tighter defensive strategy to counter the away team."
+        }
+      }
+    ],
+    "collectiveTeamFactors": [
+      {
+        "factor": {
+          "vi": "Khả năng ghi bàn",
+          "en": "Goal-scoring ability"
+        },
+        "explanation": {
+          "vi": "Đội nhà có khả năng ghi bàn cao hơn với 1,45 bàn/trận, nhưng đội khách cũng có khả năng ghi bàn đáng kể với 1,28 bàn/trận.",
+          "en": "The home team has a higher goal-scoring ability with 1.45 goals per game, but the away team also has a significant goal-scoring ability with 1.28 goals per game."
+        }
+      }
+    ],
+    "lineupRisks": [
+      {
+        "risk": {
+          "vi": "Bị ép sân",
+          "en": "Being congested"
+        },
+        "explanation": {
+          "vi": "Đội khách có khả năng bị ép sân do đội nhà triển khai một chiến thuật phòng ngự chặt chẽ.",
+          "en": "The away team may be congested due to the home team's tighter defensive strategy."
+        }
+      }
+    ],
+    "keyPlayers": [
+      {
+        "reason": {
+          "vi": "Khả năng ghi bàn",
+          "en": "Goal-scoring ability"
+        },
+        "impactArea": {
+          "vi": "Hành động của cầu thủ số 9 có thể ảnh hưởng đến khả năng ghi bàn của đội nhà.",
+          "en": "The actions of player #9 may impact the home team's goal-scoring ability."
+        }
+      }
+    ],
+    "probabilityExplanation": [
+      {
+        "vi": "Khả năng chiến thắng của đội nhà cao hơn do có lợi thế sân nhà.",
+        "en": "The home team's winning probability is higher due to home advantage."
+      }
+    ],
+    "uncertaintyNotes": [
+      {
+        "vi": "Khả năng chiến thắng của đội khách có thể tăng lên do sự bất ổn trong đội hình của đội nhà.",
+        "en": "The away team's winning probability may increase due to instability in the home team's lineup."
+      }
+    ],
+    "citations": [
+      {
+        "sourceName": "Statistical Engine",
+        "probability": {
+          "homeWinProb": 0.39749990474694447,
+          "drawProb": 0.28091956279328556,
+          "awayWinProb": 0.32158053245976975
+        },
+        "expectedGoals": {
+          "homeExpectedGoals": 1.4492571813633577,
+          "awayExpectedGoals": 1.2842223801180777
+        }
+      }
+    ]
+  }
+]

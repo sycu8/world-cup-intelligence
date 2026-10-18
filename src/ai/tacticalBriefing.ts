@@ -3,9 +3,12 @@ import { TacticalBriefingSchema, type TacticalBriefing } from './schemas';
 import { nowIso } from '../utils/time';
 import { isGatewayConfigured, gatewayChatJson } from './gatewayClient';
 import { WORKERS_AI_BRIEFING_MAX_TOKENS, WORKERS_AI_TEXT_MODEL } from './modelRouter';
-import { SYSTEM_NO_INVENT_NUMBERS, tacticalBriefingPrompt } from './prompts';
+import { SYSTEM_NO_INVENT_NUMBERS, TACTICAL_BRIEFING_RESPONSE_FORMAT, tacticalBriefingPrompt } from './prompts';
 import { logAiCallFailure, logInfo } from '../utils/logger';
 import { extractJsonObject, workersAiResultText } from './workersAiText';
+import { parseModelBriefing } from './coerceBriefing';
+
+const BRIEFING_AI_TIMEOUT_MS = 60_000;
 
 const BRIEFING_CACHE_PREFIX = 'briefing:vi3:';
 const BRIEFING_CACHE_TTL_SECONDS = 3600;
@@ -124,11 +127,7 @@ export async function generateTacticalBriefing(
         durationMs: Date.now() - started,
       });
       if (parsed) {
-        const briefing = TacticalBriefingSchema.parse({
-          ...parsed,
-          matchId: input.matchId,
-          generatedAt: parsed.generatedAt || nowIso(),
-        });
+        const briefing = parseModelBriefing(parsed, input.matchId);
         await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(briefing), {
           expirationTtl: BRIEFING_CACHE_TTL_SECONDS,
         });
@@ -151,16 +150,21 @@ export async function generateTacticalBriefing(
       model: WORKERS_AI_TEXT_MODEL,
     });
     try {
-      const response = await env.AI.run(WORKERS_AI_TEXT_MODEL, {
-        max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS,
-        messages: [
-          { role: 'system', content: SYSTEM_NO_INVENT_NUMBERS },
-          {
-            role: 'user',
-            content: tacticalBriefingPrompt(input.matchId, input.probability),
-          },
-        ],
-      });
+      const response = await env.AI.run(
+        WORKERS_AI_TEXT_MODEL,
+        {
+          max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS,
+          response_format: TACTICAL_BRIEFING_RESPONSE_FORMAT,
+          messages: [
+            { role: 'system', content: SYSTEM_NO_INVENT_NUMBERS },
+            {
+              role: 'user',
+              content: tacticalBriefingPrompt(input.matchId, input.probability),
+            },
+          ],
+        },
+        { signal: AbortSignal.timeout(BRIEFING_AI_TIMEOUT_MS) },
+      );
       const durationMs = Date.now() - started;
       logInfo('tactical briefing workers ai done', {
         matchId: input.matchId,
@@ -168,7 +172,7 @@ export async function generateTacticalBriefing(
         durationMs,
       });
       const text = extractJsonObject(await workersAiResultText(response));
-      const briefing = TacticalBriefingSchema.parse(JSON.parse(text));
+      const briefing = parseModelBriefing(JSON.parse(text), input.matchId);
       await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(briefing), {
         expirationTtl: BRIEFING_CACHE_TTL_SECONDS,
       });

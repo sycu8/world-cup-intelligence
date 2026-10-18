@@ -234,6 +234,7 @@ describe('tacticalBriefing', () => {
     expect(run).toHaveBeenCalledWith(
       WORKERS_AI_TEXT_MODEL,
       expect.objectContaining({ max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(WORKERS_AI_BRIEFING_MAX_TOKENS).toBeGreaterThanOrEqual(800);
     expect(WORKERS_AI_BRIEFING_MAX_TOKENS).toBeLessThanOrEqual(1200);
@@ -269,6 +270,7 @@ describe('tacticalBriefing', () => {
     expect(run).toHaveBeenCalledWith(
       WORKERS_AI_TEXT_MODEL,
       expect.objectContaining({ max_tokens: WORKERS_AI_BRIEFING_MAX_TOKENS }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(env.KV.put).toHaveBeenCalledWith(
       'briefing:vi3:m-trunc',
@@ -281,7 +283,8 @@ describe('tacticalBriefing', () => {
     const payload = JSON.parse(String(spy.mock.calls.at(-1)?.[0]));
     expect(payload.message).toBe('tactical briefing workers ai failed');
     expect(payload.errorName).toBe('SyntaxError');
-    expect(payload.errorMessage.length).toBeGreaterThan(0);
+    expect(payload.errorMessage).toBe('invalid JSON');
+    expect(logged).not.toContain('Phân tích bị cắt');
     expect(payload.model).toBe(WORKERS_AI_TEXT_MODEL);
     expect(payload.durationMs).toBeGreaterThanOrEqual(0);
     expect(payload.matchId).toBe('m-trunc');
