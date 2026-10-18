@@ -26,7 +26,7 @@ export const REFRESH_STALE_MS = 10 * 60_000;
  * meta:last_fifa_sync and has not yet written meta:last_data_refresh.
  *
  * There is no 5-minute refresh trigger on production. The schedules are
- * `* * * * *`, `*/15 * * * *`, and the weekly pull. From 02:41 to 02:49 ICT
+ * every minute, every 15 minutes, and the weekly pull. From 02:41 to 02:49 ICT
  * the minute cron still fired every minute (success, a few milliseconds of
  * CPU) and the 15-minute cron fired at 02:45. Both only enqueue. Neither
  * writes meta:last_data_refresh. The 300s step in QUEUE_RETRY_DELAYS_SECONDS
