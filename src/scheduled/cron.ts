@@ -16,8 +16,8 @@ export async function handleScheduledCron(
 
   // Enqueue only. This handler does not run the sync and does not write
   // meta:last_data_refresh. The scheduled triggers are every minute, every
-  // 15 minutes, and weekly. The */5 branch stays so that cron string still
-  // enqueues a refresh if it is delivered. The 300s queue retry starts only
+  // 15 minutes, and weekly. The five-minute branch stays so that cron string
+  // still enqueues a refresh if it is delivered. The 300s queue retry starts only
   // after a failed attempt. See REFRESH_MAX_HOLD_MS.
   if (cron === '* * * * *' || cron === 'every-minute' || cron === '*/5 * * * *') {
     const job: IngestJob = { type: 'refresh_minute', idempotencyKey: crypto.randomUUID() };

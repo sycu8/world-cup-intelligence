@@ -45,14 +45,16 @@ describe('handleScheduledCron', () => {
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'refresh_minute' }));
   });
 
-  it('schedules UAT refresh every five minutes and production every minute', async () => {
+  it('schedules UAT and production on the same minute, 15-minute, and weekly crons', async () => {
     const text = await readFile(join(import.meta.dirname, '..', 'wrangler.jsonc'), 'utf8');
     const prodAt = text.indexOf('"name": "wc-tactical-probability-platform"');
     expect(prodAt).toBeGreaterThan(0);
     const uat = text.slice(0, prodAt);
     const prod = text.slice(prodAt);
-    expect(uat).toContain('"crons": ["*/5 * * * *", "*/15 * * * *", "0 3 * * 1"]');
-    expect(prod).toContain('"crons": ["* * * * *", "*/15 * * * *", "0 3 * * 1"]');
+    const schedules = '"crons": ["* * * * *", "*/15 * * * *", "0 3 * * 1"]';
+    expect(uat).toContain(schedules);
+    expect(prod).toContain(schedules);
+    expect(uat).not.toContain('"*/5 * * * *"');
     expect(uat).toContain('"AI_CALLS_PER_RUN": "20"');
     expect(uat).toContain('"AI_CALLS_PER_MINUTE": "30"');
     expect(prod).toContain('"AI_CALLS_PER_RUN": "40"');

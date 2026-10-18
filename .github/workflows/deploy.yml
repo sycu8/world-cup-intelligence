@@ -69,10 +69,10 @@ jobs:
       - name: Resolve deploy target
         id: target
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo "value=both" >> "$GITHUB_OUTPUT"
-          else
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "value=${{ inputs.target }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=both" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Install

@@ -86,6 +86,31 @@ describe('ai call guard', () => {
     logs.mockRestore();
   });
 
+  it('applies the per-minute cap to the AI Gateway path', async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        choices: [{ message: { content: 'ok' } }],
+        model: 'gateway-model',
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const env = createMockEnv({
+      AI_GATEWAY_ENABLED: 'true',
+      AI_GATEWAY_ACCOUNT_ID: 'acct',
+      OPENAI_API_KEY: 'sk-test',
+      AI_CALLS_PER_MINUTE: '1',
+    });
+    const { gatewayChat } = await import('../src/ai/gatewayClient');
+
+    const first = await gatewayChat(env, 'news_summary', [{ role: 'user', content: 'one' }]);
+    const second = await gatewayChat(env, 'news_summary', [{ role: 'user', content: 'two' }]);
+
+    expect(first?.content).toBe('ok');
+    expect(second).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
   it('stops later runs at the per-minute budget', async () => {
     const run = vi.fn(async () => ({ response: VI }));
     const env = createMockEnv({ AI: { run } as never, AI_CALLS_PER_RUN: '10', AI_CALLS_PER_MINUTE: '3' });

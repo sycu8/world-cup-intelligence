@@ -25,8 +25,14 @@
  * DRAIN_REPLAY_GAP_SECONDS. A second visit, a fresh refresh tick, a webhook,
  * an unknown body, and every model-DLQ message are parked under
  * `ingest:dlq_parked:` for four days. If the replay send fails, the body is
- * parked and then acked. The ack is skipped only when that KV write also
- * fails, so the platform can retry it once.
+ * parked and then acked. If that KV write fails, the message is retried with
+ * a delay. Leaving it unacked lets the platform ack it and drop the body.
+ *
+ * QA measured lastFifaSync change 8 times from 02:36:47 to 02:49:43 ICT while
+ * lastDataRefresh stayed at 02:36:47. Several refreshes wrote the FIFA stamp
+ * and ended before the data-refresh stamp. That window is not one in-flight
+ * refresh. There is no 5-minute refresh schedule. The minute and 15-minute
+ * handlers only enqueue, and the 300s retry starts only after msg.retry().
  *
  * Reported after the #58 deploy, not measured in this repo: prod DLQ 3,072
  * and UAT DLQ 4,422. An ack-only batch of 10 then waits DRAIN_PAUSE_SECONDS,
@@ -35,7 +41,7 @@
  * one replay every 30s: about 26 hours prod and 37 hours UAT. Read the live
  * depth before expecting either number. Do not purge.
  */
-import { DLQ_PARKED_COUNT_KEY } from '../constants/pipeline';
+import { readPipelineCounter, writePipelineCounter } from '../services/pipelineCounters';
 import { logError } from '../utils/logger';
 
 export const REFRESH_STALE_MS = 10 * 60_000;
@@ -60,33 +66,65 @@ export const DRAIN_PAUSE_SECONDS = 10;
 
 /** One idempotent DLQ replay this far after the previous one. */
 export const DRAIN_REPLAY_GAP_SECONDS = 30;
-export const DLQ_REPLAY_NOT_BEFORE_KEY = 'ingest:dlq_replay_not_before_ms';
+/** Cloudflare Queues rejects a delay of 86,400 seconds. Park at or above that. */
+export const QUEUE_DELAY_LIMIT_SECONDS = 86_399;
+/** D1 row. Not a KV key: one KV key accepts about one write per second. */
+export const DLQ_REPLAY_CURSOR_KEY = 'dlq_replay_not_before_ms';
+
+type CursorEnv = {
+  DB: {
+    prepare(sql: string): {
+      bind(...args: unknown[]): {
+        first<T>(): Promise<T | null>;
+        run(): Promise<unknown>;
+      };
+      run(): Promise<unknown>;
+    };
+  };
+  KV: {
+    get(key: string): Promise<string | null>;
+    put(key: string, value: string): Promise<unknown>;
+  };
+};
+
+export type ReplayPlan = { delaySeconds: number; nextCursorMs: number };
+
+/** Delay for the current cursor. Does not store the next slot. */
+export function replayDelayForCursor(cursorMs: number, now: number): ReplayPlan | 'park' {
+  const notBefore = Math.max(cursorMs, now);
+  const delaySeconds = Math.max(0, Math.ceil((notBefore - now) / 1000));
+  if (delaySeconds > QUEUE_DELAY_LIMIT_SECONDS) return 'park';
+  return { delaySeconds, nextCursorMs: notBefore + DRAIN_REPLAY_GAP_SECONDS * 1000 };
+}
+
+export async function loadReplayCursorMs(env: CursorEnv): Promise<number> {
+  return readPipelineCounter(env, DLQ_REPLAY_CURSOR_KEY);
+}
+
+/** Call only after the queue send succeeds. */
+export async function saveReplayCursorMs(env: CursorEnv, cursorMs: number): Promise<void> {
+  await writePipelineCounter(env, DLQ_REPLAY_CURSOR_KEY, cursorMs);
+}
 
 export function drainPauseMs(ackOnly: number, ranWork: boolean, burst = DRAIN_ACK_BURST): number {
   if (ranWork || ackOnly < burst) return 0;
   return DRAIN_PAUSE_SECONDS * 1000;
 }
 
-/** Seconds until this replay may hit the main queue. Moves the cursor forward by one gap. */
+/**
+ * Seconds until this replay may hit the main queue.
+ * The next slot is stored only when `commit` stays true. A failed send passes
+ * false so the following message keeps this slot.
+ */
 export async function takeDlqReplayDelaySeconds(
-  env: { KV: { get(key: string): Promise<string | null>; put(key: string, value: string, options?: { expirationTtl?: number }): Promise<unknown> } },
+  env: CursorEnv,
   now = Date.now(),
-): Promise<number> {
-  let notBefore = now;
-  try {
-    const stored = Number(await env.KV.get(DLQ_REPLAY_NOT_BEFORE_KEY));
-    if (Number.isFinite(stored) && stored > now) notBefore = stored;
-  } catch {
-    notBefore = now;
-  }
-  try {
-    await env.KV.put(DLQ_REPLAY_NOT_BEFORE_KEY, String(notBefore + DRAIN_REPLAY_GAP_SECONDS * 1000), {
-      expirationTtl: 86_400,
-    });
-  } catch {
-    // A missed cursor lets the next replay go sooner. The message is still sent.
-  }
-  return Math.max(0, Math.ceil((notBefore - now) / 1000));
+  commit = true,
+): Promise<number | 'park'> {
+  const planned = replayDelayForCursor(await loadReplayCursorMs(env), now);
+  if (planned === 'park') return 'park';
+  if (commit) await saveReplayCursorMs(env, planned.nextCursorMs);
+  return planned.delaySeconds;
 }
 
 export { INGEST_LAST_RUN_KEY, INGEST_STALE_DROPS_KEY } from '../constants/pipeline';
@@ -110,6 +148,7 @@ export const IDEMPOTENT_INGEST_TYPES = new Set([
   'bulk_ingest',
   'refresh_live_probabilities',
   'match_complete',
+  'sync_match_recap',
 ]);
 
 export function messageAgeMs(timestamp: Date | undefined, now: number): number | null {
@@ -183,13 +222,6 @@ export async function parkDlqMessage(
       error: String(error),
     });
     return false;
-  }
-  try {
-    const raw = await env.KV.get(DLQ_PARKED_COUNT_KEY);
-    const current = Number.parseInt(raw ?? '0', 10);
-    await env.KV.put(DLQ_PARKED_COUNT_KEY, String((Number.isFinite(current) ? current : 0) + 1));
-  } catch (error) {
-    logError('queue dlq park count failed', { error: String(error) });
   }
   return true;
 }

@@ -115,6 +115,37 @@ export function aiResultCacheKey(model: string, meta: GuardedAiMeta = {}): strin
 }
 
 /**
+ * Shared by Workers AI and the AI Gateway. False means do not call a model.
+ * A redelivery, an open backoff, or either budget skips the call.
+ */
+export async function claimAiCall(env: AppEnv): Promise<boolean> {
+  const state = storage.getStore();
+  const reuseOnly = Boolean(state && (state.redelivery || state.fromDlq || state.stale || state.rateLimited > 0));
+  if (reuseOnly || (await backoffActive(env))) {
+    if (state) state.skipped += 1;
+    return false;
+  }
+
+  const perRun = aiCallsPerRun(env);
+  const perMinute = aiCallsPerMinute(env);
+  if (state && state.calls >= perRun) {
+    state.skipped += 1;
+    return false;
+  }
+
+  const minute = Math.floor(Date.now() / 60_000);
+  const minuteKey = `ai:calls:${minute}`;
+  const kvUsed = await readCount(env, minuteKey);
+  if (kvUsed >= perMinute || !reserveMinute(env, minute, perMinute, kvUsed)) {
+    if (state) state.skipped += 1;
+    return false;
+  }
+  if (state) state.calls += 1;
+  await writeCount(env, minuteKey, Math.max(kvUsed + 1, localMinuteCount(env, minute)));
+  return true;
+}
+
+/**
  * One Workers AI call, or a cached copy of one.
  * Returns null when the budget, a redelivery, or a capacity error says skip.
  * 3021 and 3040 are not thrown, so the caller can ack instead of retrying.
@@ -126,30 +157,8 @@ export async function guardedAiRun(
   meta: GuardedAiMeta = {},
 ): Promise<unknown | null> {
   if (!env.AI) return null;
-  const state = storage.getStore();
   const key = aiResultCacheKey(model, meta);
-  const reuseOnly = Boolean(state && (state.redelivery || state.fromDlq || state.stale || state.rateLimited > 0));
-  if (reuseOnly || (await backoffActive(env))) {
-    if (state) state.skipped += 1;
-    return readCached(env, key);
-  }
-
-  const perRun = aiCallsPerRun(env);
-  const perMinute = aiCallsPerMinute(env);
-  if (state && state.calls >= perRun) {
-    state.skipped += 1;
-    return readCached(env, key);
-  }
-
-  const now = Date.now();
-  const minute = Math.floor(now / 60_000);
-  const minuteKey = `ai:calls:${minute}`;
-  const kvUsed = await readCount(env, minuteKey);
-  if (kvUsed >= perMinute || !reserveMinute(env, minute, perMinute, kvUsed)) {
-    if (state) state.skipped += 1;
-    return readCached(env, key);
-  }
-  if (state) state.calls += 1;
+  if (!(await claimAiCall(env))) return readCached(env, key);
 
   try {
     const response = await invokeAi(env, model, inputs, meta.signal);
@@ -165,10 +174,9 @@ export async function guardedAiRun(
   } catch (error) {
     if (!isAiCapacityError(error)) throw error;
     await noteAiCapacity(env, error);
+    const state = storage.getStore();
     if (state) state.skipped += 1;
     return null;
-  } finally {
-    await writeCount(env, minuteKey, Math.max(kvUsed + 1, localMinuteCount(env, minute)));
   }
 }
 

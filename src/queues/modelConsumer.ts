@@ -20,6 +20,7 @@ import {
   requestBriefingGeneration,
 } from '../ai/briefingQueue';
 import { MODEL_QUEUE_STALE_DROPS_KEY } from '../constants/pipeline';
+import { addPipelineCounter } from '../services/pipelineCounters';
 import { runMultiVariableAnalysis } from '../ai/multiVariableAnalysis';
 import { extractEntitiesFromArticle } from '../ai/entityExtraction';
 import { processNewsDocumentImpact } from '../services/newsMatchImpact';
@@ -103,17 +104,9 @@ export async function handleModelBatch(
   }
 }
 
-/** Best-effort. A concurrent batch can overwrite the count; one reread repairs a lost add. */
+/** One atomic add. Per-message KV increments of the same key collapse to 1. */
 async function recordStaleDrops(env: AppEnv, count: number): Promise<void> {
-  const raw = await env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY);
-  const base = Number.parseInt(raw ?? '0', 10);
-  const next = String((Number.isFinite(base) ? base : 0) + count);
-  await env.KV.put(MODEL_QUEUE_STALE_DROPS_KEY, next);
-  const seen = await env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY);
-  if (seen === next) return;
-  const again = Number.parseInt(seen ?? '0', 10);
-  const merged = String((Number.isFinite(again) ? again : 0) + count);
-  if (merged !== seen) await env.KV.put(MODEL_QUEUE_STALE_DROPS_KEY, merged);
+  await addPipelineCounter(env, MODEL_QUEUE_STALE_DROPS_KEY, count);
 }
 
 async function runModelMessage(

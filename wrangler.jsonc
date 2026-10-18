@@ -96,9 +96,11 @@
     "bindings": [{ "name": "MATCH_ROOM", "class_name": "MatchRoom" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MatchRoom"] }],
-  // UAT score refresh runs every 5 minutes.
+  // UAT matches production: every minute, every 15 minutes, weekly.
+  // Main did not schedule a 5-minute cron. The handler still accepts that
+  // string if one is delivered.
   "triggers": {
-    "crons": ["*/5 * * * *", "*/15 * * * *", "0 3 * * 1"]
+    "crons": ["* * * * *", "*/15 * * * *", "0 3 * * 1"]
   },
   "env": {
     "production": {
