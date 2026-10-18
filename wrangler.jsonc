@@ -7,6 +7,12 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "preview_urls": false,
+  // Workers Logs. Takes effect on the next deploy of this env. Production
+  // enablement still needs Cuong's OK before that deploy.
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
   "assets": {
     "directory": "./dist/client",
     "binding": "ASSETS",
@@ -83,6 +89,11 @@
       "name": "wc-tactical-probability-platform",
       "workers_dev": false,
       "preview_urls": false,
+      // Same logs block as UAT. Do not deploy production until Cuong confirms.
+      "observability": {
+        "enabled": true,
+        "head_sampling_rate": 1
+      },
       // wcstat.orangecloud.vn is bound via Workers Domains (account API).
       // Omit routes here — Zone Workers Routes permission is not required for deploy.
       "vars": {
