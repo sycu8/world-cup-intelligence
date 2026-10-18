@@ -6,7 +6,9 @@ import * as probabilityRepo from '../db/repositories/probabilityRepo';
 import * as tournamentsRepo from '../db/repositories/tournamentsRepo';
 import { computeProbability } from '../models/probability/engine';
 import { buildMatchFeaturesWithForm } from '../services/matchFeatures';
-import { generateTacticalBriefing, getCachedBriefing, fallbackBriefing } from '../ai/tacticalBriefing';
+import { getCachedBriefing, fallbackBriefing } from '../ai/tacticalBriefing';
+import { requestBriefingGeneration } from '../ai/briefingQueue';
+import { logAiCallFailure } from '../utils/logger';
 import { parseEnv } from '../env';
 import { getCachedJson } from '../services/payloadCache';
 import { withPathCache } from '../services/workersPathCache';
@@ -181,15 +183,25 @@ probabilityRoutes.get('/:matchId/tactical-briefing', async (c) => {
   const config = parseEnv(c.env);
 
   const cached = await getCachedBriefing(c.env, matchId);
-  if (cached) return c.json({ data: cached });
+  if (cached) return c.json({ data: cached, generating: false });
 
   const input = {
     matchId,
     probability: resolved.data,
     aiFallback: config.aiFallback,
   };
-  const instant = fallbackBriefing(input);
-  c.executionCtx.waitUntil(generateTacticalBriefing(c.env, input).catch(() => undefined));
+  let generating = false;
+  if (!config.aiFallback) {
+    try {
+      generating = await requestBriefingGeneration(c.env, matchId);
+    } catch (error) {
+      logAiCallFailure('tactical briefing enqueue failed', error, {
+        matchId,
+        model: 'model-queue',
+        durationMs: 0,
+      });
+    }
+  }
 
-  return c.json({ data: instant });
+  return c.json({ data: fallbackBriefing(input), generating });
 });

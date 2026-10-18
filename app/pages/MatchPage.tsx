@@ -68,6 +68,7 @@ export function MatchPage() {
   const { t, mode } = useI18n();
   const [viewMode, setViewMode] = useState<ViewMode>('tactical');
   const [briefing, setBriefing] = useState<TacticalBriefing | null>(null);
+  const [briefingGenerating, setBriefingGenerating] = useState(false);
   const [events, setEvents] = useState<{ x?: number; y?: number; event_type?: string; xg?: number }[]>([]);
   const [analysis, setAnalysis] = useState<MultiVariableAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
@@ -110,7 +111,10 @@ export function MatchPage() {
 
   useEffect(() => {
     if (!matchId) return;
+    let cancelled = false;
+    let briefingTimer: ReturnType<typeof setTimeout> | undefined;
     setNotFound(false);
+    setBriefingGenerating(false);
 
     api.matchEvents(matchId).then((r) => setEvents(r.data as typeof events));
     api.matchHistory(matchId).then((r) => {
@@ -133,7 +137,22 @@ export function MatchPage() {
       .finally(() => setPreviewLoading(false));
 
     deferNonCritical(() => {
-      api.matchBriefing(matchId).then((r) => setBriefing(r.data)).catch(() => setBriefing(null));
+      const pollBriefing = (attempt = 0) => {
+        api
+          .matchBriefing(matchId)
+          .then((r) => {
+            if (cancelled) return;
+            setBriefing(r.data);
+            setBriefingGenerating(Boolean(r.generating));
+            if (r.generating && attempt < 12) {
+              briefingTimer = setTimeout(() => pollBriefing(attempt + 1), 5000);
+            }
+          })
+          .catch(() => {
+            if (!cancelled) setBriefing(null);
+          });
+      };
+      pollBriefing();
 
       const pollAnalysis = (attempt = 0) => {
         api
@@ -170,6 +189,10 @@ export function MatchPage() {
         api.matchMarketSignals(matchId).then((r) => setMarketSignals(r.data)).catch(() => setMarketSignals(null)),
       ]).finally(() => setIntelLoading(false));
     });
+    return () => {
+      cancelled = true;
+      if (briefingTimer) clearTimeout(briefingTimer);
+    };
   }, [matchId]);
 
   useEffect(() => {
@@ -340,7 +363,7 @@ export function MatchPage() {
                   live={match.status === 'live'}
                 />
               )}
-              <TacticalBriefingPanel briefing={briefing} />
+              <TacticalBriefingPanel briefing={briefing} generating={briefingGenerating} />
               {(analysisLoading || analysis) && (
                 <MultiVariablePanel analysis={analysis} loading={analysisLoading} />
               )}
@@ -572,7 +595,7 @@ export function MatchPage() {
           {(analysisLoading || analysis) && (
             <MultiVariablePanel analysis={analysis} loading={analysisLoading} />
           )}
-          <TacticalBriefingPanel briefing={briefing} />
+          <TacticalBriefingPanel briefing={briefing} generating={briefingGenerating} />
         </aside>
       </div>
     </div>

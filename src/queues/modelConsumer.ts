@@ -10,6 +10,7 @@ import {
 } from '../services/matchScenarioService';
 import { runScenarioBacktest } from '../models/scenarios/backtesting/scenarioBacktestRunner';
 import { generateTacticalBriefing } from '../ai/tacticalBriefing';
+import { clearBriefingInflight } from '../ai/briefingQueue';
 import { runMultiVariableAnalysis } from '../ai/multiVariableAnalysis';
 import { extractEntitiesFromArticle } from '../ai/entityExtraction';
 import { processNewsDocumentImpact } from '../services/newsMatchImpact';
@@ -74,7 +75,10 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
           break;
         case 'ai_briefing': {
           const snap = await probabilityRepo.getLatestSnapshot(env.DB, msg.body.matchId);
-          if (!snap) break;
+          if (!snap) {
+            await clearBriefingInflight(env, msg.body.matchId);
+            break;
+          }
           const briefing = await generateTacticalBriefing(env, {
             matchId: msg.body.matchId,
             probability: {
@@ -91,6 +95,7 @@ export async function handleModelBatch(batch: MessageBatch<ModelJob>, env: AppEn
             JSON.stringify(briefing),
             { expirationTtl: 3600 },
           );
+          await clearBriefingInflight(env, msg.body.matchId);
           logInfo('ai briefing cached', { match_id: msg.body.matchId });
           break;
         }

@@ -21,14 +21,16 @@ export function HomeNewsPreview({ initialHot = [] }: Props) {
   const [polls, setPolls] = useState(0);
 
   useEffect(() => {
-    setHot(initialHot);
-    if (initialHot.length) setLoading(false);
+    if (initialHot.length === 0) return;
+    setHot(initialHot.slice(0, 3));
+    setLoading(false);
   }, [initialHot]);
 
   const load = useCallback(async () => {
     try {
       const r = await api.news({ page: 1, pageSize: 3, hot: 3 });
-      setHot(r.data.hot.slice(0, 3));
+      const next = r.data.hot.length ? r.data.hot : r.data.articles;
+      setHot(next.slice(0, 3));
     } catch {
       setHot([]);
     } finally {
@@ -70,7 +72,9 @@ export function HomeNewsPreview({ initialHot = [] }: Props) {
     );
   }
 
-  if (!hot.length) return null;
+  if (!hot.length) {
+    return <p className="text-sm text-muted">{t('news.empty')}</p>;
+  }
 
   return (
     <section className="panel min-h-[12rem] space-y-4">

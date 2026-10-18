@@ -49,6 +49,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npm run db:migrate:uat
 
+      # UAT is only on the Access hostname wcstat-uat.orangecloud.vn.
+      # workers_dev and preview_urls are false; do not call *.workers.dev.
       - name: Deploy UAT
         if: steps.target.outputs.value == 'uat' || steps.target.outputs.value == 'both'
         env:

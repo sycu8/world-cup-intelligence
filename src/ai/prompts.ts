@@ -38,4 +38,6 @@ ${JSON.stringify(probability)}
 Every text field (summary, tacticalThemes.title/detail, collectiveTeamFactors.factor/explanation, lineupRisks.risk, keyPlayers.reason/impactArea, probabilityExplanation items, uncertaintyNotes items) MUST be:
 { "vi": "tiếng Việt", "en": "English" }
 
-Schema: matchId, generatedAt (ISO), summary, tacticalThemes[], collectiveTeamFactors[], lineupRisks[], keyPlayers[], probabilityExplanation[], uncertaintyNotes[], citations[] (sourceName may stay English).`;
+Schema: matchId, generatedAt (ISO), summary, tacticalThemes[], collectiveTeamFactors[], lineupRisks[], keyPlayers[], probabilityExplanation[], uncertaintyNotes[], citations[] (sourceName may stay English).
+Output one JSON object only, with no markdown and no commentary.
+Keep each array to at most 2 items.`;

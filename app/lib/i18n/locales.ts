@@ -167,6 +167,7 @@ export type LocaleKey =
   | 'match.previewTactical'
   | 'match.previewLoading'
   | 'match.briefingTitle'
+  | 'match.briefingGenerating'
   | 'match.briefingLoading'
   | 'match.briefingTakeaways'
   | 'tournaments.title'
@@ -899,6 +900,10 @@ export const messages: Record<LocaleKey, { vi: string; en: string }> = {
   'match.previewTactical': { vi: 'Góc chiến thuật', en: 'Tactical angle' },
   'match.previewLoading': { vi: 'Đang tạo phân tích riêng cho trận này…', en: 'Building match-specific analysis…' },
   'match.briefingTitle': { vi: 'Phân tích chiến thuật', en: 'Tactical briefing' },
+  'match.briefingGenerating': {
+    vi: 'Đang tạo phân tích AI — bản thống kê tạm thời.',
+    en: 'AI briefing is generating — showing the statistical draft.',
+  },
   'match.briefingLoading': { vi: 'Đang tải phân tích chiến thuật…', en: 'Loading tactical briefing…' },
   'match.briefingTakeaways': { vi: 'Điểm chính', en: 'Key takeaways' },
   'tournaments.title': { vi: 'Giải đấu', en: 'Tournaments' },
