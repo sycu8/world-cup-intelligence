@@ -33,9 +33,13 @@ export function dataRefreshStatus(last: string | null, now = Date.now()): DataRe
   return 'healthy';
 }
 
-function combineHealthStatus(dbOk: boolean, refresh: DataRefreshHealth): DataRefreshHealth {
-  if (refresh === 'unhealthy') return 'unhealthy';
-  if (!dbOk || refresh === 'degraded') return 'degraded';
+function combineHealthStatus(
+  dbOk: boolean,
+  refresh: DataRefreshHealth,
+  fifa: DataRefreshHealth,
+): DataRefreshHealth {
+  if (refresh === 'unhealthy' || fifa === 'unhealthy') return 'unhealthy';
+  if (!dbOk || refresh === 'degraded' || fifa === 'degraded') return 'degraded';
   return 'healthy';
 }
 
@@ -93,7 +97,7 @@ export async function buildHealthPayload(env: AppEnv): Promise<HealthPayload> {
   }
 
   return {
-    status: combineHealthStatus(dbOk, dataRefreshStatus(lastRefresh)),
+    status: combineHealthStatus(dbOk, dataRefreshStatus(lastRefresh), dataRefreshStatus(lastFifaSync)),
     environment: config.environment,
     dependencies,
     pipeline: {

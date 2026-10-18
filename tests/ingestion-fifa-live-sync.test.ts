@@ -177,7 +177,7 @@ describe('ingestion fifaLiveSync', () => {
     expect(result.updatedIds.length + result.completedIds.length).toBeGreaterThan(0);
     expect(env.R2_RAW.put).toHaveBeenCalled();
     expect(db.batch).toHaveBeenCalled();
-    expect(env.KV.put).toHaveBeenCalledWith('meta:last_fifa_sync', expect.any(String), expect.any(Object));
+    expect(env.KV.put).toHaveBeenCalledWith('meta:last_fifa_sync', expect.any(String), { expirationTtl: 86400 });
   });
 
   it('syncFifaWc2026Matches skips rows without teams or internal match', async () => {

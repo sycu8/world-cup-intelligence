@@ -129,7 +129,7 @@ export async function refreshMatchData(
     }
   }
 
-  await stampLastDataRefresh(env);
+  if (updatedIds.length > 0 || completedIds.length > 0) await stampLastDataRefresh(env);
   if (!options.scoresOnly) {
     const { warmPayloadCaches } = await import('../services/cacheWarm');
     await warmPayloadCaches(env).catch(() => undefined);
@@ -157,7 +157,14 @@ export async function handleCompletedMatches(env: AppEnv, matchIds: string[]): P
   }
 }
 
-/** One follow-up step. Stamps lastDataRefresh when the step finishes. */
+const FOLLOW_UP_STAMP_KEY: Record<RefreshFollowUpStep, string> = {
+  lineups: 'meta:last_lineups_refresh',
+  warm: 'meta:last_warm_refresh',
+  completed: 'meta:last_completed_refresh',
+  bracket: 'meta:last_bracket_refresh',
+};
+
+/** One follow-up step. Stamps its own key. It does not move lastDataRefresh. */
 export async function runRefreshFollowUp(
   env: AppEnv,
   step: RefreshFollowUpStep,
@@ -167,21 +174,16 @@ export async function runRefreshFollowUp(
     if (fifaLiveEnabled(env)) {
       await syncFifaLineupsForUpcomingMatches(env).catch(() => undefined);
     }
-    await stampLastDataRefresh(env);
-    return [];
-  }
-  if (step === 'warm') {
+  } else if (step === 'warm') {
     const { warmPayloadCaches } = await import('../services/cacheWarm');
     await warmPayloadCaches(env).catch(() => undefined);
-    await stampLastDataRefresh(env);
-    return [];
-  }
-  if (step === 'completed') {
+  } else if (step === 'completed') {
     await handleCompletedMatches(env, completedIds);
-    await stampLastDataRefresh(env);
-    return [];
+  } else {
+    const bracketUpdatedIds = await replayKnockoutBracketFromCompleted(env);
+    await env.KV.put(FOLLOW_UP_STAMP_KEY.bracket, nowIso(), { expirationTtl: 86400 });
+    return bracketUpdatedIds;
   }
-  const bracketUpdatedIds = await replayKnockoutBracketFromCompleted(env);
-  await stampLastDataRefresh(env);
-  return bracketUpdatedIds;
+  await env.KV.put(FOLLOW_UP_STAMP_KEY[step], nowIso(), { expirationTtl: 86400 });
+  return [];
 }

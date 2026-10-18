@@ -88,7 +88,7 @@ describe('ingestion matchDataRefresh', () => {
     expect(syncFifaWc2026Matches).toHaveBeenCalled();
     expect(result.updatedIds).toEqual(['m-live']);
     expect(result.completedIds).toEqual(['m-done']);
-    expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), expect.any(Object));
+    expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), { expirationTtl: 86400 });
   });
 
   it('does not stamp last_data_refresh when FIFA writes nothing', async () => {
@@ -145,7 +145,7 @@ describe('ingestion matchDataRefresh', () => {
     expect(result.updatedIds).toEqual(['m-live']);
     expect(syncFifaLineupsForUpcomingMatches).not.toHaveBeenCalled();
     expect(warmPayloadCaches).not.toHaveBeenCalled();
-    expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), expect.any(Object));
+    expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), { expirationTtl: 86400 });
   });
 
   it('runs mock tick path when FIFA live disabled', async () => {
@@ -167,7 +167,7 @@ describe('ingestion matchDataRefresh', () => {
 
     const result = await refreshMatchData(env);
     expect(result.updatedIds).toContain(FIXTURE_MATCH.id);
-    expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), expect.any(Object));
+    expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), { expirationTtl: 86400 });
   });
 
   it('updates live matches when only away score differs', async () => {
