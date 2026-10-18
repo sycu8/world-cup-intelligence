@@ -61,7 +61,14 @@
         "queue": "wc-ingest-queue-uat",
         "max_batch_size": 10,
         "max_retries": 3,
+        "max_concurrency": 1,
         "dead_letter_queue": "wc-ingest-dlq-uat"
+      },
+      {
+        "queue": "wc-ingest-dlq-uat",
+        "max_batch_size": 10,
+        "max_retries": 1,
+        "max_concurrency": 1
       },
       {
         "queue": "wc-model-queue-uat",
@@ -133,7 +140,14 @@
             "queue": "wc-ingest-queue",
             "max_batch_size": 10,
             "max_retries": 3,
+            "max_concurrency": 1,
             "dead_letter_queue": "wc-ingest-dlq"
+          },
+          {
+            "queue": "wc-ingest-dlq",
+            "max_batch_size": 10,
+            "max_retries": 1,
+            "max_concurrency": 1
           },
           {
             "queue": "wc-model-queue",
