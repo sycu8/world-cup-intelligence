@@ -6,6 +6,7 @@ import { WORKERS_AI_BRIEFING_MAX_TOKENS, WORKERS_AI_TEXT_MODEL } from './modelRo
 import { SYSTEM_NO_INVENT_NUMBERS, TACTICAL_BRIEFING_RESPONSE_FORMAT, tacticalBriefingPrompt } from './prompts';
 import { logAiCallFailure, logInfo } from '../utils/logger';
 import { extractJsonObject, workersAiResultText } from './workersAiText';
+import { alignBriefingPercentages } from './briefingNumbers';
 import { briefingHasContent, parseModelBriefing } from './coerceBriefing';
 
 /** One observed call finished at 60.1s, so the cap sits above that. */
@@ -51,7 +52,7 @@ export function fallbackBriefing(input: BriefingInput): TacticalBriefing {
     matchId: input.matchId,
     generatedAt: nowIso(),
     summary: loc(
-      'Phân tích chiến thuật từ mô hình thống kê. Số liệu xác suất do engine tính — không phải lời khuyên cá cược.',
+      'Phân tích chiến thuật từ mô hình thống kê. Số liệu xác suất do mô hình tính — không phải lời khuyên cá cược.',
       'Tactical analysis from the statistical model. Probabilities are engine-derived — not betting advice.',
     ),
     tacticalThemes: [
@@ -78,7 +79,7 @@ export function fallbackBriefing(input: BriefingInput): TacticalBriefing {
         `Expected goals (xG): ${xgH} – ${xgA}.`,
       ),
       loc(
-        'Các con số trên chỉ lấy từ engine thống kê.',
+        'Các con số trên chỉ lấy từ mô hình thống kê.',
         'Figures above come from the statistical engine only.',
       ),
     ],
@@ -142,7 +143,7 @@ export async function generateTacticalBriefing(
           throw new Error('briefing missing summary or takeaway');
         }
         withholdCache = false;
-        const briefing = parseModelBriefing(parsed, input.matchId);
+        const briefing = alignBriefingPercentages(parseModelBriefing(parsed, input.matchId), input.probability);
         await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(briefing), {
           expirationTtl: BRIEFING_CACHE_TTL_SECONDS,
         });
@@ -193,7 +194,7 @@ export async function generateTacticalBriefing(
         throw new Error('briefing missing summary or takeaway');
       }
       withholdCache = false;
-      const briefing = parseModelBriefing(parsed, input.matchId);
+      const briefing = alignBriefingPercentages(parseModelBriefing(parsed, input.matchId), input.probability);
       await env.KV.put(`${BRIEFING_CACHE_PREFIX}${input.matchId}`, JSON.stringify(briefing), {
         expirationTtl: BRIEFING_CACHE_TTL_SECONDS,
       });

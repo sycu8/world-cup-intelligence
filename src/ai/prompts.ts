@@ -1,3 +1,5 @@
+import { engineFactLines } from './briefingNumbers';
+
 export const SYSTEM_NO_INVENT_NUMBERS = `You are a football tactical analyst.
 CRITICAL: Never invent numeric win probabilities, xG, or scores. Only explain numbers provided by the statistical engine.
 Cite uncertainty when source confidence is low. Output valid JSON when asked.
@@ -38,7 +40,9 @@ ${text.slice(0, 3000)}`;
 export const TACTICAL_BRIEFING_RESPONSE_FORMAT = { type: 'json_object' } as const;
 
 export const tacticalBriefingPrompt = (matchId: string, probability: Record<string, unknown>) =>
-  `Generate tactical briefing JSON for match ${matchId}. Use ONLY these engine numbers when you mention probabilities or xG. Do not invent scores or percentages:
+  `Generate tactical briefing JSON for match ${matchId}. Use ONLY these engine numbers when you mention probabilities or xG. Do not invent scores or percentages.
+Fixed engine values. Copy these figures exactly when you write a percentage or xG. Do not rescale them:
+${engineFactLines(probability).join('\n')}
 ${JSON.stringify(probability)}
 
 Every prose field must be { "vi": "tiếng Việt", "en": "English" }.

@@ -290,6 +290,31 @@ describe('index default export', () => {
     errorSpy.mockRestore();
   });
 
+  it('logs and acks an ingest dead-letter message without running it again', async () => {
+    const env = createRouteTestEnv();
+    const ack = vi.fn();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await worker.queue(
+      {
+        queue: 'wc-ingest-dlq',
+        messages: [
+          {
+            id: 'msg-ingest-dlq',
+            attempts: 4,
+            body: { type: 'refresh_minute', idempotencyKey: 'stuck' },
+            ack,
+            retry: vi.fn(),
+          },
+        ],
+      } as never,
+      env,
+    );
+    expect(ack).toHaveBeenCalled();
+    expect(mocks.handleIngestBatch).not.toHaveBeenCalled();
+    expect(mocks.handleModelBatch).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
   it('scheduled delegates to cron handler', async () => {
     const env = createRouteTestEnv();
     await worker.scheduled({ cron: '* * * * *' } as ScheduledController, env, mockExecutionCtx);

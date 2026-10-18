@@ -122,6 +122,7 @@ describe('tacticalBriefing', () => {
     });
     expect(briefing.matchId).toBe('m-1');
     expect(JSON.stringify(briefing.probabilityExplanation)).toContain('42.0');
+    expect(briefing.summary.vi).not.toMatch(/\bengine\b/i);
   });
 
   it('getCachedBriefing reads KV cache', async () => {

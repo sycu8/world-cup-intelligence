@@ -7,7 +7,13 @@ type IngestJobShape =
       feedCursor?: number;
     }
   | { type: 'source_ingest'; sourceId: string; idempotencyKey: string; seasonCursor?: number }
-  | { type: 'refresh_minute'; idempotencyKey: string }
+  | {
+      type: 'refresh_minute';
+      idempotencyKey: string;
+      /** Absent on the starter. Each follow-up has its own queue budget. */
+      step?: 'lineups' | 'bracket' | 'warm' | 'completed';
+      completedIds?: string[];
+    }
   | { type: 'crawl_news'; idempotencyKey: string; feedCursor?: number }
   | { type: 'match_complete'; matchId: string; idempotencyKey: string }
   | { type: 'refresh_live_probabilities'; idempotencyKey: string }

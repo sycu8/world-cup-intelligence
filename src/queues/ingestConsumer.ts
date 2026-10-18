@@ -1,7 +1,7 @@
 import type { IngestJob } from './types';
 import type { AppEnv } from '../env';
 import { logInfo } from '../utils/logger';
-import { refreshMatchData, handleCompletedMatches } from '../ingestion/matchDataRefresh';
+import { refreshMatchData, handleCompletedMatches, runRefreshFollowUp } from '../ingestion/matchDataRefresh';
 import { crawlWorldCupNews, type NewsCrawlChunk } from '../ingestion/newsCrawler';
 import { ingestStatsbombWorldCup } from '../ingestion/statsbombIngest';
 import { getIngestHandler } from '../ingestion/sourceRegistry';
@@ -151,13 +151,47 @@ async function runIngestMessage(
 ): Promise<void> {
       switch (msg.body.type) {
         case 'refresh_minute': {
-          const { updatedIds, completedIds, teamUpdatedIds } = await refreshMatchData(env, { signal });
-
-          if (completedIds.length) {
-            await handleCompletedMatches(env, completedIds);
+          if (msg.body.step) {
+            const bracketUpdatedIds = await runRefreshFollowUp(env, msg.body.step, msg.body.completedIds ?? []);
+            if (msg.body.step === 'bracket' && bracketUpdatedIds.length) {
+              await scheduleRecomputeAfterDataChange(env, 'knockout-teams-bracket', { queue: true });
+            }
+            break;
           }
 
-          const bracketUpdatedIds = await replayKnockoutBracketFromCompleted(env);
+          const split = Boolean(env.INGEST_QUEUE);
+          if (split && env.INGEST_QUEUE) {
+            for (const step of ['lineups', 'bracket', 'warm'] as const) {
+              await env.INGEST_QUEUE.send({
+                type: 'refresh_minute',
+                step,
+                idempotencyKey: crypto.randomUUID(),
+              });
+            }
+          }
+
+          const { updatedIds, completedIds, teamUpdatedIds } = await refreshMatchData(env, {
+            scoresOnly: split,
+            signal,
+          });
+
+          if (completedIds.length) {
+            if (split && env.INGEST_QUEUE) {
+              await env.INGEST_QUEUE.send({
+                type: 'refresh_minute',
+                step: 'completed',
+                completedIds,
+                idempotencyKey: crypto.randomUUID(),
+              });
+            } else {
+              await handleCompletedMatches(env, completedIds);
+            }
+          }
+
+          let bracketUpdatedIds: string[] = [];
+          if (!split) {
+            bracketUpdatedIds = await replayKnockoutBracketFromCompleted(env);
+          }
           if (teamUpdatedIds.length || bracketUpdatedIds.length) {
             await scheduleRecomputeAfterDataChange(env, 'knockout-teams-bracket', { queue: true });
           }

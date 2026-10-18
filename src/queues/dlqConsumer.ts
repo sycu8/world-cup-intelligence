@@ -16,6 +16,7 @@ type DlqBody = {
  * fromDlq set, then acked. A message that already has fromDlq is dropped, so
  * a replay that fails cannot bounce forever. The DLQ consumer has no nested
  * dead-letter queue. Model DLQ messages are counted and acked, not sent back.
+ * A stalled bulk walk is re-sent by the cron resumer from the walk record.
  */
 export async function handleDlqBatch(batch: MessageBatch<unknown>, env: AppEnv): Promise<void> {
   const counts: Record<string, number> = {};

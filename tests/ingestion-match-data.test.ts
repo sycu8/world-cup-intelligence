@@ -113,8 +113,23 @@ describe('ingestion matchDataRefresh', () => {
 
     await expect(refreshMatchData(env)).resolves.toMatchObject({ updatedIds: ['m-live'] });
     expect(order.indexOf('meta:last_data_refresh')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('meta:last_data_refresh')).toBeLessThan(order.indexOf('stats'));
     expect(order.indexOf('meta:last_data_refresh')).toBeLessThan(order.indexOf('lineups'));
-    expect(order.indexOf('lineups')).toBeLessThan(order.indexOf('stats'));
+  });
+
+  it('scoresOnly leaves lineups and cache warm for their own steps', async () => {
+    const { syncFifaLineupsForUpcomingMatches } = await import('../src/ingestion/fifa/fifaLineupSync');
+    const { warmPayloadCaches } = await import('../src/services/cacheWarm');
+    vi.mocked(syncFifaLineupsForUpcomingMatches).mockClear();
+    vi.mocked(warmPayloadCaches).mockClear();
+    const { env } = createIngestionEnv();
+
+    const result = await refreshMatchData(env, { scoresOnly: true });
+
+    expect(result.updatedIds).toEqual(['m-live']);
+    expect(syncFifaLineupsForUpcomingMatches).not.toHaveBeenCalled();
+    expect(warmPayloadCaches).not.toHaveBeenCalled();
+    expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), expect.any(Object));
   });
 
   it('runs mock tick path when FIFA live disabled', async () => {
