@@ -91,6 +91,22 @@ describe('ingestion matchDataRefresh', () => {
     expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), expect.any(Object));
   });
 
+  it('does not stamp last_data_refresh when FIFA writes nothing', async () => {
+    const { syncFifaWc2026Matches } = await import('../src/ingestion/fifa/fifaLiveSync');
+    vi.mocked(syncFifaWc2026Matches).mockResolvedValueOnce({
+      updatedIds: [],
+      completedIds: [],
+      teamUpdatedIds: [],
+      synced: 0,
+      skipped: 1,
+    });
+    const { env } = createIngestionEnv();
+
+    await refreshMatchData(env, { scoresOnly: true });
+
+    expect(env.KV.put).not.toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), expect.any(Object));
+  });
+
   it('stamps last_data_refresh before lineups and backfill', async () => {
     const { env } = createIngestionEnv();
     const order: string[] = [];

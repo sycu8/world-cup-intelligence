@@ -18,6 +18,7 @@ import { withPathCache } from '../services/workersPathCache';
 import * as teamsRepo from '../db/repositories/teamsRepo';
 import { attachResolvedScoreDetail } from '../services/matchScoreDetailApi';
 import { getMatchThumbnailPng, getMatchThumbnailSvg } from '../services/matchThumbnail';
+import { logError } from '../utils/logger';
 
 export const matchRoutes = new Hono<{ Bindings: AppEnv }>();
 
@@ -212,12 +213,22 @@ matchRoutes.get('/:matchId/stats', async (c) => {
 });
 
 matchRoutes.get('/:matchId/recap', async (c) => {
+  const matchRef = c.req.param('matchId');
+  const cfg = parseEnv(c.env);
   // The stored recap is loaded before any FIFA sync, and the sync result is not
-  // part of this response. Waiting on it held the slowest prod route (one
-  // request at 48s). Hand the sync to waitUntil so the response returns.
-  const data = await getMatchRecap(c.env, c.req.param('matchId'), {
-    waitUntil: (promise) => c.executionCtx.waitUntil(promise),
-  });
+  // part of this response. waitUntil is cancelled 30s after the response, which
+  // cut measured syncs of 34–48s. The sync is a queue job with a 120s budget.
+  if (c.env.INGEST_QUEUE && (cfg.fifaLiveEnabled || !cfg.mockSources)) {
+    const send = c.env.INGEST_QUEUE.send({
+      type: 'sync_match_recap',
+      matchRef,
+      idempotencyKey: `sync_match_recap:${matchRef}`,
+    }).catch((error) => {
+      logError('recap sync enqueue failed', { matchRef, error: String(error) });
+    });
+    c.executionCtx.waitUntil(send);
+  }
+  const data = await getMatchRecap(c.env, matchRef, { syncFifa: false });
   if (!data) return c.json({ error: 'Not found' }, 404);
   return c.json({ data });
 });

@@ -46,10 +46,10 @@ export async function refreshMatchData(
   throwIfMessageAborted(options.signal);
   if (fifaLiveEnabled(env)) {
     const fifa = await syncFifaWc2026Matches(env, { signal: options.signal });
-    // Stamp as soon as the score sync returns. Backfill used to run after
-    // meta:last_fifa_sync and before this write, so lastFifaSync moved while
-    // lastDataRefresh stayed on the previous run.
-    await stampLastDataRefresh(env);
+    // Stamp only after at least one FIFA write. From 02:36:47 to 02:49:43 ICT,
+    // lastFifaSync changed 8 times while lastDataRefresh stayed at 02:36:47,
+    // so several refreshes ended before this stamp. Backfill stays after it.
+    if (fifa.synced > 0) await stampLastDataRefresh(env);
     await backfillIncompleteFifaMatchStats(env, 4).catch((e) => {
       logError('fifa stats backfill batch failed', { error: String(e) });
     });

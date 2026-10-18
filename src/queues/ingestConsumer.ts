@@ -3,6 +3,7 @@ import type { AppEnv } from '../env';
 import { aiEnqueueBlocked, aiRunFlagsFromDelivery, isAiCapacityError, noteAiCapacity, withAiRun } from '../ai/aiCallGuard';
 import { logInfo } from '../utils/logger';
 import { refreshMatchData, handleCompletedMatches, runRefreshFollowUp } from '../ingestion/matchDataRefresh';
+import { syncQueuedMatchRecap } from '../services/matchRecap';
 import { crawlWorldCupNews, type NewsCrawlChunk } from '../ingestion/newsCrawler';
 import { ingestStatsbombWorldCup } from '../ingestion/statsbombIngest';
 import { getIngestHandler } from '../ingestion/sourceRegistry';
@@ -16,6 +17,7 @@ import { runChampionOddsRefreshIfPending } from '../services/tournamentChampionO
 import { deliverWebhook } from '../services/publicApi/webhooks';
 import { syncOfficialLineupsToMatches } from '../services/officialLineupSync';
 import { INGEST_LAST_RUN_KEY, INGEST_STALE_DROPS_KEY, STATSBOMB_INGEST_DIRTY_KEY } from '../constants/pipeline';
+import { addPipelineCounter } from '../services/pipelineCounters';
 import {
   CONSUMER_BATCH_DEADLINE_MS,
   INGEST_CHUNK_BUDGET_MS,
@@ -60,21 +62,9 @@ async function clearRefreshRun(env: AppEnv): Promise<void> {
   }
 }
 
-/** Best-effort. A concurrent batch can overwrite the count; one reread repairs a lost add. */
+/** One atomic add for the whole batch. Per-message KV increments collapse to 1. */
 async function recordIngestStaleDrops(env: AppEnv, count: number): Promise<void> {
-  try {
-    const raw = await env.KV.get(INGEST_STALE_DROPS_KEY);
-    const base = Number.parseInt(raw ?? '0', 10);
-    const next = String((Number.isFinite(base) ? base : 0) + count);
-    await env.KV.put(INGEST_STALE_DROPS_KEY, next);
-    const seen = await env.KV.get(INGEST_STALE_DROPS_KEY);
-    if (seen === next) return;
-    const again = Number.parseInt(seen ?? '0', 10);
-    const merged = String((Number.isFinite(again) ? again : 0) + count);
-    if (merged !== seen) await env.KV.put(INGEST_STALE_DROPS_KEY, merged);
-  } catch (error) {
-    logInfo('ingest stale drop count failed', { error: String(error) });
-  }
+  await addPipelineCounter(env, INGEST_STALE_DROPS_KEY, count);
 }
 
 function statsbombDataChanged(result: {
@@ -102,6 +92,7 @@ export async function handleIngestBatch(
   const seen = new Set<string>();
   let ackOnly = 0;
   let ranWork = false;
+  let staleDrops = 0;
   for (const msg of batch.messages) {
     if (isStaleIngestTick(msg.body, msg.timestamp, Date.now())) {
       logInfo('ingest tick skipped stale', {
@@ -109,7 +100,7 @@ export async function handleIngestBatch(
         idempotencyKey: msg.body.idempotencyKey,
         staleAfterMs: REFRESH_STALE_MS,
       });
-      await recordIngestStaleDrops(env, 1);
+      staleDrops += 1;
       msg.ack();
       ackOnly += 1;
       continue;
@@ -196,6 +187,7 @@ export async function handleIngestBatch(
       msg.retry({ delaySeconds });
     }
   }
+  if (staleDrops > 0) await recordIngestStaleDrops(env, staleDrops);
   const waitMs = drainPauseMs(ackOnly, ranWork);
   if (waitMs > 0) {
     logInfo('ingest drain paused', { ackOnly, pauseMs: waitMs });
@@ -342,6 +334,10 @@ async function runIngestMessage(msg: Message<IngestJob>, env: AppEnv, signal: Ab
         }
         case 'webhook_deliver': {
           await deliverWebhook(env, msg.body.subscriptionId, msg.body.eventId);
+          break;
+        }
+        case 'sync_match_recap': {
+          await syncQueuedMatchRecap(env, msg.body.matchRef);
           break;
         }
       }

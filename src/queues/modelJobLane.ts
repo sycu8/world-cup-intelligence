@@ -66,6 +66,9 @@ const INGEST_TIMEOUT_MS: Record<string, number> = {
   match_complete: 60_000,
   refresh_live_probabilities: 60_000,
   webhook_deliver: 30_000,
+  // Recap FIFA sync measured 34–48s. waitUntil is cancelled 30s after the
+  // response, so this runs on the queue, under the 4 minute batch deadline.
+  sync_match_recap: 120_000,
 };
 
 export function ingestMessageTimeoutMs(type: string): number {

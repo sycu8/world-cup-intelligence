@@ -1,5 +1,22 @@
-import { describe, expect, it } from 'vitest';
-import { getMatchRecap } from '../src/services/matchRecap';
+import { describe, expect, it, vi } from 'vitest';
+import { getMatchRecap, syncQueuedMatchRecap } from '../src/services/matchRecap';
+
+vi.mock('../src/ingestion/fifa/fifaLiveSync', () => ({
+  syncFifaMatchByRef: vi.fn(async () => {
+    throw new Error('fifa down');
+  }),
+}));
+
+vi.mock('../src/ingestion/fifa/fifaLiveBlogSync', () => ({
+  shouldSyncFifaBlogAndStats: vi.fn(async () => true),
+  ensureFifaBlogAndStats: vi.fn(async () => {
+    throw new Error('blog down');
+  }),
+}));
+
+vi.mock('../src/ingestion/fifa/teamMatchStatsComplete', () => ({
+  loadTeamMatchStatsCompleteness: vi.fn(async () => ({ complete: false })),
+}));
 import { createMockDb, createMockEnv, createMockKv } from './helpers/mockEnv';
 import { FIXTURE_MATCH } from './helpers/fixtures';
 
@@ -88,5 +105,32 @@ describe('getMatchRecap', () => {
     });
     const env = createMockEnv({ DB: db, KV: kv, MOCK_SOURCES: 'true' });
     expect(await getMatchRecap(env, FIXTURE_MATCH.id)).toBeNull();
+  });
+
+  it('logs FIFA recap sync errors and a missing queued match', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const kv = createMockKv({
+      [`cache:match-ref:${FIXTURE_MATCH.id}`]: JSON.stringify({
+        ...FIXTURE_MATCH,
+        slug: FIXTURE_MATCH.id,
+        status: 'completed',
+      }),
+    });
+    const env = createMockEnv({
+      DB: recapDb(),
+      KV: kv,
+      MOCK_SOURCES: 'false',
+      FIFA_LIVE_ENABLED: 'true',
+    });
+
+    const payload = await getMatchRecap(env, FIXTURE_MATCH.id);
+    expect(payload?.summaryVi).toBe('Tóm tắt trận');
+    await syncQueuedMatchRecap(createMockEnv({ DB: createMockDb() }), 'missing-match');
+
+    const logged = errorSpy.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(logged).toContain('recap fifa match sync failed');
+    expect(logged).toContain('recap fifa blog sync failed');
+    expect(logged).toContain('recap sync match missing');
+    errorSpy.mockRestore();
   });
 });
