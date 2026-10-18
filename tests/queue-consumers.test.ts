@@ -241,6 +241,44 @@ describe('handleIngestBatch', () => {
     expect(deliverWebhook).toHaveBeenCalledWith(expect.anything(), 'sub-1', 42);
   });
 
+  it('acks refresh_minute when the job runs longer than the old 60s cap', async () => {
+    vi.useFakeTimers();
+    try {
+      const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+      vi.mocked(refreshMatchData).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(
+              () =>
+                resolve({
+                  updatedIds: ['m-1'],
+                  completedIds: [],
+                  teamUpdatedIds: [],
+                  bracketUpdatedIds: [],
+                }),
+              70_000,
+            );
+          }),
+      );
+      const ack = vi.fn();
+      const retry = vi.fn();
+      const send = vi.fn(async () => undefined);
+      const pending = handleIngestBatch(
+        createMockMessageBatch([
+          { body: { type: 'refresh_minute', idempotencyKey: 'slow-refresh' }, ack, retry },
+        ]),
+        createMockEnv({ MODEL_QUEUE: { send } as never }),
+      );
+      await vi.advanceTimersByTimeAsync(70_000);
+      await pending;
+      expect(ack).toHaveBeenCalledTimes(1);
+      expect(retry).not.toHaveBeenCalled();
+      expect(send).toHaveBeenCalledWith({ type: 'recompute_all', matchIds: ['m-1'] });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('retries message on handler failure', async () => {
     const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
     vi.mocked(refreshMatchData).mockRejectedValueOnce(new Error('boom'));

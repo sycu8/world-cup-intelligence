@@ -53,10 +53,18 @@ export async function handleIngestBatch(
         deadlineMs - elapsed,
       ),
     );
+    let finished = false;
     try {
-      await withMessageTimeout(timeoutMs, () => runIngestMessage(msg, env));
+      await withMessageTimeout(timeoutMs, async () => {
+        await runIngestMessage(msg, env);
+        finished = true;
+      });
       msg.ack();
     } catch (e) {
+      if (finished) {
+        msg.ack();
+        continue;
+      }
       logInfo('ingest retry', { error: String(e) });
       msg.retry({ delaySeconds: queueRetryDelaySeconds(msg.attempts) });
     }
