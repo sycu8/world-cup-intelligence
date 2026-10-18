@@ -1,6 +1,6 @@
 import type { AppEnv } from '../env';
 import { gatewayChatJson, isGatewayConfigured } from './gatewayClient';
-import { WORKERS_AI_TEXT_MODEL } from './modelRouter';
+import { resolveModel, WORKERS_AI_TEXT_MODEL } from './modelRouter';
 import {
   COMMENTATOR_SYSTEM,
   commentaryUserPrompt,
@@ -50,6 +50,7 @@ async function workersAiTranslate(
   for (const model of models) {
     try {
       const response = await env.AI.run(model, {
+        max_tokens: resolveModel('news_summary').maxTokens,
         messages: [
           { role: 'system', content: COMMENTATOR_SYSTEM },
           { role: 'user', content: userPrompt },

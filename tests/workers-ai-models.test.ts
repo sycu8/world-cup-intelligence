@@ -1,7 +1,9 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { WORKERS_AI_TEXT_MODEL } from '../src/ai/modelRouter';
+import { describe, expect, it, vi } from 'vitest';
+import { resolveModel, WORKERS_AI_TEXT_MODEL } from '../src/ai/modelRouter';
+import { translateMatchRecapText } from '../src/ai/translateMatchRecap';
+import { createMockEnv } from './helpers/mockEnv';
 
 /**
  * Text models Cloudflare retired on 2026-05-30, plus
@@ -53,6 +55,25 @@ async function retiredModelHits(dir: string): Promise<string[]> {
   return hits;
 }
 
+const TEXT_GENERATION_FILES = [
+  'src/ai/tacticalBriefing.ts',
+  'src/ai/entityExtraction.ts',
+  'src/ai/translateNews.ts',
+  'src/ai/translateMatchRecap.ts',
+];
+
+function textGenerationCallsMissingMaxTokens(source: string): number {
+  let missing = 0;
+  let index = 0;
+  while ((index = source.indexOf('env.AI.run(', index)) !== -1) {
+    const window = source.slice(index, index + 280);
+    index += 'env.AI.run('.length;
+    if (window.includes('m2m100')) continue;
+    if (!window.includes('max_tokens')) missing += 1;
+  }
+  return missing;
+}
+
 describe('Workers AI text model', () => {
   it('uses the catalog-supported 8B instruct model', () => {
     expect(WORKERS_AI_TEXT_MODEL).toBe('@cf/meta/llama-3.1-8b-instruct-fp8');
@@ -70,6 +91,31 @@ describe('Workers AI text model', () => {
       '@cf/meta/llama-3.1-8b-instruct-fast',
     ]);
     expect(retiredIdsIn(`env.AI.run('${WORKERS_AI_TEXT_MODEL}', {})`)).toEqual([]);
+  });
+
+  it('sets max_tokens on every direct text-generation call', async () => {
+    const root = join(import.meta.dirname, '..');
+    const misses: string[] = [];
+    for (const rel of TEXT_GENERATION_FILES) {
+      const text = await readFile(join(root, rel), 'utf8');
+      const missing = textGenerationCallsMissingMaxTokens(text);
+      if (missing > 0) misses.push(`${rel}: ${missing}`);
+    }
+    expect(misses).toEqual([]);
+    expect(resolveModel('tactical_briefing').maxTokens).toBeGreaterThan(256);
+    expect(resolveModel('entity_extract').maxTokens).toBeGreaterThan(256);
+    expect(resolveModel('news_summary').maxTokens).toBeGreaterThan(256);
+  });
+
+  it('passes max_tokens when translating a match recap line', async () => {
+    const run = vi.fn(async () => ({ response: '{"textVi":"Đội tuyển mở tỷ số."}' }));
+    const env = createMockEnv({ AI: { run } as never });
+    const result = await translateMatchRecapText(env, 'The team scores.');
+    expect(result).toContain('Đội');
+    expect(run).toHaveBeenCalledWith(
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      expect.objectContaining({ max_tokens: resolveModel('news_summary').maxTokens }),
+    );
   });
 
   it('fails when application source references a retired Workers AI model id', async () => {

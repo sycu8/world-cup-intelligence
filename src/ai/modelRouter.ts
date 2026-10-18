@@ -65,8 +65,9 @@ export const WORKERS_AI_FALLBACK = 'workers-ai/@cf/meta/llama-3.3-70b-instruct-f
 /**
  * Text model for direct `env.AI.run` calls.
  * Replaces the Llama 3 8B instruct model retired on 2026-05-30.
- * The 8B `-fast` slug is no longer in the catalog; this FP8 model keeps
- * the same `{ response }` chat API.
+ * The 8B `-fast` slug is unavailable in the live catalog. This FP8 model
+ * keeps the same `{ response }` chat API. Callers must pass `max_tokens`;
+ * the catalog default is 256.
  */
 export const WORKERS_AI_TEXT_MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8' as const;
 

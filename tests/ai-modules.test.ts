@@ -25,7 +25,7 @@ import { createMockEnv, createMockKv } from './helpers/mockEnv';
 import { mockScenario } from './helpers/scenarioFixtures';
 import type { MatchScenarioSet } from '../src/models/scenarios/types';
 import { MARKET_DISCLAIMER } from '../src/market/types';
-import { WORKERS_AI_TEXT_MODEL } from '../src/ai/modelRouter';
+import { resolveModel, WORKERS_AI_TEXT_MODEL } from '../src/ai/modelRouter';
 
 vi.mock('../src/ai/gatewayClient', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/ai/gatewayClient')>();
@@ -194,9 +194,10 @@ describe('tacticalBriefing', () => {
       aiFallback: false,
       probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
     });
+    const run = vi.fn(async () => briefing);
     const env = createMockEnv({
       AI: {
-        run: vi.fn(async () => briefing),
+        run,
       } as never,
     });
     const result = await generateTacticalBriefing(env, {
@@ -205,6 +206,10 @@ describe('tacticalBriefing', () => {
       probability: { homeWinProb: 0.5, drawProb: 0.25, awayWinProb: 0.25 },
     });
     expect(result.matchId).toBe('m-workers');
+    expect(run).toHaveBeenCalledWith(
+      WORKERS_AI_TEXT_MODEL,
+      expect.objectContaining({ max_tokens: resolveModel('tactical_briefing').maxTokens }),
+    );
   });
 
   it('generateTacticalBriefing falls back when Workers AI returns invalid JSON', async () => {
@@ -250,6 +255,10 @@ describe('translateNews', () => {
     const env = createMockEnv({ AI: { run: aiRun } as never });
     const result = await translateNewsHeadline(env, 'USA wins friendly', 'The United States beat Mexico.');
     expect(result?.titleVi).toContain('Hoa Kỳ');
+    expect(aiRun).toHaveBeenCalledWith(
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      expect.objectContaining({ max_tokens: resolveModel('news_summary').maxTokens }),
+    );
   });
 
   it('uses gateway when Workers AI paths fail', async () => {
@@ -537,6 +546,10 @@ describe('entityExtraction', () => {
       OPENAI_API_KEY: 'sk-test',
     });
     expect((await extractEntitiesFromArticle(workersEnv, 'Brazil uses 4-3-3'))?.teams).toContain('Brazil');
+    expect(workersEnv.AI.run).toHaveBeenCalledWith(
+      WORKERS_AI_TEXT_MODEL,
+      expect.objectContaining({ max_tokens: resolveModel('entity_extract').maxTokens }),
+    );
   });
 
   it('extractEntitiesFromArticle stringifies non-response Workers payloads', async () => {

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { AppEnv } from '../env';
 import { gatewayChatJson, isGatewayConfigured } from './gatewayClient';
-import { WORKERS_AI_TEXT_MODEL } from './modelRouter';
+import { resolveModel, WORKERS_AI_TEXT_MODEL } from './modelRouter';
 import { SYSTEM_NO_INVENT_NUMBERS, entityExtractPrompt } from './prompts';
 import { getTeamsByTournament } from '../db/repositories/teamsRepo';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
@@ -51,6 +51,7 @@ async function workersAiExtract(env: AppEnv, articleText: string): Promise<Extra
   if (!env.AI) return null;
   try {
     const response = await env.AI.run(WORKERS_AI_TEXT_MODEL, {
+      max_tokens: resolveModel('entity_extract').maxTokens,
       messages: [
         { role: 'system', content: SYSTEM_NO_INVENT_NUMBERS },
         { role: 'user', content: entityExtractPrompt(articleText) },
