@@ -689,20 +689,25 @@ describe('coverage final lines 2 — UI gaps', () => {
     expect(resolveTeamFlagSlug({ countryCode: 'GB', teamName: 'England' })).toBe('gb-eng');
     expect(resolveTeamFlag({ teamName: 'eng' })).toBe('');
 
-    const originalDateTimeFormat = Intl.DateTimeFormat;
-    vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(((...args: ConstructorParameters<typeof Intl.DateTimeFormat>) => {
-      const fmt = new originalDateTimeFormat(...args);
-      return new Proxy(fmt, {
-        get(target, prop, receiver) {
-          if (prop === 'resolvedOptions') {
-            return () => ({ ...target.resolvedOptions(), timeZone: 'Asia/Ho_Chi_Minh' });
-          }
-          const value = Reflect.get(target, prop, receiver);
-          return typeof value === 'function' ? value.bind(target) : value;
-        },
-      }) as Intl.DateTimeFormat;
-    }) as typeof Intl.DateTimeFormat);
-    const tzView = renderApp(<ScheduleTimezoneBanner />);
+    class PatchedDateTimeFormat {
+      resolvedOptions() {
+        return { timeZone: 'Asia/Ho_Chi_Minh', locale: 'vi-VN' };
+      }
+      formatToParts() {
+        return [{ type: 'timeZoneName', value: 'GMT+7' }];
+      }
+      format() {
+        return 'GMT+7';
+      }
+    }
+    const OriginalDateTimeFormat = Intl.DateTimeFormat;
+    Intl.DateTimeFormat = PatchedDateTimeFormat as unknown as typeof Intl.DateTimeFormat;
+    let tzView: ReturnType<typeof renderApp>;
+    try {
+      tzView = renderApp(<ScheduleTimezoneBanner />);
+    } finally {
+      Intl.DateTimeFormat = OriginalDateTimeFormat;
+    }
     expect(tzView.container.querySelector('.text-muted-dim')).toBeNull();
     expect(tzView.container.textContent?.length ?? 0).toBeGreaterThan(5);
 
@@ -715,8 +720,12 @@ describe('coverage final lines 2 — UI gaps', () => {
     expect(alertSpy).toHaveBeenCalledWith('Recompute failed: 500');
 
     installSmokeFetchMock();
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const setIntervalSpy = vi.spyOn(window, 'setInterval');
+    const originalSetInterval = window.setInterval.bind(window);
+    const setIntervalSpy = vi.spyOn(window, 'setInterval').mockImplementation(((
+      fn: TimerHandler,
+      ms?: number,
+      ...args: unknown[]
+    ) => originalSetInterval(fn, ms, ...args)) as typeof window.setInterval);
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
     vi.resetModules();
     const { HomePage: IsolatedHomePage } = await import('../app/pages/HomePage');
@@ -731,8 +740,7 @@ describe('coverage final lines 2 — UI gaps', () => {
       </MemoryRouter>,
     );
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    await vi.advanceTimersByTimeAsync(31_000);
-    expect(setIntervalSpy).toHaveBeenCalled();
+    await waitFor(() => expect(setIntervalSpy).toHaveBeenCalled());
   });
 });
 
