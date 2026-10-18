@@ -67,7 +67,9 @@
         "queue": "wc-model-queue-uat",
         "max_batch_size": 5,
         "max_retries": 3,
-        "dead_letter_queue": "wc-model-dlq-uat"
+        "dead_letter_queue": "wc-model-dlq-uat",
+        // needs Cuong's OK before deploy. Briefing code works with concurrency 1.
+        "max_concurrency": 2
       }
     ]
   },
@@ -129,7 +131,9 @@
             "queue": "wc-model-queue",
             "max_batch_size": 5,
             "max_retries": 3,
-            "dead_letter_queue": "wc-model-dlq"
+            "dead_letter_queue": "wc-model-dlq",
+            // needs Cuong's OK before deploy. Briefing code works with concurrency 1.
+            "max_concurrency": 2
           }
         ]
       },
