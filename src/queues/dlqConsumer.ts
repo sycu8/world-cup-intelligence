@@ -1,6 +1,16 @@
 import type { AppEnv } from '../env';
+import { DLQ_PARKED_COUNT_KEY, INGEST_STALE_DROPS_KEY } from '../constants/pipeline';
+import { addPipelineCounter } from '../services/pipelineCounters';
 import { logError } from '../utils/logger';
-import { IDEMPOTENT_INGEST_TYPES, isStaleRefreshMinute } from './ingestDrain';
+import { queueRetryDelaySeconds } from './modelJobLane';
+import {
+  dlqMessageAction,
+  drainPauseMs,
+  loadReplayCursorMs,
+  parkDlqMessage,
+  replayDelayForCursor,
+  saveReplayCursorMs,
+} from './ingestDrain';
 
 type DlqBody = {
   type?: string;
@@ -9,56 +19,93 @@ type DlqBody = {
 } | null;
 
 /**
- * Ingest DLQ drain. Counts are logged by type. Every refresh_minute tick is
- * acked and not replayed: a stale tick is superseded, and a fresh one is
- * already replaced by the next cron tick. Replaying either would start another
- * score sync. Other idempotent jobs are sent to the ingest queue once, with
- * fromDlq set, then acked. A message that already has fromDlq is dropped, so
- * a replay that fails cannot bounce forever. The DLQ consumer has no nested
- * dead-letter queue. Model DLQ messages are counted and acked, not sent back.
+ * Explicit DLQ consumer. A message is retried onto ingest, parked in KV for
+ * replay, or acked only when it is a stale duplicate. See dlqMessageAction.
+ * A failed park calls retry() with a delay. An unacked message is acked by
+ * the platform and the body is lost. max_retries is 1 and there is no nested
+ * dead-letter queue.
  */
-export async function handleDlqBatch(batch: MessageBatch<unknown>, env: AppEnv): Promise<void> {
+export async function handleDlqBatch(
+  batch: MessageBatch<unknown>,
+  env: AppEnv,
+  options?: { pause?: (ms: number) => Promise<void> },
+): Promise<void> {
   const counts: Record<string, number> = {};
   let replayed = 0;
   let dropped = 0;
-  const ingestDlq = typeof batch.queue === 'string' && batch.queue.includes('ingest');
+  let parked = 0;
+  const queue = typeof batch.queue === 'string' ? batch.queue : 'unknown';
+  const ingestDlq = queue.includes('ingest');
+  let cursor = await loadReplayCursorMs(env);
+
+  async function park(msg: Message<unknown>, body: DlqBody, type: string, reason: string): Promise<void> {
+    const stored = await parkDlqMessage(env, { queue, id: msg.id, type, body, reason });
+    if (!stored) {
+      logError('queue dlq park retry', { queue, id: msg.id, type, reason });
+      msg.retry({ delaySeconds: queueRetryDelaySeconds(msg.attempts) });
+      return;
+    }
+    msg.ack();
+    parked += 1;
+  }
 
   for (const msg of batch.messages) {
     const body = (msg.body ?? null) as DlqBody;
     const type = body && typeof body.type === 'string' ? body.type : 'unknown';
     counts[type] = (counts[type] ?? 0) + 1;
+    const action = dlqMessageAction(body, msg.timestamp, ingestDlq);
 
-    if (
-      !ingestDlq ||
-      !body ||
-      body.fromDlq ||
-      type === 'refresh_minute' ||
-      isStaleRefreshMinute(body, msg.timestamp)
-    ) {
+    if (action === 'drop_stale') {
       msg.ack();
       dropped += 1;
       continue;
     }
 
-    if (IDEMPOTENT_INGEST_TYPES.has(type) && env.INGEST_QUEUE) {
-      try {
-        await env.INGEST_QUEUE.send({ ...body, fromDlq: true });
-        msg.ack();
-        replayed += 1;
-      } catch (error) {
-        logError('queue dlq replay failed', { queue: batch.queue, id: msg.id, type, error: String(error) });
+    if (action === 'replay' && env.INGEST_QUEUE) {
+      const planned = replayDelayForCursor(cursor, Date.now());
+      if (planned === 'park' || planned.delaySeconds >= 86_400) {
+        await park(msg, body, type, 'replay_delay_capped');
+        continue;
       }
+      const target = type === 'sync_match_recap' ? env.RECAP_QUEUE : env.INGEST_QUEUE;
+      if (!target) {
+        await park(msg, body, type, 'replay_failed');
+        continue;
+      }
+      try {
+        const payload = { ...body, fromDlq: true };
+        if (planned.delaySeconds > 0) await target.send(payload, { delaySeconds: planned.delaySeconds });
+        else await target.send(payload);
+      } catch (error) {
+        logError('queue dlq replay failed', { queue, id: msg.id, type, error: String(error) });
+        await park(msg, body, type, 'replay_failed');
+        continue;
+      }
+      await saveReplayCursorMs(env, planned.nextCursorMs);
+      // A rejected D1 write leaves the stored cursor. This batch still steps forward.
+      cursor = planned.nextCursorMs;
+      msg.ack();
+      replayed += 1;
       continue;
     }
 
-    msg.ack();
-    dropped += 1;
+    await park(msg, body, type, action === 'replay' ? 'replay_failed' : 'not_a_stale_duplicate');
   }
 
+  if (parked > 0) await addPipelineCounter(env, DLQ_PARKED_COUNT_KEY, parked);
+  if (dropped > 0) await addPipelineCounter(env, INGEST_STALE_DROPS_KEY, dropped);
+
   logError('queue dlq batch', {
-    queue: batch.queue,
+    queue,
     counts: JSON.stringify(counts),
     replayed,
     dropped,
+    parked,
   });
+
+  const waitMs = drainPauseMs(dropped + parked, replayed > 0);
+  if (waitMs > 0) {
+    logError('queue dlq drain paused', { dropped, parked, pauseMs: waitMs });
+    await (options?.pause ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms))))(waitMs);
+  }
 }

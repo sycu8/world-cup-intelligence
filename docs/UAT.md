@@ -42,7 +42,24 @@ npm run deploy:production   # production — chỉ sau khi UAT pass
 
 The Access host answers with a login redirect unless the request carries a service token. Do not commit the token. For `npm run test:scenarios` against `https://wcstat-uat.orangecloud.vn`, export `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` in the shell for that run. The script sends them as `CF-Access-Client-Id` and `CF-Access-Client-Secret`.
 
+## Recap queues before merge
+
+Wrangler 4.151.1 exits 1 when a consumer names a queue that does not exist (`Queue "wc-recap-dlq-uat" does not exist`). The config needs four queues, not two:
+
+```bash
+npx wrangler queues create wc-recap-queue-uat
+npx wrangler queues create wc-recap-dlq-uat
+npx wrangler queues create wc-recap-queue
+npx wrangler queues create wc-recap-dlq
+```
+
+Pre-merge checklist: all 4 queues exist (`npx wrangler queues list`) BEFORE merging, otherwise main's auto-deploy fails.
+
+`.github/workflows/deploy.yml` applies D1 migrations, including `0043_pipeline_counters.sql` and `0044_recap_sync_claims.sql`, before the matching UAT or production deploy. The worker also creates those tables when they are missing, so either order is safe. The workflow does not create queues. Create the four queues separately, with the owner's OK, before merge.
+
 ## Checklist nghiệm thu UAT
+
+- [ ] all 4 queues exist (`npx wrangler queues list`) BEFORE merging, otherwise main's auto-deploy fails
 
 - [ ] Trang UAT mở được (đăng nhập Access nếu đã bật)
 - [ ] Production `wcstat.orangecloud.vn` không đổi (khi chỉ deploy UAT)

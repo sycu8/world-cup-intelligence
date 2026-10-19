@@ -1,5 +1,6 @@
 import type { ModelJob } from './types';
 import type { AppEnv } from '../env';
+import { aiEnqueueBlocked, aiRunFlagsFromDelivery, isAiCapacityError, noteAiCapacity, withAiRun } from '../ai/aiCallGuard';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { resolveMatchRef } from '../services/matchRef';
 import { isLegacyMatchId } from '../utils/matchSlug';
@@ -19,6 +20,7 @@ import {
   requestBriefingGeneration,
 } from '../ai/briefingQueue';
 import { MODEL_QUEUE_STALE_DROPS_KEY } from '../constants/pipeline';
+import { addPipelineCounter } from '../services/pipelineCounters';
 import { runMultiVariableAnalysis } from '../ai/multiVariableAnalysis';
 import { extractEntitiesFromArticle } from '../ai/entityExtraction';
 import { processNewsDocumentImpact } from '../services/newsMatchImpact';
@@ -80,26 +82,31 @@ export async function handleModelBatch(
       Math.min(modelMessageTimeoutMs(msg.body.type), options?.messageTimeoutMs ?? Number.POSITIVE_INFINITY, deadlineMs - elapsed),
     );
     try {
-      await withMessageTimeout(timeoutMs, (signal) => runModelMessage(msg, env, config, signal));
+      await withAiRun(
+        aiRunFlagsFromDelivery({
+          attempts: msg.attempts,
+          fromDlq: 'fromDlq' in msg.body && Boolean((msg.body as { fromDlq?: boolean }).fromDlq),
+          runId: msg.id,
+        }),
+        () => withMessageTimeout(timeoutMs, (signal) => runModelMessage(msg, env, config, signal)),
+      );
       msg.ack();
     } catch (e) {
+      if (isAiCapacityError(e)) {
+        await noteAiCapacity(env, e);
+        logInfo('model job acked after ai capacity', { type: msg.body.type });
+        msg.ack();
+        continue;
+      }
       logError('model job failed', { error: String(e), type: msg.body.type });
       msg.retry({ delaySeconds: queueRetryDelaySeconds(msg.attempts) });
     }
   }
 }
 
-/** Best-effort. A concurrent batch can overwrite the count; one reread repairs a lost add. */
+/** One atomic add. Per-message KV increments of the same key collapse to 1. */
 async function recordStaleDrops(env: AppEnv, count: number): Promise<void> {
-  const raw = await env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY);
-  const base = Number.parseInt(raw ?? '0', 10);
-  const next = String((Number.isFinite(base) ? base : 0) + count);
-  await env.KV.put(MODEL_QUEUE_STALE_DROPS_KEY, next);
-  const seen = await env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY);
-  if (seen === next) return;
-  const again = Number.parseInt(seen ?? '0', 10);
-  const merged = String((Number.isFinite(again) ? again : 0) + count);
-  if (merged !== seen) await env.KV.put(MODEL_QUEUE_STALE_DROPS_KEY, merged);
+  await addPipelineCounter(env, MODEL_QUEUE_STALE_DROPS_KEY, count);
 }
 
 async function runModelMessage(
@@ -112,8 +119,10 @@ async function runModelMessage(
       switch (msg.body.type) {
         case 'recompute':
           await recomputeMatchProbability(env, msg.body.matchId);
-          await requestBriefingGeneration(env, msg.body.matchId);
-          await env.MODEL_QUEUE?.send({ type: 'ai_multi_analyze', matchId: msg.body.matchId });
+          if (!aiEnqueueBlocked()) {
+            await requestBriefingGeneration(env, msg.body.matchId);
+            await env.MODEL_QUEUE?.send({ type: 'ai_multi_analyze', matchId: msg.body.matchId });
+          }
           break;
         case 'PRE_MATCH_RECOMPUTE':
           await recomputeMatchProbability(env, msg.body.matchId);
@@ -151,6 +160,7 @@ async function runModelMessage(
           for (const matchId of msg.body.matchIds) {
             if (signal.aborted) throw new Error('model message timed out');
             await recomputeMatchProbability(env, matchId);
+            if (aiEnqueueBlocked()) continue;
             await requestBriefingGeneration(env, matchId);
             await env.MODEL_QUEUE?.send({ type: 'ai_multi_analyze', matchId });
           }

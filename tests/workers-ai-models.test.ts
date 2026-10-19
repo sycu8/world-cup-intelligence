@@ -64,12 +64,14 @@ const TEXT_GENERATION_FILES = [
 
 function textGenerationCallsMissingMaxTokens(source: string): number {
   let missing = 0;
-  let index = 0;
-  while ((index = source.indexOf('env.AI.run(', index)) !== -1) {
-    const window = source.slice(index, index + 280);
-    index += 'env.AI.run('.length;
-    if (window.includes('m2m100')) continue;
-    if (!window.includes('max_tokens')) missing += 1;
+  for (const needle of ['env.AI.run(', 'guardedAiRun(']) {
+    let index = 0;
+    while ((index = source.indexOf(needle, index)) !== -1) {
+      const window = source.slice(index, index + 280);
+      index += needle.length;
+      if (window.includes('m2m100')) continue;
+      if (!window.includes('max_tokens')) missing += 1;
+    }
   }
   return missing;
 }

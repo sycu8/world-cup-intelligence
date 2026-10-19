@@ -7,6 +7,12 @@ export const LIVE_PROB_REFRESH_INTERVAL_SEC = 900;
 export const NEWS_CRAWL_KV_KEY = 'meta:last_news_crawl';
 /** Count of model-queue messages acked as stale. Readable from /api/health. */
 export const MODEL_QUEUE_STALE_DROPS_KEY = 'meta:model_queue_stale_drops';
+/** Count of ingest ticks acked as stale. Readable from /api/health. */
+export const INGEST_STALE_DROPS_KEY = 'meta:ingest_stale_drops';
+/** DLQ messages stored for replay instead of acked away. Readable from /api/health. */
+export const DLQ_PARKED_COUNT_KEY = 'meta:dlq_parked';
+/** Epoch ms when the last starter refresh_minute was accepted. No TTL. */
+export const INGEST_LAST_RUN_KEY = 'ingest:last_run:refresh_minute';
 /** Matches skipped after repeated bulk-recompute budget cuts. Readable from /api/health. */
 export const BULK_BUDGET_SKIPS_KEY = 'meta:bulk_recompute_budget_skips';
 /** Set while a statsbomb chunk inserted rows, so the last chunk can schedule one walk. */

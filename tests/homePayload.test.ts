@@ -99,4 +99,28 @@ describe('buildHomePayloadData', () => {
     await buildHomePayloadData(env);
     expect(env.KV.put).not.toHaveBeenCalled();
   });
+
+  it('does not replace the last-good homepage when a section throws', async () => {
+    const { buildSchedulePayload } = await import('../src/services/schedulePayload');
+    const { fetchHotNewsArticles } = await import('../src/services/newsListPayload');
+    vi.mocked(buildSchedulePayload).mockResolvedValueOnce({
+      data: {
+        byDate: {},
+        matches: [{ id: 'm-kept' }],
+        tournamentId: 't-2026',
+        total: 1,
+      },
+      meta: { expectedMatches: 104, year: 2026, tournamentId: 't-2026', wc2026Only: true },
+    } as Awaited<ReturnType<typeof buildSchedulePayload>>);
+    vi.mocked(fetchHotNewsArticles).mockRejectedValueOnce(new Error('news down'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const env = createMockEnv();
+
+    const payload = await buildHomePayloadData(env);
+
+    expect(payload.schedule.matches).toEqual([{ id: 'm-kept' }]);
+    expect(payload.hotNews).toEqual([]);
+    expect(env.KV.put).not.toHaveBeenCalledWith(homeLastGoodKey('t-2026'), expect.anything(), expect.anything());
+    warn.mockRestore();
+  });
 });

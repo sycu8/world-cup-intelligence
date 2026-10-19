@@ -7,12 +7,19 @@ type IngestJobShape =
       feedCursor?: number;
     }
   | { type: 'source_ingest'; sourceId: string; idempotencyKey: string; seasonCursor?: number }
-  | { type: 'refresh_minute'; idempotencyKey: string }
+  | {
+      type: 'refresh_minute';
+      idempotencyKey: string;
+      /** Absent on the starter. Each follow-up has its own queue budget. */
+      step?: 'lineups' | 'bracket' | 'warm' | 'completed';
+      completedIds?: string[];
+    }
   | { type: 'crawl_news'; idempotencyKey: string; feedCursor?: number }
   | { type: 'match_complete'; matchId: string; idempotencyKey: string }
   | { type: 'refresh_live_probabilities'; idempotencyKey: string }
   | { type: 'sync_leagues'; idempotencyKey: string; leagueCursor?: number }
-  | { type: 'webhook_deliver'; subscriptionId: string; eventId: number; idempotencyKey: string };
+  | { type: 'webhook_deliver'; subscriptionId: string; eventId: number; idempotencyKey: string }
+  | { type: 'sync_match_recap'; matchRef: string; idempotencyKey: string };
 
 /** fromDlq marks a single DLQ replay. A second visit is acked and not sent again. */
 export type IngestJob = IngestJobShape & { fromDlq?: boolean };

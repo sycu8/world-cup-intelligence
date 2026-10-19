@@ -122,7 +122,7 @@ export async function upsertTranslatedMatchRecap(
   const summaryEn = buildFifaRecapSummaryEn(recapInput);
   if (!summaryEn.trim()) return false;
 
-  const summaryVi = (await translateMatchRecapSummary(env, summaryEn, 900)) ?? summaryEn;
+  const summaryVi = (await translateMatchRecapSummary(env, summaryEn, 900, { matchId })) ?? summaryEn;
   const now = nowIso();
 
   await env.DB.prepare(
@@ -164,7 +164,7 @@ export async function translateAndStoreCommentary(
     minute: line.minute,
   }));
   const cachedVi = lines.map((line) => existingViById.get(line.id));
-  const textsVi = await translateCommentaryLines(env, translateInputs, cachedVi);
+  const textsVi = await translateCommentaryLines(env, translateInputs, cachedVi, { matchId });
 
   await env.DB.prepare(`DELETE FROM match_commentary WHERE match_id = ? AND source_id = ?`)
     .bind(matchId, FIFA_SOURCE_ID)

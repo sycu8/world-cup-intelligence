@@ -5,6 +5,7 @@ import { logError, logInfo } from '../utils/logger';
 import { mockScoreAtMinute } from '../services/matchLifecycle';
 import { processMatchCompletion, replayKnockoutBracketFromCompleted } from '../services/tournamentProgression';
 import { resolveMatchDataProvider } from './matchDataProvider';
+import { throwIfMessageAborted } from '../queues/modelJobLane';
 import { syncFifaWc2026Matches } from './fifa/fifaLiveSync';
 import { syncFifaLineupsForUpcomingMatches } from './fifa/fifaLineupSync';
 import { backfillIncompleteFifaMatchStats, backfillMissingFifaRecaps } from './fifa/fifaLiveBlogSync';
@@ -16,31 +17,50 @@ export type RefreshMatchDataResult = {
   bracketUpdatedIds: string[];
 };
 
+export type RefreshMatchDataOptions = {
+  /**
+   * Score sync only. Lineups, finished matches, bracket replay, and cache warm
+   * are separate queue messages so a slow FIFA sync cannot skip them.
+   */
+  scoresOnly?: boolean;
+  /** Cancels the FIFA fetch when the queue message hits its budget. */
+  signal?: AbortSignal;
+};
+
+export type RefreshFollowUpStep = 'lineups' | 'bracket' | 'warm' | 'completed';
+
 function fifaLiveEnabled(env: AppEnv): boolean {
   const cfg = parseEnv(env);
   return cfg.fifaLiveEnabled || !cfg.mockSources;
 }
 
+export async function stampLastDataRefresh(env: AppEnv): Promise<void> {
+  await env.KV.put('meta:last_data_refresh', nowIso(), { expirationTtl: 86400 });
+}
+
 /** Near-real-time refresh: FIFA Match Centre sync or mock ticks, then progression + recompute. */
 export async function refreshMatchData(
   env: AppEnv,
-  options?: { signal?: AbortSignal },
+  options: RefreshMatchDataOptions = {},
 ): Promise<RefreshMatchDataResult> {
+  throwIfMessageAborted(options.signal);
   if (fifaLiveEnabled(env)) {
-    const fifa = await syncFifaWc2026Matches(env, { signal: options?.signal });
-    // Stamp as soon as the score sync returns. Lineups and the two backfills
-    // used to run before this write and after meta:last_fifa_sync, so
-    // lastFifaSync moved while lastDataRefresh stayed on the previous run.
-    await env.KV.put('meta:last_data_refresh', nowIso(), { expirationTtl: 86400 });
-    await syncFifaLineupsForUpcomingMatches(env).catch(() => undefined);
+    const fifa = await syncFifaWc2026Matches(env, { signal: options.signal });
+    // Stamp only after at least one FIFA write. From 02:36:47 to 02:49:43 ICT,
+    // lastFifaSync changed 8 times while lastDataRefresh stayed at 02:36:47,
+    // so several refreshes ended before this stamp. Backfill stays after it.
+    if (fifa.synced > 0) await stampLastDataRefresh(env);
     await backfillIncompleteFifaMatchStats(env, 4).catch((e) => {
       logError('fifa stats backfill batch failed', { error: String(e) });
     });
     await backfillMissingFifaRecaps(env, 4).catch((e) => {
       logError('fifa recap backfill batch failed', { error: String(e) });
     });
-    const { warmPayloadCaches } = await import('../services/cacheWarm');
-    await warmPayloadCaches(env).catch(() => undefined);
+    if (!options.scoresOnly) {
+      await syncFifaLineupsForUpcomingMatches(env).catch(() => undefined);
+      const { warmPayloadCaches } = await import('../services/cacheWarm');
+      await warmPayloadCaches(env).catch(() => undefined);
+    }
     return {
       updatedIds: fifa.updatedIds,
       completedIds: fifa.completedIds,
@@ -109,17 +129,18 @@ export async function refreshMatchData(
     }
   }
 
-  await env.KV.put('meta:last_data_refresh', now, { expirationTtl: 86400 });
-  const { warmPayloadCaches } = await import('../services/cacheWarm');
-  await warmPayloadCaches(env).catch(() => undefined);
+  if (updatedIds.length > 0 || completedIds.length > 0) await stampLastDataRefresh(env);
+  if (!options.scoresOnly) {
+    const { warmPayloadCaches } = await import('../services/cacheWarm');
+    await warmPayloadCaches(env).catch(() => undefined);
+  }
   logInfo('minute refresh complete', {
     updated: updatedIds.length,
     completed: completedIds.length,
   });
 
-  const bracketUpdatedIds = completedIds.length
-    ? await replayKnockoutBracketFromCompleted(env)
-    : [];
+  const bracketUpdatedIds =
+    !options.scoresOnly && completedIds.length ? await replayKnockoutBracketFromCompleted(env) : [];
 
   return {
     updatedIds,
@@ -134,4 +155,35 @@ export async function handleCompletedMatches(env: AppEnv, matchIds: string[]): P
   for (const matchId of matchIds) {
     await processMatchCompletion(env, matchId);
   }
+}
+
+const FOLLOW_UP_STAMP_KEY: Record<RefreshFollowUpStep, string> = {
+  lineups: 'meta:last_lineups_refresh',
+  warm: 'meta:last_warm_refresh',
+  completed: 'meta:last_completed_refresh',
+  bracket: 'meta:last_bracket_refresh',
+};
+
+/** One follow-up step. Stamps its own key. It does not move lastDataRefresh. */
+export async function runRefreshFollowUp(
+  env: AppEnv,
+  step: RefreshFollowUpStep,
+  completedIds: string[] = [],
+): Promise<string[]> {
+  if (step === 'lineups') {
+    if (fifaLiveEnabled(env)) {
+      await syncFifaLineupsForUpcomingMatches(env).catch(() => undefined);
+    }
+  } else if (step === 'warm') {
+    const { warmPayloadCaches } = await import('../services/cacheWarm');
+    await warmPayloadCaches(env).catch(() => undefined);
+  } else if (step === 'completed') {
+    await handleCompletedMatches(env, completedIds);
+  } else {
+    const bracketUpdatedIds = await replayKnockoutBracketFromCompleted(env);
+    await env.KV.put(FOLLOW_UP_STAMP_KEY.bracket, nowIso(), { expirationTtl: 86400 });
+    return bracketUpdatedIds;
+  }
+  await env.KV.put(FOLLOW_UP_STAMP_KEY[step], nowIso(), { expirationTtl: 86400 });
+  return [];
 }

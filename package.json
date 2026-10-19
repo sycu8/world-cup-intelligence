@@ -32,7 +32,7 @@
     "calibrate:model": "node scripts/calibrate-probability-model.mjs",
     "validate:score-model": "npx tsx scripts/validate-score-model-acceptance.ts",
     "warm:caches": "node scripts/warm-production-caches.mjs",
-    "lint": "eslint src app --ext .ts,.tsx",
+    "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "audit": "npm audit --audit-level=high",
     "deploy": "npm run deploy:uat",

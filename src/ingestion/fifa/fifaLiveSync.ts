@@ -536,6 +536,8 @@ export async function syncFifaWc2026Matches(
     );
   }
 
+  throwIfRefreshAborted(signal);
+
   if (synced > 0) {
     await env.KV.put('meta:last_fifa_sync', nowIso(), { expirationTtl: 86400 });
   }

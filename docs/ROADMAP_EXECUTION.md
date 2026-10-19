@@ -78,7 +78,7 @@ Cycle per item: **Plan → Code+Test → Feedback → Supplement → Deploy → 
 ## R15 — CI migrations before deploy
 
 **Plan**
-- `.github/workflows/deploy.yml`: `db:migrate:uat` / `db:migrate:production` before respective deploy steps
+- `.github/workflows/deploy.yml`: `db:migrate:uat` / `db:migrate:production` before respective deploy steps. That applies `0043_pipeline_counters.sql` and `0044_recap_sync_claims.sql`. The worker creates the same tables if they are missing, so either order is safe. Do not add queue creation to the workflow. Before merge, all 4 queues exist (`npx wrangler queues list`): `wc-recap-queue-uat`, `wc-recap-dlq-uat`, `wc-recap-queue`, `wc-recap-dlq`. Create them with `npx wrangler queues create <name>`, separately, with the owner's OK. Otherwise main's auto-deploy fails.
 
 ---
 

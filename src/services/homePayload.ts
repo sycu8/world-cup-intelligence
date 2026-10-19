@@ -29,15 +29,6 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-async function loadSection<T>(name: string, fallback: T, load: () => Promise<T>): Promise<T> {
-  try {
-    return await load();
-  } catch (err) {
-    logWarn('home section unavailable', { section: name, error: errorMessage(err) });
-    return fallback;
-  }
-}
-
 /** Empty sections used when a homepage dependency fails. */
 export function emptyHomeSections(tournament = 't-2026'): HomePayloadData {
   const wc = tournament === WC2026_TOURNAMENT_ID;
@@ -76,14 +67,24 @@ export function emptyHomeSections(tournament = 't-2026'): HomePayloadData {
 
 export async function buildHomePayloadData(env: AppEnv, tournament = 't-2026'): Promise<HomePayloadData> {
   const empty = emptyHomeSections(tournament);
+  let complete = true;
+  async function loadOk<T>(name: string, fallback: T, load: () => Promise<T>): Promise<T> {
+    try {
+      return await load();
+    } catch (err) {
+      complete = false;
+      logWarn('home section unavailable', { section: name, error: errorMessage(err) });
+      return fallback;
+    }
+  }
   const [schedule, dashboard, hotNews, standings, matchProbabilities, topScorers] = await Promise.all([
-    loadSection('schedule', { data: empty.schedule, meta: empty.scheduleMeta }, () =>
+    loadOk('schedule', { data: empty.schedule, meta: empty.scheduleMeta }, () =>
       buildSchedulePayload(env, tournament),
     ),
-    loadSection('dashboard', empty.dashboard, () => buildDashboardPayload(env)),
-    loadSection('hotNews', empty.hotNews, () => fetchHotNewsArticles(env, 3)),
-    loadSection('standings', empty.standings, () => buildGroupStandingsPayload(env)),
-    loadSection(
+    loadOk('dashboard', empty.dashboard, () => buildDashboardPayload(env)),
+    loadOk('hotNews', empty.hotNews, () => fetchHotNewsArticles(env, 3)),
+    loadOk('standings', empty.standings, () => buildGroupStandingsPayload(env)),
+    loadOk(
       'matchProbabilities',
       { data: empty.matchProbabilities, meta: { total: 0, withProbability: 0, pending: 0, missingIds: [] } },
       () =>
@@ -92,7 +93,7 @@ export async function buildHomePayloadData(env: AppEnv, tournament = 't-2026'): 
           skipInlineFill: true,
         }),
     ),
-    loadSection('topScorers', empty.topScorers, () => buildTopScorersPayload(env)),
+    loadOk('topScorers', empty.topScorers, () => buildTopScorersPayload(env)),
   ]);
 
   const payload: HomePayloadData = {
@@ -104,7 +105,7 @@ export async function buildHomePayloadData(env: AppEnv, tournament = 't-2026'): 
     matchProbabilities: matchProbabilities.data,
     topScorers,
   };
-  await rememberHomeSnapshot(env, tournament, payload);
+  if (complete) await rememberHomeSnapshot(env, tournament, payload);
   return payload;
 }
 

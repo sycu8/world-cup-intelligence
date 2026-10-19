@@ -63,9 +63,7 @@ import { usePitchMapLive } from '../lib/usePitchMapLive';
 import { matchOgImageUrl } from '../lib/matchThumbnail';
 import { usePageMeta } from '../lib/usePageMeta';
 
-/** 24 waits × 5s keeps the page polling for about 120s. */
-const BRIEFING_POLL_LIMIT = 24;
-const BRIEFING_POLL_INTERVAL_MS = 5000;
+import { BRIEFING_POLL_INTERVAL_MS, nextBriefingPoll } from '../lib/briefingPoll';
 
 export function MatchPage() {
   const { matchId } = useParams();
@@ -149,11 +147,14 @@ export function MatchPage() {
           .then((r) => {
             if (cancelled) return;
             setBriefing(r.data);
-            const stillGenerating = Boolean(r.generating);
-            const failed = r.briefingStatus === 'failed';
-            setBriefingGenerating(stillGenerating);
-            setBriefingTimedOut(failed || (stillGenerating && attempt >= BRIEFING_POLL_LIMIT));
-            if (stillGenerating && attempt < BRIEFING_POLL_LIMIT) {
+            const decision = nextBriefingPoll({
+              generating: Boolean(r.generating),
+              briefingStatus: r.briefingStatus,
+              attempt,
+            });
+            setBriefingGenerating(decision.generating);
+            setBriefingTimedOut(decision.timedOut);
+            if (decision.continuePolling) {
               briefingTimer = setTimeout(() => pollBriefing(attempt + 1), BRIEFING_POLL_INTERVAL_MS);
             }
           })

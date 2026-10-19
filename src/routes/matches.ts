@@ -11,6 +11,7 @@ import { getLineupDisplayForMatch, ensureMatchLineups } from '../services/lineup
 import { resolveMatchRef, listMatchesWithSlug } from '../services/matchRef';
 import { getMatchStats } from '../services/matchStats';
 import { getMatchRecap } from '../services/matchRecap';
+import { claimRecapSync, recapNeedsSync } from '../services/recapSync';
 import { getMatchStaff } from '../services/matchStaff';
 import { parseEnv } from '../env';
 import { shouldSyncFifaMatch, syncFifaMatchByRef } from '../ingestion/fifa/fifaLiveSync';
@@ -18,6 +19,7 @@ import { withPathCache } from '../services/workersPathCache';
 import * as teamsRepo from '../db/repositories/teamsRepo';
 import { attachResolvedScoreDetail } from '../services/matchScoreDetailApi';
 import { getMatchThumbnailPng, getMatchThumbnailSvg } from '../services/matchThumbnail';
+import { logError } from '../utils/logger';
 
 export const matchRoutes = new Hono<{ Bindings: AppEnv }>();
 
@@ -212,13 +214,27 @@ matchRoutes.get('/:matchId/stats', async (c) => {
 });
 
 matchRoutes.get('/:matchId/recap', async (c) => {
-  // The stored recap is loaded before any FIFA sync, and the sync result is not
-  // part of this response. Waiting on it held the slowest prod route (one
-  // request at 48s). Hand the sync to waitUntil so the response returns.
-  const data = await getMatchRecap(c.env, c.req.param('matchId'), {
-    waitUntil: (promise) => c.executionCtx.waitUntil(promise),
-  });
+  const matchRef = c.req.param('matchId');
+  const resolved = await resolveMatchRef(c.env.DB, matchRef, c.env.KV);
+  if (!resolved) return c.json({ error: 'Not found' }, 404);
+  const data = await getMatchRecap(c.env, matchRef, { syncFifa: false });
   if (!data) return c.json({ error: 'Not found' }, 404);
+  const cfg = parseEnv(c.env);
+  // Queue after the 200 is known. A 404 never queues. The sync runs on
+  // RECAP_QUEUE so it does not sit in front of refresh_minute.
+  if (c.env.RECAP_QUEUE && (cfg.fifaLiveEnabled || !cfg.mockSources) && (await recapNeedsSync(c.env, resolved))) {
+    const claimed = await claimRecapSync(c.env, resolved.id);
+    if (claimed) {
+      const send = c.env.RECAP_QUEUE.send({
+        type: 'sync_match_recap',
+        matchRef: resolved.id,
+        idempotencyKey: `sync_match_recap:${resolved.id}`,
+      }).catch((error) => {
+        logError('recap sync enqueue failed', { matchRef: resolved.id, error: String(error) });
+      });
+      c.executionCtx.waitUntil(send);
+    }
+  }
   return c.json({ data });
 });
 

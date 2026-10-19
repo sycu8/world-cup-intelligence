@@ -66,6 +66,8 @@ const INGEST_TIMEOUT_MS: Record<string, number> = {
   match_complete: 60_000,
   refresh_live_probabilities: 60_000,
   webhook_deliver: 30_000,
+  // Forward only. The sync runs on RECAP_QUEUE, so this must not hold the ingest lane.
+  sync_match_recap: 10_000,
 };
 
 export function ingestMessageTimeoutMs(type: string): number {
@@ -124,6 +126,10 @@ export function modelJobPriority(type: string): number {
  * Rejects when `ms` elapses and aborts `signal`, even if `work` never settles.
  * The caller acks or retries that message and continues the batch.
  */
+export function throwIfMessageAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw new Error('model message timed out');
+}
+
 export function withMessageTimeout<T>(
   ms: number,
   work: (signal: AbortSignal) => Promise<T>,

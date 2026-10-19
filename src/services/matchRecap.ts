@@ -1,5 +1,7 @@
 import type { AppEnv } from '../env';
 import { parseEnv } from '../env';
+import { markRecapSynced } from './recapSync';
+import { logError } from '../utils/logger';
 import { resolveMatchRef, type MatchWithSlug } from './matchRef';
 import { syncFifaMatchByRef } from '../ingestion/fifa/fifaLiveSync';
 import { shouldSyncFifaBlogAndStats, ensureFifaBlogAndStats } from '../ingestion/fifa/fifaLiveBlogSync';
@@ -41,8 +43,10 @@ export type MatchRecapPayload = {
 };
 
 export type GetMatchRecapOptions = {
-  /** Cloudflare waitUntil — FIFA sync runs in background instead of blocking the response. */
+  /** Cloudflare waitUntil — kept for callers that still pass it. The recap route queues instead. */
   waitUntil?: (promise: Promise<unknown>) => void;
+  /** False when the route has already queued the FIFA sync. */
+  syncFifa?: boolean;
 };
 
 async function loadRecapPayloadFromDb(
@@ -160,7 +164,9 @@ async function refreshFifaRecapIfNeeded(env: AppEnv, resolved: MatchWithSlug): P
         resolved.away_team_id,
       )));
   if (needsBlogStatsSync) {
-    await syncFifaMatchByRef(env, matchId).catch(() => undefined);
+    await syncFifaMatchByRef(env, matchId).catch((error) => {
+      logError('recap fifa match sync failed', { matchId, error: String(error) });
+    });
   }
   await ensureFifaBlogAndStats(
     env,
@@ -169,7 +175,20 @@ async function refreshFifaRecapIfNeeded(env: AppEnv, resolved: MatchWithSlug): P
     resolved.away_team_id,
     resolved.fifa_match_id,
     resolved.status,
-  ).catch(() => undefined);
+  ).catch((error) => {
+    logError('recap fifa blog sync failed', { matchId, error: String(error) });
+  });
+}
+
+/** Queue consumer entry. Logs and returns; the stored recap is already served. */
+export async function syncQueuedMatchRecap(env: AppEnv, matchRef: string): Promise<void> {
+  const resolved = await resolveMatchRef(env.DB, matchRef);
+  if (!resolved) {
+    logError('recap sync match missing', { matchRef });
+    return;
+  }
+  await refreshFifaRecapIfNeeded(env, resolved);
+  await markRecapSynced(env, resolved.id);
 }
 
 export async function getMatchRecap(
@@ -182,10 +201,10 @@ export async function getMatchRecap(
 
   const payload = await loadRecapPayloadFromDb(env, resolved);
 
-  if (parseEnv(env).fifaLiveEnabled || !parseEnv(env).mockSources) {
+  if (opts?.syncFifa !== false && (parseEnv(env).fifaLiveEnabled || !parseEnv(env).mockSources)) {
     const work = refreshFifaRecapIfNeeded(env, resolved);
     if (opts?.waitUntil) {
-      opts.waitUntil(work);
+      opts.waitUntil(work.catch((error) => logError('recap background sync failed', { matchId: resolved.id, error: String(error) })));
     } else {
       await work;
     }

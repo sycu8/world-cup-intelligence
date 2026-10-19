@@ -1,5 +1,6 @@
 import type { AppEnv } from '../env';
 import { parseEnv } from '../env';
+import { claimAiCall } from './aiCallGuard';
 import { logError, logInfo } from '../utils/logger';
 import type { AiTask } from './modelRouter';
 import { resolveModel, WORKERS_AI_FALLBACK } from './modelRouter';
@@ -50,6 +51,7 @@ export async function gatewayChat(
 ): Promise<GatewayChatResult | null> {
   const url = gatewayBaseUrl(env);
   if (!url) return null;
+  if (!(await claimAiCall(env))) return null;
 
   const modelCfg = resolveModel(task, options?.preferEconomy);
   let model = modelCfg.providerModel;

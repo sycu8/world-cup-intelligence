@@ -3,10 +3,15 @@ import { isGatewayConfigured } from '../ai/gatewayClient';
 import { parseEnv } from '../env';
 import {
   BULK_BUDGET_SKIPS_KEY,
+  DLQ_PARKED_COUNT_KEY,
+  INGEST_LAST_RUN_KEY,
+  INGEST_STALE_DROPS_KEY,
   MODEL_QUEUE_STALE_DROPS_KEY,
   NEWS_CRAWL_INTERVAL_SEC,
   NEWS_CRAWL_KV_KEY,
 } from '../constants/pipeline';
+import { parseLastRunMs } from '../queues/ingestDrain';
+import { readPipelineCounter } from './pipelineCounters';
 
 /** lastDataRefresh older than this is degraded. Exactly this age stays healthy. */
 export const DATA_REFRESH_DEGRADED_AFTER_MS = 150_000;
@@ -28,9 +33,13 @@ export function dataRefreshStatus(last: string | null, now = Date.now()): DataRe
   return 'healthy';
 }
 
-function combineHealthStatus(dbOk: boolean, refresh: DataRefreshHealth): DataRefreshHealth {
-  if (refresh === 'unhealthy') return 'unhealthy';
-  if (!dbOk || refresh === 'degraded') return 'degraded';
+function combineHealthStatus(
+  dbOk: boolean,
+  refresh: DataRefreshHealth,
+  fifa: DataRefreshHealth,
+): DataRefreshHealth {
+  if (refresh === 'unhealthy' || fifa === 'unhealthy') return 'unhealthy';
+  if (!dbOk || refresh === 'degraded' || fifa === 'degraded') return 'degraded';
   return 'healthy';
 }
 
@@ -46,6 +55,12 @@ export type HealthPayload = {
     lastNewsCrawl: string | null;
     modelQueueStaleDrops: number;
     bulkRecomputeBudgetSkips: number;
+    /** Ingest ticks acked without running. Cached with the rest of this payload for 15s. */
+    ingestStaleDrops: number;
+    /** DLQ messages stored for replay. Cumulative. Cached with this payload for 15s. */
+    ingestDlqParked: number;
+    /** Epoch ms of the last accepted minute refresh. Null when none is stored. */
+    ingestLastRefreshRunMs: number | null;
   };
   viewOnly: boolean;
   timestamp: string;
@@ -55,15 +70,18 @@ export async function buildHealthPayload(env: AppEnv): Promise<HealthPayload> {
   const config = parseEnv(env);
   const isProduction = config.environment === 'production';
 
-  const [dbResult, lastRefresh, lastFifaSync, lastNewsCrawl, staleDropsRaw, budgetSkipsRaw] = await Promise.all([
-    env.DB.prepare('SELECT 1 AS ok').first<{ ok: number }>().catch(() => null),
-    env.KV.get('meta:last_data_refresh'),
-    env.KV.get('meta:last_fifa_sync'),
-    env.KV.get(NEWS_CRAWL_KV_KEY),
-    env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY),
-    env.KV.get(BULK_BUDGET_SKIPS_KEY),
-  ]);
-  const staleDrops = Number.parseInt(staleDropsRaw ?? '0', 10);
+  const [dbResult, lastRefresh, lastFifaSync, lastNewsCrawl, staleDrops, budgetSkipsRaw, ingestDrops, ingestLastRunRaw, dlqParked] =
+    await Promise.all([
+      env.DB.prepare('SELECT 1 AS ok').first<{ ok: number }>().catch(() => null),
+      env.KV.get('meta:last_data_refresh'),
+      env.KV.get('meta:last_fifa_sync'),
+      env.KV.get(NEWS_CRAWL_KV_KEY),
+      readPipelineCounter(env, MODEL_QUEUE_STALE_DROPS_KEY),
+      env.KV.get(BULK_BUDGET_SKIPS_KEY),
+      readPipelineCounter(env, INGEST_STALE_DROPS_KEY),
+      env.KV.get(INGEST_LAST_RUN_KEY),
+      readPipelineCounter(env, DLQ_PARKED_COUNT_KEY),
+    ]);
   const budgetSkips = Number.parseInt(budgetSkipsRaw ?? '0', 10);
 
   const dbOk = dbResult?.ok === 1;
@@ -79,7 +97,7 @@ export async function buildHealthPayload(env: AppEnv): Promise<HealthPayload> {
   }
 
   return {
-    status: combineHealthStatus(dbOk, dataRefreshStatus(lastRefresh)),
+    status: combineHealthStatus(dbOk, dataRefreshStatus(lastRefresh), dataRefreshStatus(lastFifaSync)),
     environment: config.environment,
     dependencies,
     pipeline: {
@@ -88,8 +106,11 @@ export async function buildHealthPayload(env: AppEnv): Promise<HealthPayload> {
       lastDataRefresh: lastRefresh,
       lastFifaSync,
       lastNewsCrawl,
-      modelQueueStaleDrops: Number.isFinite(staleDrops) ? staleDrops : 0,
+      modelQueueStaleDrops: staleDrops,
       bulkRecomputeBudgetSkips: Number.isFinite(budgetSkips) ? budgetSkips : 0,
+      ingestStaleDrops: ingestDrops,
+      ingestDlqParked: dlqParked,
+      ingestLastRefreshRunMs: parseLastRunMs(ingestLastRunRaw),
     },
     viewOnly: true,
     timestamp: new Date().toISOString(),

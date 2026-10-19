@@ -1,7 +1,8 @@
 import type { IngestJob } from './types';
 import type { AppEnv } from '../env';
-import { logInfo } from '../utils/logger';
-import { refreshMatchData, handleCompletedMatches } from '../ingestion/matchDataRefresh';
+import { aiEnqueueBlocked, aiRunFlagsFromDelivery, isAiCapacityError, noteAiCapacity, withAiRun } from '../ai/aiCallGuard';
+import { logError, logInfo } from '../utils/logger';
+import { refreshMatchData, handleCompletedMatches, runRefreshFollowUp } from '../ingestion/matchDataRefresh';
 import { crawlWorldCupNews, type NewsCrawlChunk } from '../ingestion/newsCrawler';
 import { ingestStatsbombWorldCup } from '../ingestion/statsbombIngest';
 import { getIngestHandler } from '../ingestion/sourceRegistry';
@@ -14,7 +15,8 @@ import {
 import { runChampionOddsRefreshIfPending } from '../services/tournamentChampionOdds';
 import { deliverWebhook } from '../services/publicApi/webhooks';
 import { syncOfficialLineupsToMatches } from '../services/officialLineupSync';
-import { STATSBOMB_INGEST_DIRTY_KEY } from '../constants/pipeline';
+import { INGEST_LAST_RUN_KEY, INGEST_STALE_DROPS_KEY, STATSBOMB_INGEST_DIRTY_KEY } from '../constants/pipeline';
+import { addPipelineCounter } from '../services/pipelineCounters';
 import {
   CONSUMER_BATCH_DEADLINE_MS,
   INGEST_CHUNK_BUDGET_MS,
@@ -22,35 +24,46 @@ import {
   deferQueuedMessage,
   ingestMessageTimeoutMs,
   queueRetryDelaySeconds,
+  throwIfMessageAborted,
   withMessageTimeout,
 } from './modelJobLane';
 import {
+  drainPauseMs,
   ingestDedupeKey,
-  isStaleRefreshMinute,
-  REFRESH_CLAIM_KEY,
-  refreshClaimBlocks,
+  isStaleIngestTick,
+  parseLastRunMs,
   REFRESH_STALE_MS,
+  refreshRunIsDue,
 } from './ingestDrain';
 
-async function claimFreshRefresh(env: AppEnv): Promise<boolean> {
+async function readLastRefreshRunMs(env: AppEnv): Promise<number | null> {
   try {
-    const now = Date.now();
-    const existing = await env.KV.get(REFRESH_CLAIM_KEY);
-    if (refreshClaimBlocks(existing, now)) return false;
-    await env.KV.put(REFRESH_CLAIM_KEY, String(now), { expirationTtl: 60 });
-    return true;
+    return parseLastRunMs(await env.KV.get(INGEST_LAST_RUN_KEY));
   } catch (error) {
-    logInfo('ingest refresh claim failed', { error: String(error) });
-    return true;
+    logInfo('ingest refresh last-run read failed', { error: String(error) });
+    return null;
   }
 }
 
-async function releaseRefreshClaim(env: AppEnv): Promise<void> {
+async function markRefreshStarted(env: AppEnv, now: number): Promise<void> {
   try {
-    await env.KV.delete(REFRESH_CLAIM_KEY);
+    await env.KV.put(INGEST_LAST_RUN_KEY, String(now));
   } catch (error) {
-    logInfo('ingest refresh claim release failed', { error: String(error) });
+    logInfo('ingest refresh last-run write failed', { error: String(error) });
   }
+}
+
+async function clearRefreshRun(env: AppEnv): Promise<void> {
+  try {
+    await env.KV.delete(INGEST_LAST_RUN_KEY);
+  } catch (error) {
+    logInfo('ingest refresh last-run clear failed', { error: String(error) });
+  }
+}
+
+/** One atomic add for the whole batch. Per-message KV increments collapse to 1. */
+async function recordIngestStaleDrops(env: AppEnv, count: number): Promise<void> {
+  await addPipelineCounter(env, INGEST_STALE_DROPS_KEY, count);
 }
 
 function statsbombDataChanged(result: {
@@ -60,105 +73,173 @@ function statsbombDataChanged(result: {
   return result.matchesInserted > 0 || result.teamsUpdated > 0;
 }
 
+function pauseMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function handleIngestBatch(
   batch: MessageBatch<IngestJob>,
   env: AppEnv,
-  options?: { deadlineMs?: number; messageTimeoutMs?: number },
+  options?: {
+    deadlineMs?: number;
+    messageTimeoutMs?: number;
+    pause?: (ms: number) => Promise<void>;
+  },
 ): Promise<void> {
   const deadlineMs = options?.deadlineMs ?? CONSUMER_BATCH_DEADLINE_MS;
   const batchStarted = Date.now();
   const seen = new Set<string>();
+  let ackOnly = 0;
+  let ranWork = false;
+  let staleDrops = 0;
   for (const msg of batch.messages) {
-    if (isStaleRefreshMinute(msg.body, msg.timestamp, Date.now())) {
-      logInfo('ingest refresh skipped stale', {
+    if (isStaleIngestTick(msg.body, msg.timestamp, Date.now())) {
+      logInfo('ingest tick skipped stale', {
+        type: msg.body.type,
         idempotencyKey: msg.body.idempotencyKey,
         staleAfterMs: REFRESH_STALE_MS,
       });
+      staleDrops += 1;
       msg.ack();
+      ackOnly += 1;
       continue;
     }
     const dedupeKey = ingestDedupeKey(msg.body);
     if (dedupeKey && seen.has(dedupeKey)) {
       logInfo('ingest duplicate acked', { key: dedupeKey });
       msg.ack();
+      ackOnly += 1;
       continue;
     }
-    let claimedRefresh = false;
-    try {
-      if (msg.body.type === 'refresh_minute') {
-        claimedRefresh = await claimFreshRefresh(env);
-        if (!claimedRefresh) {
-          logInfo('ingest refresh skipped duplicate', { idempotencyKey: msg.body.idempotencyKey });
-          msg.ack();
-          continue;
-        }
-      }
-      if (dedupeKey) seen.add(dedupeKey);
+    if (dedupeKey) seen.add(dedupeKey);
 
-      const elapsed = Date.now() - batchStarted;
-      if (elapsed >= deadlineMs) {
-        logInfo('ingest batch deferred', { type: msg.body.type });
-        await deferQueuedMessage(env.INGEST_QUEUE, msg);
+    const elapsed = Date.now() - batchStarted;
+    if (elapsed >= deadlineMs) {
+      logInfo('ingest batch deferred', { type: msg.body.type });
+      await deferQueuedMessage(env.INGEST_QUEUE, msg);
+      continue;
+    }
+
+    const starterRefresh = msg.body.type === 'refresh_minute' && !msg.body.step;
+    if (starterRefresh && !refreshRunIsDue(await readLastRefreshRunMs(env), Date.now())) {
+      logInfo('ingest refresh skipped recent', { idempotencyKey: msg.body.idempotencyKey });
+      msg.ack();
+      ackOnly += 1;
+      continue;
+    }
+    if (starterRefresh) await markRefreshStarted(env, Date.now());
+    ranWork = true;
+
+    const timeoutMs = Math.max(
+      1,
+      Math.min(
+        ingestMessageTimeoutMs(msg.body.type),
+        options?.messageTimeoutMs ?? Number.POSITIVE_INFINITY,
+        deadlineMs - elapsed,
+      ),
+    );
+    let finished = false;
+    try {
+      await withAiRun(
+        aiRunFlagsFromDelivery({
+          attempts: msg.attempts,
+          fromDlq: msg.body.fromDlq,
+          runId: msg.body.idempotencyKey,
+        }),
+        () =>
+          withMessageTimeout(timeoutMs, async (signal) => {
+            await runIngestMessage(msg, env, signal);
+            finished = true;
+          }),
+      );
+      msg.ack();
+    } catch (e) {
+      if (finished) {
+        msg.ack();
         continue;
       }
-      const timeoutMs = Math.max(
-        1,
-        Math.min(
-          ingestMessageTimeoutMs(msg.body.type),
-          options?.messageTimeoutMs ?? Number.POSITIVE_INFINITY,
-          deadlineMs - elapsed,
-        ),
-      );
-      let finished = false;
-      try {
-        await withMessageTimeout(timeoutMs, async (signal) => {
-          await runIngestMessage(msg, env, signal);
-          finished = true;
-        });
+      if (isAiCapacityError(e)) {
+        await noteAiCapacity(env, e);
+        logInfo('ingest acked after ai capacity', { type: msg.body.type });
         msg.ack();
-      } catch (e) {
-        if (finished) {
-          msg.ack();
-          continue;
-        }
-        const timedOut = e instanceof Error && e.message === 'model message timed out';
-        const callerCapped =
-          options?.messageTimeoutMs != null &&
-          options.messageTimeoutMs < REFRESH_MAX_HOLD_MS &&
-          timeoutMs <= options.messageTimeoutMs;
-        if (msg.body.type === 'refresh_minute' && timedOut && !callerCapped) {
-          logInfo('ingest refresh released at hold cap', { timeoutMs });
-          msg.ack();
-          continue;
-        }
-        const delaySeconds =
-          msg.body.type === 'refresh_minute'
-            ? Math.min(15, queueRetryDelaySeconds(msg.attempts))
-            : queueRetryDelaySeconds(msg.attempts);
-        logInfo('ingest retry', { error: String(e) });
-        msg.retry({ delaySeconds });
+        continue;
       }
-    } finally {
-      if (claimedRefresh) await releaseRefreshClaim(env);
+      const timedOut = e instanceof Error && e.message === 'model message timed out';
+      const callerCapped =
+        options?.messageTimeoutMs != null &&
+        options.messageTimeoutMs < REFRESH_MAX_HOLD_MS &&
+        timeoutMs <= options.messageTimeoutMs;
+      const hitRefreshHold = msg.body.type === 'refresh_minute' && timeoutMs >= REFRESH_MAX_HOLD_MS;
+      const hitBatchDeadline = timeoutMs >= CONSUMER_BATCH_DEADLINE_MS;
+      if (timedOut && !callerCapped && (hitRefreshHold || hitBatchDeadline)) {
+        logInfo('ingest refresh released at hold cap', { timeoutMs });
+        if (starterRefresh) await clearRefreshRun(env);
+        msg.ack();
+        continue;
+      }
+      if (starterRefresh) await clearRefreshRun(env);
+      const delaySeconds =
+        msg.body.type === 'refresh_minute'
+          ? Math.min(15, queueRetryDelaySeconds(msg.attempts))
+          : queueRetryDelaySeconds(msg.attempts);
+      logInfo('ingest retry', { error: String(e) });
+      msg.retry({ delaySeconds });
     }
+  }
+  if (staleDrops > 0) await recordIngestStaleDrops(env, staleDrops);
+  const waitMs = drainPauseMs(ackOnly, ranWork);
+  if (waitMs > 0) {
+    logInfo('ingest drain paused', { ackOnly, pauseMs: waitMs });
+    await (options?.pause ?? pauseMs)(waitMs);
   }
 }
 
-async function runIngestMessage(
-  msg: Message<IngestJob>,
-  env: AppEnv,
-  signal?: AbortSignal,
-): Promise<void> {
+async function runIngestMessage(msg: Message<IngestJob>, env: AppEnv, signal: AbortSignal): Promise<void> {
+      throwIfMessageAborted(signal);
       switch (msg.body.type) {
         case 'refresh_minute': {
-          const { updatedIds, completedIds, teamUpdatedIds } = await refreshMatchData(env, { signal });
-
-          if (completedIds.length) {
-            await handleCompletedMatches(env, completedIds);
+          if (msg.body.step) {
+            const bracketUpdatedIds = await runRefreshFollowUp(env, msg.body.step, msg.body.completedIds ?? []);
+            if (msg.body.step === 'bracket' && bracketUpdatedIds.length) {
+              await scheduleRecomputeAfterDataChange(env, 'knockout-teams-bracket', { queue: true });
+            }
+            break;
           }
 
-          const bracketUpdatedIds = await replayKnockoutBracketFromCompleted(env);
-          if (teamUpdatedIds.length || bracketUpdatedIds.length) {
+          const split = Boolean(env.INGEST_QUEUE);
+          if (split && env.INGEST_QUEUE) {
+            for (const step of ['lineups', 'bracket', 'warm'] as const) {
+              await env.INGEST_QUEUE.send({
+                type: 'refresh_minute',
+                step,
+                idempotencyKey: crypto.randomUUID(),
+              });
+            }
+          }
+
+          const { updatedIds, completedIds, teamUpdatedIds } = await refreshMatchData(env, {
+            scoresOnly: split,
+            signal,
+          });
+
+          if (completedIds.length) {
+            if (split && env.INGEST_QUEUE) {
+              await env.INGEST_QUEUE.send({
+                type: 'refresh_minute',
+                step: 'completed',
+                completedIds,
+                idempotencyKey: crypto.randomUUID(),
+              });
+            } else {
+              await handleCompletedMatches(env, completedIds);
+            }
+          }
+
+          let bracketUpdatedIds: string[] = [];
+          if (!split) {
+            bracketUpdatedIds = await replayKnockoutBracketFromCompleted(env);
+          }
+          if ((teamUpdatedIds.length || bracketUpdatedIds.length) && !aiEnqueueBlocked()) {
             await scheduleRecomputeAfterDataChange(env, 'knockout-teams-bracket', { queue: true });
           }
 
@@ -179,10 +260,12 @@ async function runIngestMessage(
                     ).all<{ id: string }>()
                   ).results?.map((r) => r.id) ?? [];
 
-          if (recomputeIds.length && env.MODEL_QUEUE) {
-            await env.MODEL_QUEUE.send({ type: 'recompute_all', matchIds: recomputeIds });
-          } else if (recomputeIds.length) {
-            for (const id of recomputeIds) await recomputeMatchProbability(env, id);
+          if (recomputeIds.length && !aiEnqueueBlocked()) {
+            if (env.MODEL_QUEUE) {
+              await env.MODEL_QUEUE.send({ type: 'recompute_all', matchIds: recomputeIds });
+            } else {
+              for (const id of recomputeIds) await recomputeMatchProbability(env, id);
+            }
           }
           break;
         }
@@ -191,13 +274,14 @@ async function runIngestMessage(
           break;
         }
         case 'crawl_news': {
-          await runNewsCrawl(env, msg.body.feedCursor, 'crawl_news');
+          await runNewsCrawl(env, msg.body.feedCursor, 'crawl_news', signal);
           break;
         }
         case 'sync_leagues': {
           const { syncAllClubLeagues } = await import('../ingestion/leagues/syncLeagues');
           let leagueCursor = msg.body.leagueCursor;
           for (;;) {
+            throwIfMessageAborted(signal);
             const results = await syncAllClubLeagues(env, {
               leagueCursor,
               budgetMs: INGEST_CHUNK_BUDGET_MS,
@@ -217,6 +301,7 @@ async function runIngestMessage(
           break;
         }
         case 'refresh_live_probabilities': {
+          throwIfMessageAborted(signal);
           const { refreshLiveProbabilitiesFromStats } = await import('../services/liveProbabilityRefresh');
           await refreshLiveProbabilitiesFromStats(env);
           break;
@@ -243,11 +328,17 @@ async function runIngestMessage(
               break;
             }
           }
-          await runNewsCrawl(env, msg.body.feedCursor, 'bulk_ingest');
+          await runNewsCrawl(env, msg.body.feedCursor, 'bulk_ingest', signal);
           break;
         }
         case 'webhook_deliver': {
           await deliverWebhook(env, msg.body.subscriptionId, msg.body.eventId);
+          break;
+        }
+        case 'sync_match_recap': {
+          // Never run the sync here. A 120s recap job on this consumer blocks refresh_minute.
+          if (env.RECAP_QUEUE) await env.RECAP_QUEUE.send(msg.body);
+          else logError('recap sync queue missing', { matchRef: msg.body.matchRef });
           break;
         }
       }
@@ -262,9 +353,11 @@ async function runNewsCrawl(
   env: AppEnv,
   feedCursor: number | undefined,
   kind: 'crawl_news' | 'bulk_ingest',
+  signal?: AbortSignal,
 ): Promise<void> {
   let cursor = feedCursor;
   for (;;) {
+    throwIfMessageAborted(signal);
     const chunk = asNewsChunk(
       await crawlWorldCupNews(env, {
         feedCursor: cursor,

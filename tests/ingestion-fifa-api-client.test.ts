@@ -83,6 +83,30 @@ describe('ingestion fifaApiClient', () => {
     expect(await fetchFifaMatchInfo('bad')).toBeNull();
   });
 
+  it('aborts an in-flight FIFA fetch when the parent signal aborts', async () => {
+    const controller = new AbortController();
+    let seen: AbortSignal | undefined;
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => {
+      seen = init?.signal ?? undefined;
+      return new Promise((_resolve, reject) => {
+        const signal = init?.signal;
+        if (!signal) {
+          reject(new Error('missing signal'));
+          return;
+        }
+        if (signal.aborted) {
+          reject(new DOMException('aborted', 'AbortError'));
+          return;
+        }
+        signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true });
+      });
+    });
+    const pending = fetchFifaMatchInfo('400021443', controller.signal);
+    controller.abort();
+    await expect(pending).rejects.toBeInstanceOf(Error);
+    expect(seen?.aborted).toBe(true);
+  });
+
   it('handles empty Results array', async () => {
     mockFetch(() => new Response(JSON.stringify({ Results: null }), { status: 200 }));
     expect(await fetchFifaCalendarMatches('2026-01-01', '2026-01-02')).toEqual([]);

@@ -513,7 +513,18 @@ BASE_URL=http://127.0.0.1:8790 EXPECT_ENV=development npm run test:scenarios:str
 BASE_URL=https://wcstat-uat.orangecloud.vn EXPECT_ENV=uat npm run test:scenarios:streak
 ```
 
-**Deploy (GitHub Actions):** workflow `Deploy Cloudflare` — push `main` deploy cả UAT + production; migrations D1 chạy trước deploy.
+**Deploy (GitHub Actions):** workflow `Deploy Cloudflare` — push `main` deploy cả UAT + production. `deploy.yml` applies D1 migrations, including `0043_pipeline_counters.sql` and `0044_recap_sync_claims.sql`, before the matching deploy. The worker also creates those tables when they are missing, so either order is safe. The workflow does not create queues.
+
+Wrangler 4.151.1 fails the deploy if a consumer-only queue is missing. Create these four before merge, with the owner's OK:
+
+```bash
+npx wrangler queues create wc-recap-queue-uat
+npx wrangler queues create wc-recap-dlq-uat
+npx wrangler queues create wc-recap-queue
+npx wrangler queues create wc-recap-dlq
+```
+
+Pre-merge checklist: all 4 queues exist (`npx wrangler queues list`) BEFORE merging, otherwise main's auto-deploy fails.
 
 | Môi trường | URL |
 |------------|-----|

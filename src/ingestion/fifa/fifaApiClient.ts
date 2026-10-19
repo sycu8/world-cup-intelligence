@@ -96,8 +96,8 @@ const DEFAULT_HEADERS = {
 };
 
 /** Per-call cap, also cancelled when the refresh hold aborts. */
-function fifaRequestSignal(parent?: AbortSignal): AbortSignal {
-  const timeout = AbortSignal.timeout(20_000);
+export function fifaRequestSignal(parent?: AbortSignal, timeoutMs = 20_000): AbortSignal {
+  const timeout = AbortSignal.timeout(timeoutMs);
   if (!parent) return timeout;
   if (typeof AbortSignal.any === 'function') return AbortSignal.any([parent, timeout]);
   const controller = new AbortController();
@@ -111,10 +111,10 @@ function fifaRequestSignal(parent?: AbortSignal): AbortSignal {
   return controller.signal;
 }
 
-async function fifaFetch<T>(path: string, parent?: AbortSignal): Promise<T | null> {
+async function fifaFetch<T>(path: string, signal?: AbortSignal): Promise<T | null> {
   const res = await fetch(`${FIFA_API_BASE}/${path}`, {
     headers: DEFAULT_HEADERS,
-    signal: fifaRequestSignal(parent),
+    signal: fifaRequestSignal(signal, 20_000),
   });
   if (!res.ok) return null;
   const text = await res.text();
@@ -126,7 +126,11 @@ async function fifaFetch<T>(path: string, parent?: AbortSignal): Promise<T | nul
   }
 }
 
-export async function fetchFifaCalendarMatches(fromIso: string, toIso: string): Promise<FifaCalendarMatch[]> {
+export async function fetchFifaCalendarMatches(
+  fromIso: string,
+  toIso: string,
+  signal?: AbortSignal,
+): Promise<FifaCalendarMatch[]> {
   const params = new URLSearchParams({
     from: fromIso,
     to: toIso,
@@ -134,7 +138,7 @@ export async function fetchFifaCalendarMatches(fromIso: string, toIso: string): 
     language: 'en',
     IdSeason: WC2026_SEASON_ID,
   });
-  const data = await fifaFetch<CalendarResponse>(`calendar/matches?${params}`);
+  const data = await fifaFetch<CalendarResponse>(`calendar/matches?${params}`, signal);
   return (data?.Results ?? []).filter((m) => m.IdCompetition === WC2026_COMPETITION_ID);
 }
 
@@ -177,9 +181,9 @@ export type FifaTimelinePayload = {
 };
 
 /** Match Centre live blog / timeline feed. */
-export async function fetchFifaTimeline(fifaMatchId: string): Promise<FifaTimelinePayload | null> {
+export async function fetchFifaTimeline(fifaMatchId: string, signal?: AbortSignal): Promise<FifaTimelinePayload | null> {
   const params = new URLSearchParams({ language: 'en' });
-  return fifaFetch<FifaTimelinePayload>(`timelines/${fifaMatchId}?${params}`);
+  return fifaFetch<FifaTimelinePayload>(`timelines/${fifaMatchId}?${params}`, signal);
 }
 
 export type { FifaGoal, FifaBooking, FifaSubstitution, FifaPlayer, FifaSideDetail };

@@ -88,7 +88,23 @@ describe('ingestion matchDataRefresh', () => {
     expect(syncFifaWc2026Matches).toHaveBeenCalled();
     expect(result.updatedIds).toEqual(['m-live']);
     expect(result.completedIds).toEqual(['m-done']);
-    expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), expect.any(Object));
+    expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), { expirationTtl: 86400 });
+  });
+
+  it('does not stamp last_data_refresh when FIFA writes nothing', async () => {
+    const { syncFifaWc2026Matches } = await import('../src/ingestion/fifa/fifaLiveSync');
+    vi.mocked(syncFifaWc2026Matches).mockResolvedValueOnce({
+      updatedIds: [],
+      completedIds: [],
+      teamUpdatedIds: [],
+      synced: 0,
+      skipped: 1,
+    });
+    const { env } = createIngestionEnv();
+
+    await refreshMatchData(env, { scoresOnly: true });
+
+    expect(env.KV.put).not.toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), expect.any(Object));
   });
 
   it('stamps last_data_refresh before lineups and backfill', async () => {
@@ -113,8 +129,23 @@ describe('ingestion matchDataRefresh', () => {
 
     await expect(refreshMatchData(env)).resolves.toMatchObject({ updatedIds: ['m-live'] });
     expect(order.indexOf('meta:last_data_refresh')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('meta:last_data_refresh')).toBeLessThan(order.indexOf('stats'));
     expect(order.indexOf('meta:last_data_refresh')).toBeLessThan(order.indexOf('lineups'));
-    expect(order.indexOf('lineups')).toBeLessThan(order.indexOf('stats'));
+  });
+
+  it('scoresOnly leaves lineups and cache warm for their own steps', async () => {
+    const { syncFifaLineupsForUpcomingMatches } = await import('../src/ingestion/fifa/fifaLineupSync');
+    const { warmPayloadCaches } = await import('../src/services/cacheWarm');
+    vi.mocked(syncFifaLineupsForUpcomingMatches).mockClear();
+    vi.mocked(warmPayloadCaches).mockClear();
+    const { env } = createIngestionEnv();
+
+    const result = await refreshMatchData(env, { scoresOnly: true });
+
+    expect(result.updatedIds).toEqual(['m-live']);
+    expect(syncFifaLineupsForUpcomingMatches).not.toHaveBeenCalled();
+    expect(warmPayloadCaches).not.toHaveBeenCalled();
+    expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), { expirationTtl: 86400 });
   });
 
   it('runs mock tick path when FIFA live disabled', async () => {
@@ -136,7 +167,7 @@ describe('ingestion matchDataRefresh', () => {
 
     const result = await refreshMatchData(env);
     expect(result.updatedIds).toContain(FIXTURE_MATCH.id);
-    expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), expect.any(Object));
+    expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), { expirationTtl: 86400 });
   });
 
   it('updates live matches when only away score differs', async () => {

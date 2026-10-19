@@ -1,5 +1,7 @@
 # GitHub Actions deploy — token ONLY in repo Secrets (Settings → Secrets → Actions)
 # Name: CLOUDFLARE_API_TOKEN
+# A push to main deploys only after the CI workflow succeeds for that commit.
+# workflow_run reads this file from the default branch, so the gate starts once this lands on main.
 name: Deploy Cloudflare
 
 on:
@@ -14,14 +16,50 @@ on:
           - uat
           - production
           - both
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
   deploy:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Require CI success for this commit
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="${{ github.sha }}"
+          branch="${{ github.ref_name }}"
+          for attempt in $(seq 1 40); do
+            conclusion=$(gh run list --workflow=ci.yml --commit "$sha" --limit 20 \
+              --json conclusion,event,headBranch \
+              --jq '[.[] | select(.headBranch=="'"$branch"'" and (.event=="push" or .event=="pull_request"))][0].conclusion // ""')
+            echo "CI conclusion for $sha: ${conclusion:-pending}"
+            if [ "$conclusion" = "success" ]; then
+              exit 0
+            fi
+            if [ "$conclusion" = "failure" ] || [ "$conclusion" = "cancelled" ]; then
+              echo "CI $conclusion for $sha"
+              exit 1
+            fi
+            sleep 30
+          done
+          echo "CI did not pass for $sha"
+          exit 1
 
       - uses: actions/setup-node@v4
         with:
@@ -31,10 +69,10 @@ jobs:
       - name: Resolve deploy target
         id: target
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo "value=both" >> "$GITHUB_OUTPUT"
-          else
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "value=${{ inputs.target }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=both" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Install

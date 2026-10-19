@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { handleIngestBatch } from '../src/queues/ingestConsumer';
-import { REFRESH_CLAIM_KEY, REFRESH_CLAIM_MAX_AGE_MS } from '../src/queues/ingestDrain';
 import { handleModelBatch } from '../src/queues/modelConsumer';
 import {
   AI_BRIEFING_QUEUE_MAX_AGE_MS,
@@ -10,8 +9,10 @@ import {
   ingestMessageTimeoutMs,
   queueRetryDelaySeconds,
 } from '../src/queues/modelJobLane';
-import { MODEL_QUEUE_STALE_DROPS_KEY } from '../src/constants/pipeline';
-import { createMockDb, createMockEnv, createMockKv } from './helpers/mockEnv';
+import { INGEST_LAST_RUN_KEY, INGEST_STALE_DROPS_KEY, MODEL_QUEUE_STALE_DROPS_KEY } from '../src/constants/pipeline';
+import { readPipelineCounter } from '../src/services/pipelineCounters';
+import { DRAIN_PAUSE_SECONDS } from '../src/queues/ingestDrain';
+import { createMockDb, createMockEnv } from './helpers/mockEnv';
 import { createMockMessageBatch } from './helpers/mockMessageBatch';
 
 vi.mock('../src/ingestion/matchDataRefresh', () => ({
@@ -276,7 +277,6 @@ describe('handleIngestBatch', () => {
     expect(refreshMatchData).toHaveBeenCalledTimes(1);
     expect(first).toHaveBeenCalledTimes(1);
     expect(second).toHaveBeenCalledTimes(1);
-    expect(await env.KV.get(REFRESH_CLAIM_KEY)).toBeNull();
 
     vi.mocked(refreshMatchData).mockClear();
     const third = vi.fn();
@@ -287,48 +287,8 @@ describe('handleIngestBatch', () => {
       env,
     );
     expect(third).toHaveBeenCalledTimes(1);
-    expect(refreshMatchData).toHaveBeenCalledTimes(1);
-  });
-
-  it('runs a fresh refresh after a claim older than 60 seconds and skips a young one', async () => {
-    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
-    const now = Date.now();
-    const stuck = createMockEnv({
-      KV: createMockKv({ [REFRESH_CLAIM_KEY]: String(now - REFRESH_CLAIM_MAX_AGE_MS - 1) }),
-    });
-    const recovered = vi.fn();
-    await handleIngestBatch(
-      createMockMessageBatch([
-        {
-          body: { type: 'refresh_minute', idempotencyKey: 'after-stuck-claim' },
-          timestamp: new Date(now - 30_000),
-          ack: recovered,
-        },
-      ]),
-      stuck,
-    );
-    expect(recovered).toHaveBeenCalledTimes(1);
-    expect(refreshMatchData).toHaveBeenCalledTimes(1);
-    expect(await stuck.KV.get(REFRESH_CLAIM_KEY)).toBeNull();
-
-    vi.mocked(refreshMatchData).mockClear();
-    const young = createMockEnv({
-      KV: createMockKv({ [REFRESH_CLAIM_KEY]: String(now - 10_000) }),
-    });
-    const skipped = vi.fn();
-    await handleIngestBatch(
-      createMockMessageBatch([
-        {
-          body: { type: 'refresh_minute', idempotencyKey: 'while-claimed' },
-          timestamp: new Date(now),
-          ack: skipped,
-        },
-      ]),
-      young,
-    );
-    expect(skipped).toHaveBeenCalledTimes(1);
     expect(refreshMatchData).not.toHaveBeenCalled();
-    expect(await young.KV.get(REFRESH_CLAIM_KEY)).toBe(String(now - 10_000));
+    expect(await env.KV.get(INGEST_LAST_RUN_KEY)).not.toBeNull();
   });
 
   it('runs a refresh tick with no timestamp instead of classing it stale', async () => {
@@ -343,6 +303,179 @@ describe('handleIngestBatch', () => {
     expect(ack).toHaveBeenCalledTimes(1);
     expect(refreshMatchData).toHaveBeenCalledTimes(1);
   });
+
+  it('runs the next minute refresh once 60s have passed since the stored start', async () => {
+    vi.useFakeTimers();
+    try {
+      const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+      vi.mocked(refreshMatchData).mockClear();
+      const env = createMockEnv();
+      await env.KV.put(INGEST_LAST_RUN_KEY, String(Date.now()));
+      const skipped = vi.fn();
+      await handleIngestBatch(
+        createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'soon' }, ack: skipped }]),
+        env,
+      );
+      expect(skipped).toHaveBeenCalledTimes(1);
+      expect(refreshMatchData).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      const ack = vi.fn();
+      await handleIngestBatch(
+        createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'later' }, ack }]),
+        env,
+      );
+      expect(refreshMatchData).toHaveBeenCalledTimes(1);
+      expect(ack).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('defers a refresh that missed the batch deadline without storing a last run', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    vi.mocked(refreshMatchData).mockClear();
+    const ack = vi.fn();
+    const send = vi.fn(async () => undefined);
+    const env = createMockEnv({ INGEST_QUEUE: { send } as never });
+    await handleIngestBatch(
+      createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'late' }, ack }]),
+      env,
+      { deadlineMs: 0 },
+    );
+    expect(ack).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ type: 'refresh_minute', idempotencyKey: 'late' });
+    expect(refreshMatchData).not.toHaveBeenCalled();
+    expect(await env.KV.get(INGEST_LAST_RUN_KEY)).toBeNull();
+  });
+
+  it('clears the last-run timestamp when a refresh fails so the retry can run', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    vi.mocked(refreshMatchData).mockRejectedValueOnce(new Error('boom'));
+    const env = createMockEnv();
+    const retry = vi.fn();
+    await handleIngestBatch(
+      createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'fail' }, retry }]),
+      env,
+    );
+    expect(retry).toHaveBeenCalledWith({ delaySeconds: 10 });
+    expect(await env.KV.get(INGEST_LAST_RUN_KEY)).toBeNull();
+
+    vi.mocked(refreshMatchData).mockClear();
+    const ack = vi.fn();
+    await handleIngestBatch(
+      createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'retry' }, ack }]),
+      env,
+    );
+    expect(refreshMatchData).toHaveBeenCalledTimes(1);
+    expect(ack).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts the refresh signal when a short message timeout fires', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    let signal: AbortSignal | undefined;
+    vi.mocked(refreshMatchData).mockImplementationOnce((_env, options) => {
+      signal = options?.signal;
+      return new Promise((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+      });
+    });
+    const retry = vi.fn();
+    await handleIngestBatch(
+      createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'abort' }, retry }]),
+      createMockEnv(),
+      { messageTimeoutMs: 30 },
+    );
+    expect(signal?.aborted).toBe(true);
+    expect(retry).toHaveBeenCalled();
+  });
+
+  it('acks a refresh that is still running at the 4 minute budget', async () => {
+    vi.useFakeTimers();
+    try {
+      const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+      vi.mocked(refreshMatchData).mockImplementationOnce(() => new Promise(() => undefined));
+      const ack = vi.fn();
+      const retry = vi.fn();
+      const pending = handleIngestBatch(
+        createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'over' }, ack, retry }]),
+        createMockEnv(),
+      );
+      await vi.advanceTimersByTimeAsync(CONSUMER_BATCH_DEADLINE_MS);
+      await pending;
+      expect(ack).toHaveBeenCalledTimes(1);
+      expect(retry).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('acks a stale crawl, league sync, and live-probability tick without running them', async () => {
+    const { crawlWorldCupNews } = await import('../src/ingestion/newsCrawler');
+    const { syncAllClubLeagues } = await import('../src/ingestion/leagues/syncLeagues');
+    vi.mocked(crawlWorldCupNews).mockClear();
+    vi.mocked(syncAllClubLeagues).mockClear();
+    const old = new Date(Date.now() - 11 * 60_000);
+    const ackNews = vi.fn();
+    const ackLeagues = vi.fn();
+    const ackLive = vi.fn();
+    const env = createMockEnv();
+    await handleIngestBatch(
+      createMockMessageBatch([
+        { body: { type: 'crawl_news', idempotencyKey: 'old-news' }, timestamp: old, ack: ackNews },
+        { body: { type: 'sync_leagues', idempotencyKey: 'old-leagues' }, timestamp: old, ack: ackLeagues },
+        {
+          body: { type: 'refresh_live_probabilities', idempotencyKey: 'old-live' },
+          timestamp: old,
+          ack: ackLive,
+        },
+      ]),
+      env,
+    );
+    expect(ackNews).toHaveBeenCalledTimes(1);
+    expect(ackLeagues).toHaveBeenCalledTimes(1);
+    expect(ackLive).toHaveBeenCalledTimes(1);
+    expect(crawlWorldCupNews).not.toHaveBeenCalled();
+    expect(syncAllClubLeagues).not.toHaveBeenCalled();
+    expect(await readPipelineCounter(env, INGEST_STALE_DROPS_KEY)).toBe(3);
+  });
+
+  it('pauses after an ack-only drain burst so the next batch waits', async () => {
+    const pause = vi.fn(async () => undefined);
+    const old = new Date(Date.now() - 11 * 60_000);
+    const acks = [vi.fn(), vi.fn(), vi.fn(), vi.fn()];
+    await handleIngestBatch(
+      createMockMessageBatch(
+        acks.map((ack, index) => ({
+          body: { type: 'refresh_minute' as const, idempotencyKey: `old-${index}` },
+          timestamp: old,
+          ack,
+        })),
+      ),
+      createMockEnv(),
+      { pause },
+    );
+    for (const ack of acks) expect(ack).toHaveBeenCalledTimes(1);
+    expect(pause).toHaveBeenCalledWith(DRAIN_PAUSE_SECONDS * 1000);
+  });
+
+  it('runs one fresh crawl when two starter ticks share a batch', async () => {
+    const { crawlWorldCupNews } = await import('../src/ingestion/newsCrawler');
+    vi.mocked(crawlWorldCupNews).mockClear();
+    const first = vi.fn();
+    const second = vi.fn();
+    await handleIngestBatch(
+      createMockMessageBatch([
+        { body: { type: 'crawl_news', idempotencyKey: 'n1' }, ack: first },
+        { body: { type: 'crawl_news', idempotencyKey: 'n2' }, ack: second },
+      ]),
+      createMockEnv(),
+    );
+    expect(crawlWorldCupNews).toHaveBeenCalledTimes(1);
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
 
   it('acks refresh_minute when the job runs longer than the old 60s cap', async () => {
     vi.useFakeTimers();
@@ -411,7 +544,7 @@ describe('handleIngestBatch', () => {
       expect(signal?.aborted).toBe(true);
       expect(ack).toHaveBeenCalledTimes(1);
       expect(retry).not.toHaveBeenCalled();
-      expect(await env.KV.get(REFRESH_CLAIM_KEY)).toBeNull();
+      expect(await env.KV.get(INGEST_LAST_RUN_KEY)).toBeNull();
 
       vi.mocked(refreshMatchData).mockClear();
       const next = vi.fn();
@@ -440,7 +573,7 @@ describe('handleIngestBatch', () => {
       env,
     );
     expect(retry).toHaveBeenCalledWith({ delaySeconds: 10 });
-    expect(await env.KV.get(REFRESH_CLAIM_KEY)).toBeNull();
+    expect(await env.KV.get(INGEST_LAST_RUN_KEY)).toBeNull();
   });
 
   it('continues a statsbomb ingest from the season cursor instead of restarting', async () => {
@@ -530,6 +663,99 @@ describe('handleIngestBatch', () => {
     );
   });
 
+  it('bounds Workers AI when one refresh translates many lines', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    const run = vi.fn(async () => ({ response: '{"textVi":"Đội ghi bàn từ pha đá phạt."}' }));
+    vi.mocked(refreshMatchData).mockImplementationOnce(async (env) => {
+      const { translateMatchRecapText } = await import('../src/ai/translateMatchRecap');
+      for (let i = 0; i < 100; i++) {
+        await translateMatchRecapText(
+          env,
+          `The team scores from a corner number ${i}.`,
+          520,
+          'shot',
+          i,
+          { matchId: 'm-storm' },
+        );
+      }
+      return { updatedIds: ['m-storm'], completedIds: [], teamUpdatedIds: [] };
+    });
+    const env = createMockEnv({
+      AI: { run } as never,
+      AI_CALLS_PER_RUN: '4',
+      AI_CALLS_PER_MINUTE: '4',
+      MODEL_QUEUE: { send: vi.fn() } as never,
+    });
+    await handleIngestBatch(
+      createMockMessageBatch([{ body: { type: 'refresh_minute', idempotencyKey: 'storm-fresh' }, attempts: 1 }]),
+      env,
+    );
+    expect(run.mock.calls.length).toBeLessThanOrEqual(4);
+    expect(run).toHaveBeenCalledTimes(4);
+  });
+
+  it('a redelivery storm does not call Workers AI or enqueue model work', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    const run = vi.fn(async () => ({ response: '{"textVi":"Đội ghi bàn từ pha đá phạt."}' }));
+    const send = vi.fn(async () => undefined);
+    vi.mocked(refreshMatchData).mockImplementationOnce(async (env) => {
+      const { translateMatchRecapText } = await import('../src/ai/translateMatchRecap');
+      for (let i = 0; i < 100; i++) {
+        await translateMatchRecapText(
+          env,
+          `The team scores from a corner number ${i}.`,
+          520,
+          'shot',
+          i,
+          { matchId: 'm-storm' },
+        );
+      }
+      return { updatedIds: ['m-storm'], completedIds: [], teamUpdatedIds: [] };
+    });
+    const env = createMockEnv({
+      AI: { run } as never,
+      MODEL_QUEUE: { send } as never,
+    });
+    await handleIngestBatch(
+      createMockMessageBatch(
+        Array.from({ length: 30 }, (_, i) => ({
+          body: { type: 'refresh_minute' as const, idempotencyKey: `storm-${i}` },
+          attempts: 4,
+        })),
+      ),
+      env,
+    );
+    expect(run).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('acks a refresh that hits Workers AI capacity and does not enqueue model work', async () => {
+    const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
+    const run = vi.fn(async () => {
+      throw new Error('Workers AI 3040 Capacity temporarily exceeded');
+    });
+    const send = vi.fn(async () => undefined);
+    const ack = vi.fn();
+    const retry = vi.fn();
+    vi.mocked(refreshMatchData).mockImplementationOnce(async (env) => {
+      const { translateMatchRecapText } = await import('../src/ai/translateMatchRecap');
+      await translateMatchRecapText(env, 'The team scores from a corner.', 520, 'shot', 12, {
+        matchId: 'm-cap',
+      });
+      return { updatedIds: ['m-cap'], completedIds: [], teamUpdatedIds: [] };
+    });
+    await handleIngestBatch(
+      createMockMessageBatch([
+        { body: { type: 'refresh_minute', idempotencyKey: 'cap' }, attempts: 1, ack, retry },
+      ]),
+      createMockEnv({ AI: { run } as never, MODEL_QUEUE: { send } as never }),
+    );
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(ack).toHaveBeenCalled();
+    expect(retry).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it('a slow ingest message does not hold the rest of the batch', async () => {
     const { refreshMatchData } = await import('../src/ingestion/matchDataRefresh');
     const { deliverWebhook } = await import('../src/services/publicApi/webhooks');
@@ -553,6 +779,34 @@ describe('handleIngestBatch', () => {
 describe('handleModelBatch', () => {
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('does not enqueue briefings from a redelivered recompute', async () => {
+    const send = vi.fn(async () => undefined);
+    const env = createMockEnv({ MODEL_QUEUE: { send } as never, AI_FALLBACK_MODE: 'true' });
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'recompute', matchId: 'm-1' }, attempts: 2 }]),
+      env,
+    );
+    expect(send).not.toHaveBeenCalled();
+    expect(env.KV.put).not.toHaveBeenCalledWith(
+      'briefing:inflight:m-1',
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it('acks a briefing that fails with Workers AI 3021 and does not retry it', async () => {
+    const { generateTacticalBriefing } = await import('../src/ai/tacticalBriefing');
+    vi.mocked(generateTacticalBriefing).mockRejectedValueOnce(new Error('Workers AI 3021'));
+    const ack = vi.fn();
+    const retry = vi.fn();
+    await handleModelBatch(
+      createMockMessageBatch([{ body: { type: 'ai_briefing', matchId: 'm-1' }, ack, retry }]),
+      createMockEnv({ AI_FALLBACK_MODE: 'false' }),
+    );
+    expect(ack).toHaveBeenCalled();
+    expect(retry).not.toHaveBeenCalled();
   });
 
   it('recompute chains briefing and analysis jobs', async () => {
@@ -783,7 +1037,7 @@ describe('handleModelBatch', () => {
     expect(ack).toHaveBeenCalled();
   });
 
-  it('counts stale drops in KV for the health endpoint', async () => {
+  it('counts stale drops for the health endpoint', async () => {
     const env = createMockEnv();
     await handleModelBatch(
       createMockMessageBatch([
@@ -791,7 +1045,8 @@ describe('handleModelBatch', () => {
       ]),
       env,
     );
-    expect(await env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY)).toBe('1');
+    expect(await readPipelineCounter(env, MODEL_QUEUE_STALE_DROPS_KEY)).toBe(1);
+    expect(await env.KV.get(MODEL_QUEUE_STALE_DROPS_KEY)).toBeNull();
   });
 
   it('acks an unknown job type without calling the model', async () => {
