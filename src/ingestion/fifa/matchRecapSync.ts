@@ -19,6 +19,25 @@ export type FifaRecapTranslationState = {
 /** Re-sync commentary only when missing or mostly still English. */
 export const COMMENTARY_RETRANSLATE_RATIO = 0.35;
 
+/**
+ * Redelivery and a second isolate can insert the same commentary id after the
+ * per-match delete. A plain INSERT then throws
+ * `UNIQUE constraint failed: match_commentary.id` and the queue retries the
+ * whole refresh. Update the existing row instead.
+ */
+export const MATCH_COMMENTARY_UPSERT_SQL = `INSERT INTO match_commentary (
+         id, match_id, minute, period, sort_order, text_vi, text_en, event_type, source_id
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         match_id = excluded.match_id,
+         minute = excluded.minute,
+         period = excluded.period,
+         sort_order = excluded.sort_order,
+         text_vi = excluded.text_vi,
+         text_en = excluded.text_en,
+         event_type = excluded.event_type,
+         source_id = excluded.source_id`;
+
 export function commentaryNeedsFullRetranslate(total: number, untranslated: number): boolean {
   if (total === 0) return true;
   return untranslated / total >= COMMENTARY_RETRANSLATE_RATIO;
@@ -152,11 +171,7 @@ export async function translateAndStoreCommentary(
     .run();
 
   const stmts = lines.map((line, idx) =>
-    env.DB.prepare(
-      `INSERT INTO match_commentary (
-         id, match_id, minute, period, sort_order, text_vi, text_en, event_type, source_id
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).bind(
+    env.DB.prepare(MATCH_COMMENTARY_UPSERT_SQL).bind(
       line.id,
       matchId,
       line.minute,

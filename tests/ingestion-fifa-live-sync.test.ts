@@ -100,6 +100,13 @@ describe('ingestion fifaLiveSync', () => {
     vi.useRealTimers();
   });
 
+  it('stops a refresh before the calendar fetch when the hold signal is already aborted', async () => {
+    const api = await import('../src/ingestion/fifa/fifaApiClient');
+    const signal = AbortSignal.abort();
+    await expect(syncFifaWc2026Matches(createMockEnv(), { signal })).rejects.toThrow('model message timed out');
+    expect(api.fetchFifaWc2026FixturesCalendar).not.toHaveBeenCalled();
+  });
+
   it('syncTeamsFromFifaSide assigns knockout teams from FIFA calendar row', async () => {
     vi.setSystemTime(new Date('2026-07-01T00:00:00Z'));
     const api = await import('../src/ingestion/fifa/fifaApiClient');
@@ -205,16 +212,17 @@ describe('ingestion fifaLiveSync', () => {
     expect(api.fetchFifaMatchInfo).not.toHaveBeenCalled();
   });
 
-  it('syncFifaWc2026Matches handles match sync errors and backfill failures', async () => {
+  it('syncFifaWc2026Matches handles match sync errors without running backfill', async () => {
     const api = await import('../src/ingestion/fifa/fifaApiClient');
     vi.mocked(api.fetchFifaMatchInfo).mockRejectedValue(new Error('api down'));
     const blog = await import('../src/ingestion/fifa/fifaLiveBlogSync');
-    vi.mocked(blog.backfillIncompleteFifaMatchStats).mockRejectedValue(new Error('backfill fail'));
     const { env } = createIngestionEnv({
       matches: [{ ...FIXTURE_MATCH, fifa_match_id: '400021443' }],
     });
     const result = await syncFifaWc2026Matches(env);
     expect(result.synced).toBe(0);
+    expect(blog.backfillIncompleteFifaMatchStats).not.toHaveBeenCalled();
+    expect(blog.backfillMissingFifaRecaps).not.toHaveBeenCalled();
   });
 
   it('applyFifaPayload emits completion and handles lineup/blog errors', async () => {

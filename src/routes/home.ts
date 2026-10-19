@@ -2,7 +2,13 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { ensureNewsCrawlFresh, ensurePipelineFresh } from '../services/pipelineBootstrap';
 import { getCachedJsonWithVersion } from '../services/payloadCache';
-import { buildHomePayloadData, emptyHomeSections } from '../services/homePayload';
+import {
+  buildHomePayloadData,
+  emptyHomeSections,
+  homeSnapshotHasMatches,
+  readLastGoodHome,
+  type HomePayloadData,
+} from '../services/homePayload';
 import { persistMissingTournamentProbabilities } from '../services/tournamentMatchProbabilities';
 import { getChampionOddsForHome } from '../services/tournamentChampionOdds';
 import { WC2026_TOURNAMENT_ID } from '../constants/tournament';
@@ -28,6 +34,19 @@ async function missingProbabilityIds(env: AppEnv): Promise<string[]> {
   return matches.map((m) => m.id).filter((id) => !withProb.has(id));
 }
 
+async function loadHomeSections(env: AppEnv, tournament: string): Promise<HomePayloadData> {
+  try {
+    const fresh = await getCachedJsonWithVersion(env, `home:${tournament}`, () =>
+      buildHomePayloadData(env, tournament),
+    );
+    if (homeSnapshotHasMatches(fresh)) return fresh;
+    return (await readLastGoodHome(env, tournament)) ?? fresh;
+  } catch (err: unknown) {
+    logWarn('home payload unavailable', { tournament, error: errorMessage(err) });
+    return (await readLastGoodHome(env, tournament)) ?? emptyHomeSections(tournament);
+  }
+}
+
 /** Single round-trip payload for the homepage (schedule + dashboard + hot news). */
 homeRoutes.get('/', async (c) => {
   c.executionCtx.waitUntil(
@@ -40,12 +59,7 @@ homeRoutes.get('/', async (c) => {
   const tournament = c.req.query('tournament') ?? 't-2026';
   return withPathCache(`api:home:${tournament}`, 30, async () => {
     const [data, championOdds] = await Promise.all([
-      getCachedJsonWithVersion(c.env, `home:${tournament}`, () => buildHomePayloadData(c.env, tournament)).catch(
-        (err: unknown) => {
-          logWarn('home payload unavailable', { tournament, error: errorMessage(err) });
-          return emptyHomeSections(tournament);
-        },
-      ),
+      loadHomeSections(c.env, tournament),
       getChampionOddsForHome(c.env, c.executionCtx).catch((err: unknown) => {
         logWarn('home champion odds unavailable', { error: errorMessage(err) });
         return null;

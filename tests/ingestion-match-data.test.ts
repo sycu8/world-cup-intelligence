@@ -30,6 +30,11 @@ vi.mock('../src/services/cacheWarm', () => ({
   warmPayloadCaches: vi.fn(async () => undefined),
 }));
 
+vi.mock('../src/ingestion/fifa/fifaLiveBlogSync', () => ({
+  backfillIncompleteFifaMatchStats: vi.fn(async () => 0),
+  backfillMissingFifaRecaps: vi.fn(async () => 0),
+}));
+
 vi.mock('../src/services/tournamentProgression', () => ({
   processMatchCompletion: vi.fn(async () => undefined),
   replayKnockoutBracketFromCompleted: vi.fn(async () => []),
@@ -84,6 +89,32 @@ describe('ingestion matchDataRefresh', () => {
     expect(result.updatedIds).toEqual(['m-live']);
     expect(result.completedIds).toEqual(['m-done']);
     expect(env.KV.put).toHaveBeenCalledWith('meta:last_data_refresh', expect.any(String), expect.any(Object));
+  });
+
+  it('stamps last_data_refresh before lineups and backfill', async () => {
+    const { env } = createIngestionEnv();
+    const order: string[] = [];
+    const put = env.KV.put.bind(env.KV);
+    env.KV.put = vi.fn(async (key: string, value: string, options?: unknown) => {
+      order.push(key);
+      return put(key, value, options as never);
+    }) as typeof env.KV.put;
+    const lineup = await import('../src/ingestion/fifa/fifaLineupSync');
+    vi.mocked(lineup.syncFifaLineupsForUpcomingMatches).mockImplementationOnce(async () => {
+      order.push('lineups');
+      return { checked: 0, updated: 0, matchIds: [] };
+    });
+    const blog = await import('../src/ingestion/fifa/fifaLiveBlogSync');
+    vi.mocked(blog.backfillIncompleteFifaMatchStats).mockImplementationOnce(async () => {
+      order.push('stats');
+      return 0;
+    });
+    vi.mocked(blog.backfillMissingFifaRecaps).mockRejectedValueOnce(new Error('recap fail'));
+
+    await expect(refreshMatchData(env)).resolves.toMatchObject({ updatedIds: ['m-live'] });
+    expect(order.indexOf('meta:last_data_refresh')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('meta:last_data_refresh')).toBeLessThan(order.indexOf('lineups'));
+    expect(order.indexOf('lineups')).toBeLessThan(order.indexOf('stats'));
   });
 
   it('runs mock tick path when FIFA live disabled', async () => {

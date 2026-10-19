@@ -16,6 +16,40 @@
 export const REFRESH_STALE_MS = 10 * 60_000;
 
 /**
+ * Cross-batch refresh claim. KV expiration is best-effort, so age is checked in code.
+ *
+ * Prod on 2026-10-18: wc-ingest-queue was empty by 02:41 ICT and lastDataRefresh
+ * stayed at 02:36:47 until 02:49:43. This claim only blocks for 60s, a stale
+ * skip only drops a tick older than 10 minutes, and in-batch dedupe lasts one
+ * batch, so none of those hold a stamp for the 8.5 minutes after the drain.
+ * An empty backlog still leaves the one in-flight refresh that already wrote
+ * meta:last_fifa_sync and has not yet written meta:last_data_refresh.
+ *
+ * There is no 5-minute refresh trigger on production. The schedules are
+ * every minute, every 15 minutes, and the weekly pull. From 02:41 to 02:49 ICT
+ * the minute cron still fired every minute (success, a few milliseconds of
+ * CPU) and the 15-minute cron fired at 02:45. Both only enqueue. Neither
+ * writes meta:last_data_refresh. The 300s step in QUEUE_RETRY_DELAYS_SECONDS
+ * starts only after msg.retry(). That in-flight refresh had not failed, so
+ * the 5-minute retry never started and could not recover the stamp. A new
+ * tick also cannot stamp until the single ingest consumer returns.
+ */
+export const REFRESH_CLAIM_KEY = 'ingest:dedupe:refresh_minute';
+export const REFRESH_CLAIM_MAX_AGE_MS = 60_000;
+
+/**
+ * A stored claim blocks a new refresh only while it is younger than the max age.
+ * Empty, missing, and non-numeric values do not block, so a key KV never deletes
+ * cannot stop refresh permanently.
+ */
+export function refreshClaimBlocks(stored: string | null, now = Date.now()): boolean {
+  if (!stored) return false;
+  const takenAt = Number(stored);
+  if (!Number.isFinite(takenAt)) return false;
+  return now - takenAt < REFRESH_CLAIM_MAX_AGE_MS;
+}
+
+/**
  * Jobs the DLQ may send back once. refresh_minute is idempotent too, but every
  * tick is acked on the DLQ instead: cron already enqueues the next one, and a
  * replay would start another score sync. webhook_deliver is a side effect.
